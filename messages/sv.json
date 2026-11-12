@@ -6,5 +6,15 @@
   "Home": {
     "title": "Gymnastikplaneraren",
     "intro": "Planera säsongen, vecka för vecka, och gör den till färdiga träningspass."
+  },
+  "Auth": {
+    "signInWithGoogle": "Logga in med Google",
+    "signingIn": "Skickar dig till Google …",
+    "signInFailed": "Inloggningen kunde inte startas. Försök igen.",
+    "signOut": "Logga ut",
+    "loading": "Laddar …",
+    "errorTitle": "Inloggningen misslyckades",
+    "errorText": "Vi kunde inte logga in dig med Google. Försök igen, och hör av dig om felet finns kvar.",
+    "backToStart": "Tillbaka till startsidan"
   }
 }
