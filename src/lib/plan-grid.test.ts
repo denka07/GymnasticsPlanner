@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   categorySpans,
+  cellsBetween,
   cellKey,
   clickLevel,
   commitStroke,
@@ -278,5 +279,28 @@ describe("keyLevel", () => {
     expect(keyLevel(" ", "medium")).toBe("medium");
     expect(keyLevel("Enter", null)).toBeNull();
     expect(keyLevel("x", "high")).toBeUndefined();
+  });
+});
+
+describe("cellsBetween", () => {
+  it("fills a row", () => {
+    expect(cellsBetween({ row: 1, col: 2 }, { row: 1, col: 5 })).toEqual([
+      { row: 1, col: 3 },
+      { row: 1, col: 4 },
+      { row: 1, col: 5 },
+    ]);
+  });
+
+  it("fills a diagonal, backwards too", () => {
+    expect(cellsBetween({ row: 2, col: 4 }, { row: 0, col: 0 })).toEqual([
+      { row: 2, col: 3 },
+      { row: 1, col: 2 },
+      { row: 1, col: 1 },
+      { row: 0, col: 0 },
+    ]);
+  });
+
+  it("is empty for the same cell", () => {
+    expect(cellsBetween({ row: 1, col: 1 }, { row: 1, col: 1 })).toEqual([]);
   });
 });

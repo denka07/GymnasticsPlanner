@@ -39,6 +39,9 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-focus-high: var(--focus-high);
+  --color-focus-medium: var(--focus-medium);
+  --color-focus-low: var(--focus-low);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,6 +84,10 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Season plan focus levels: Mycket fokus, Visst fokus, Tränas men inte fokus. */
+  --focus-high: oklch(0.55 0.15 148);
+  --focus-medium: oklch(0.74 0.15 145);
+  --focus-low: oklch(0.91 0.07 140);
 }
 
 .dark {
@@ -115,6 +122,10 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* In dark mode more focus is brighter, so the order still reads at a glance. */
+  --focus-high: oklch(0.72 0.17 147);
+  --focus-medium: oklch(0.52 0.12 147);
+  --focus-low: oklch(0.36 0.06 147);
 }
 
 @layer base {

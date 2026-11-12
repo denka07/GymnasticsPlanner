@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { Toaster } from "@/components/ui/sonner";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,6 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const locale = await getLocale();
+  const t = await getTranslations();
 
   return (
     <html
@@ -34,6 +37,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
+        <Toaster position="bottom-center" richColors containerAriaLabel={t("Toasts.label")} />
       </body>
     </html>
   );
