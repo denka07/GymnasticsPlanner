@@ -44,7 +44,9 @@
     "invalidWeek": "Det året har ingen sådan vecka.",
     "weekOrder": "Sista veckan får inte vara före första veckan.",
     "tooManyWeeks": "En säsong får vara högst 60 veckor.",
-    "duplicateWeekday": "Varje veckodag kan bara väljas en gång."
+    "duplicateWeekday": "Varje veckodag kan bara väljas en gång.",
+    "tooManyChanges": "För många ändringar på en gång. Ändra färre veckor åt gången.",
+    "weekOutsideSeason": "Veckan ligger utanför säsongen."
   },
   "Nav": {
     "label": "Sökväg",

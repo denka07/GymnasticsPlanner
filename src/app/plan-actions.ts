@@ -10,6 +10,7 @@ import {
   deleteGroup,
   renameGroup,
 } from "@/lib/data/groups";
+import { saveFocusAllocations } from "@/lib/data/allocations";
 import { errorKey } from "@/lib/data/schemas";
 import {
   createSeason,
@@ -169,4 +170,26 @@ export async function deleteFocusItemAction(
   focusItemId: string,
 ): Promise<ActionResult> {
   return run(() => deleteFocusItem(focusItemId));
+}
+
+// --- Focus allocations ---------------------------------------------------
+
+/**
+ * Saves cell changes of the season plan grid. Does not refresh the page: the
+ * grid already shows the changes, and re-rendering it on every stroke would
+ * only cost time.
+ */
+export async function saveFocusAllocationsAction(
+  seasonId: string,
+  changes: unknown,
+): Promise<ActionResult> {
+  try {
+    await saveFocusAllocations(seasonId, changes);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return { ok: false, error: errorKey(error) };
+    }
+    throw error;
+  }
+  return { ok: true };
 }

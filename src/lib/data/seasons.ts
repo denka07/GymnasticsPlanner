@@ -1,16 +1,18 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, between, eq } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import {
   disciplines,
+  focusAllocations,
   focusItems,
   groups,
   seasons,
   trainingSlots,
   type Discipline,
   type FocusItem,
+  type FocusLevel,
   type Group,
   type Season,
   type TrainingSlot,
@@ -22,13 +24,22 @@ import {
   type AccessLevel,
 } from "@/lib/access";
 
+import { weeksBetween } from "@/lib/weeks";
+
 import { seasonInput, type SeasonValues } from "./schemas";
 
 export type DisciplineWithItems = Discipline & { focusItems: FocusItem[] };
 
+/** One coloured cell of the plan grid. */
+export type PlanAllocation = {
+  focusItemId: string;
+  weekStart: string;
+  level: FocusLevel;
+};
+
 /**
- * Everything the season page shows. Part C extends this with the plan grid
- * (weeks, allocations); keep the season page's loading in this one function.
+ * Everything the season page shows; keep the season page's loading in this
+ * one function.
  */
 export type SeasonPlan = {
   access: AccessLevel;
@@ -38,6 +49,10 @@ export type SeasonPlan = {
   trainingSlots: TrainingSlot[];
   /** By sort order, each with its focus items by sort order. */
   disciplines: DisciplineWithItems[];
+  /** Mondays from the season's first to its last week. */
+  weeks: string[];
+  /** Allocations of the season's focus items within its weeks. */
+  allocations: PlanAllocation[];
 };
 
 /** Loads a season's plan. Calls notFound() without view access. */
@@ -45,7 +60,7 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
   const { access } = await requireSeasonAccess(seasonId, "view");
   const db = getDb();
 
-  const [[row], slots, disciplineRows, itemRows] = await Promise.all([
+  const [[row], slots, disciplineRows, itemRows, allocationRows] = await Promise.all([
     db
       .select({ season: seasons, group: { id: groups.id, name: groups.name } })
       .from(seasons)
@@ -68,6 +83,22 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
       .innerJoin(disciplines, eq(disciplines.id, focusItems.disciplineId))
       .where(eq(disciplines.seasonId, seasonId))
       .orderBy(asc(focusItems.sortOrder), asc(focusItems.name)),
+    db
+      .select({
+        focusItemId: focusAllocations.focusItemId,
+        weekStart: focusAllocations.weekStart,
+        level: focusAllocations.level,
+      })
+      .from(focusAllocations)
+      .innerJoin(focusItems, eq(focusItems.id, focusAllocations.focusItemId))
+      .innerJoin(disciplines, eq(disciplines.id, focusItems.disciplineId))
+      .innerJoin(seasons, eq(seasons.id, disciplines.seasonId))
+      .where(
+        and(
+          eq(disciplines.seasonId, seasonId),
+          between(focusAllocations.weekStart, seasons.firstWeek, seasons.lastWeek),
+        ),
+      ),
   ]);
 
   return {
@@ -81,6 +112,8 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
         .map((r) => r.item)
         .filter((i) => i.disciplineId === d.id),
     })),
+    weeks: weeksBetween(row.season.firstWeek, row.season.lastWeek),
+    allocations: allocationRows,
   };
 }
 
