@@ -225,7 +225,7 @@ function EventStrip({
               aria-label={t("viewLabel", { name: event.name, type, dates })}
               className={cn(
                 className,
-                "outline-none focus-visible:outline-2 focus-visible:outline-ring",
+                "outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
               )}
             />
           }
@@ -249,7 +249,7 @@ function EventStrip({
                 aria-label={t("editLabel", { name: event.name, type, dates })}
                 className={cn(
                   className,
-                  "cursor-pointer outline-none hover:brightness-95 focus-visible:outline-2 focus-visible:outline-ring dark:hover:brightness-125",
+                  "cursor-pointer outline-none hover:brightness-95 focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)] dark:hover:brightness-125",
                 )}
               />
             }

@@ -127,7 +127,7 @@ function WeekPopover({
       <PopoverTrigger
         aria-label={t("weekEditLabel", { week })}
         className={cn(
-          "relative block w-full cursor-pointer px-1 py-1 outline-none hover:bg-foreground/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+          "relative block w-full cursor-pointer px-1 py-1 outline-none hover:bg-foreground/10 focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
         )}
       >
         {children}

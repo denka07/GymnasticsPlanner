@@ -135,6 +135,8 @@ export function SeasonGrid({
 
   function onPointerDown(event: PointerEvent<HTMLTableElement>) {
     lastPointerType.current = event.pointerType;
+    // The browser may call a cell focused by a click "keyboard focus"; no ring then.
+    tableRef.current?.setAttribute("data-pointer", "");
     if (!editable || event.pointerType === "touch" || event.button !== 0) {
       return;
     }
@@ -223,6 +225,7 @@ export function SeasonGrid({
   // --- Keyboard -----------------------------------------------------------
 
   function onKeyDown(event: KeyboardEvent<HTMLTableElement>) {
+    tableRef.current?.removeAttribute("data-pointer");
     const cell = cellFromEvent(event.target);
     if (!cell || event.altKey || ((event.ctrlKey || event.metaKey) && !["Home", "End"].includes(event.key))) {
       return;
@@ -310,7 +313,7 @@ export function SeasonGrid({
       {editable && <p className="text-xs text-muted-foreground">{t("hint")}</p>}
 
       <div
-        className="max-h-[75dvh] overflow-auto overscroll-x-contain rounded-lg border [--cat-w:4.5rem] [--name-w:7.5rem] sm:[--cat-w:6.5rem] sm:[--name-w:12rem]"
+        className="max-h-[75dvh] overflow-auto overscroll-x-contain scroll-pt-9 scroll-pr-4 scroll-pl-[calc(var(--cat-w)+var(--name-w)+1rem)] rounded-lg border [--cat-w:4.5rem] [--name-w:7.5rem] sm:[--cat-w:6.5rem] sm:[--name-w:12rem]"
       >
         <table
           ref={tableRef}
@@ -318,7 +321,7 @@ export function SeasonGrid({
           aria-label={t("gridLabel", { name: seasonName })}
           aria-readonly={!editable || undefined}
           className={cn(
-            "border-separate border-spacing-0 text-xs",
+            "group/grid border-separate border-spacing-0 text-xs",
             editable && "select-none",
           )}
           onPointerDown={onPointerDown}
@@ -424,7 +427,7 @@ export function SeasonGrid({
                             })}
                             onFocus={() => setActive({ row, col })}
                             className={cn(
-                              "h-7 min-w-8 border-r border-b outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                              "h-7 min-w-8 border-r border-b outline-none group-data-[pointer]/grid:focus-visible:shadow-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
                               level ? LEVEL_CLASS[level] : "bg-background",
                               editable &&
                                 (isBreak
