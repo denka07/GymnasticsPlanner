@@ -8,6 +8,7 @@ import { cache } from "react";
 import { getDb } from "@/db";
 import { users, type User } from "@/db/schema";
 
+import { devSignInEmail, devUserValues } from "./dev-sign-in";
 import { SIGN_IN_PATH } from "./routes";
 import { getAuth } from "./server";
 import { isUpToDate, toUserValues } from "./user-values";
@@ -23,8 +24,10 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   // Mark this as request-time work before the SDK runs. During prerendering
   // this await never resolves, so the SDK does not log a cookie error.
   await cookies();
-  const { data } = await getAuth().getSession();
-  const values = toUserValues(data?.user);
+  const devEmail = devSignInEmail();
+  const values = devEmail
+    ? devUserValues(devEmail)
+    : toUserValues((await getAuth().getSession()).data?.user);
   if (!values) {
     return null;
   }
@@ -64,5 +67,9 @@ export async function requireUser(): Promise<User> {
 
 /** Signs the current person out. For use in Server Actions. */
 export async function signOut(): Promise<void> {
+  if (devSignInEmail()) {
+    // The development sign-in has no session to end; the action just redirects.
+    return;
+  }
   await getAuth().signOut();
 }
