@@ -1,0 +1,317 @@
+# Data model
+
+Conceptual data model for GymnasticsPlanner: a web platform for planning gymnastics seasons and the training sessions within them.
+
+This document describes entities and their relationships only. Storage, API and UI choices are decided separately.
+
+## Scope of the first version
+
+In scope:
+
+- Season plans: what to focus on during which weeks.
+- Text-based session plans derived from the season plan.
+- A library of reusable exercises, stations and programs.
+- Global library content maintained by administrators, with coaches able to submit their own for review.
+- Sharing groups, seasons and sessions with other users (help coaches).
+- An optional free-text note on each session about how it went.
+
+Out of scope:
+
+- Drawn station layouts of the hall (planned for a later version, see [Later: drawn plans](#later-drawn-plans)).
+- Gymnasts and attendance (recorded in a separate system).
+
+## Overview
+
+```mermaid
+erDiagram
+    USER ||--o{ GROUP : owns
+    USER ||--o{ SHARE : receives
+    USER |o--o{ EXERCISE : "owns (personal)"
+    USER |o--o{ STATION : "owns (personal)"
+    USER ||--o{ PROGRAM : owns
+    USER ||--o{ SUBMISSION : submits
+
+    GROUP ||--o{ TRAINING_SLOT : has
+    GROUP ||--o{ SEASON : has
+
+    SEASON ||--o{ DISCIPLINE : has
+    SEASON ||--o{ SEASON_WEEK : has
+    SEASON ||--o{ EVENT : has
+    SEASON ||--o{ SESSION : has
+
+    DISCIPLINE ||--o{ FOCUS_ITEM : has
+    FOCUS_ITEM ||--o{ FOCUS_ALLOCATION : has
+    SEASON_WEEK ||--o{ FOCUS_ALLOCATION : has
+
+    SESSION ||--o{ SESSION_PART : has
+    SESSION_PART ||--o{ ACTIVITY : has
+    SESSION_PART }o--o| DISCIPLINE : "relates to"
+    SESSION_PART }o--o| PROGRAM : uses
+    ACTIVITY }o--o| STATION : "takes place at"
+    ACTIVITY }o--o{ EXERCISE : includes
+    ACTIVITY }o--o| PROGRAM : uses
+
+    STATION ||--o{ STATION_EQUIPMENT : needs
+    EQUIPMENT ||--o{ STATION_EQUIPMENT : "used in"
+    STATION }o--o{ EXERCISE : supports
+
+    PROGRAM ||--o{ PROGRAM_ITEM : has
+    PROGRAM_ITEM }o--o| EXERCISE : uses
+```
+
+Two relationships are left out of the diagram to keep it readable: a share points at exactly one group, season or session, and a submission points at exactly one exercise or station.
+
+## Users and sharing
+
+### User
+
+A person who signs in: a coach or a help coach.
+
+- Name
+- Email
+- Administrator flag (administrators maintain the global library and review submissions)
+
+### Share
+
+Gives another user access to a group, a season or a session.
+
+- The user who receives access
+- The shared resource: exactly one group, season or session
+- Access level: view or edit
+
+Rules:
+
+- Every group has one owner, the user who created it. Seasons and sessions belong to the group and so have the same owner.
+- Only the owner can share and delete.
+- Access is inherited downwards. Sharing a group gives access to all its seasons and sessions. Sharing a season gives access to all its sessions. Sharing a session gives access to that session only.
+- Someone with access to a session can read the personal exercises, stations and programs it links to, even though they belong to another user. They cannot edit them. Global library content is readable by everyone.
+
+## Season level
+
+### Group
+
+A team that is coached.
+
+- Name (example: Trupp 5)
+- Owner (user)
+
+### Training slot
+
+A recurring training time for a group. Sessions for a season are generated from these.
+
+- Weekday (example: Monday, Wednesday, Sunday)
+- Start and end time (optional)
+- Location (optional)
+
+### Season
+
+One term for one group.
+
+- Name (example: 2026 HT)
+- Group
+- First and last week (example: weeks 34–50 of 2026)
+
+### Season week
+
+One week within a season. Exists so that a week can carry information of its own.
+
+- ISO year and week number
+- Break flag (example: week 44, no regular training)
+- Note (optional)
+
+### Discipline
+
+A top-level section of the season plan. Defined per season, and copied from an earlier season when a new one is created.
+
+- Name (example: Fristående, Tumbling, Trampett, Styrka)
+- Sort order
+
+### Focus item
+
+One row in the season plan.
+
+- Name (example: Öva svårigheter, Mjuk landning, Peak + maxning)
+- Discipline
+- Category (optional; example: Öva på, Redskap, Landing, Fas)
+- Sort order
+
+Which apparatus is used during a period (example: Airtrack weeks 34–38, then Tumbling) is modelled as focus items in the category Redskap, not as a separate entity.
+
+### Focus level
+
+How much attention a focus item gets in a given week. A fixed scale, not configurable per season:
+
+| Level | Meaning |
+|---|---|
+| High | Mycket fokus |
+| Medium | Visst fokus |
+| Low | Tränas, men inte fokus |
+| None | Tränas inte alls (no allocation stored) |
+
+### Focus allocation
+
+One coloured cell in the season plan.
+
+- Focus item
+- Season week
+- Focus level (high, medium or low)
+
+There is at most one allocation per focus item and week. No allocation means the item is not trained that week.
+
+### Event
+
+A dated activity during the season.
+
+- Name (example: Falun, Nordfemman, Inför NF)
+- Type (example: Tävling, Läger, Uppvisning)
+- Start and end date
+
+## Session level
+
+### Session
+
+One training occasion for a group.
+
+- Season
+- Date, with start and end time (optional)
+- Location (optional)
+- Note after the session (optional free text about how it went)
+
+The focus for a session's week is not stored on the session. It is computed from the focus allocations for that week and shown while planning.
+
+### Session part
+
+An ordered entry in a session's agenda.
+
+- Title (example: Samling, Mjukning, Trampett, Paus, Teknikstationer)
+- Sort order
+- Discipline (optional)
+- Program (optional; example: the part "Styrkeprogram 1" links to that program)
+
+### Activity
+
+An ordered line under a session part: what the gymnasts do at one place in the hall.
+
+- Station (the equipment setup it takes place at)
+- Exercises (one or more, in order, from the library)
+- Text (optional free text; example: + filma ström 3 varv)
+- Sort order
+- Program (optional link; example: Fristående-länga)
+
+When a station is chosen, the exercises it supports are offered first. Other exercises can still be added.
+
+An activity may also be only free text, without a station or exercises, so that a plan can be typed quickly and linked to the library later.
+
+## Library
+
+The library holds exercises, stations and programs that are reused across groups and seasons.
+
+### Global and personal
+
+Exercises and stations each have a scope:
+
+- **Global:** visible to all users. Only administrators create and edit them.
+- **Personal:** visible to their owner, who creates and edits them.
+
+A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original.
+
+A coach can submit a personal exercise or station for review to make it global, see [Submission](#submission).
+
+Programs are always personal.
+
+### Exercise
+
+A reusable exercise.
+
+- Name (example: Grupperad volt till rygg, Pikerat handstående)
+- Description (optional)
+- Focus cues (example: Raka armar, Spänd bål, Raka ben)
+- Easier and harder variants (optional; example: Lyft ett ben så det pekar mot taket)
+- Discipline name (optional, as free text, since disciplines are defined per season)
+- Scope: global or personal
+- Owner (user; personal exercises only)
+
+An exercise does not list equipment. Equipment belongs to the station it is performed at.
+
+### Station
+
+A configuration of equipment that one or more exercises can be performed at.
+
+- Name (example: Bakvänd trampett till tjockmatta med kil ovanpå)
+- Description (optional)
+- Needed equipment (example: Plint, Trampett, Tjockmatta, Kil)
+- Supported exercises (example: Grupperad volt till rygg, Pikerad volt till rygg, Sträckt volt till rygg, Kobett salto)
+- Scope: global or personal
+- Owner (user; personal stations only)
+
+Some stations support one or two exercises and some support many. An exercise can be supported by several stations.
+
+Rules for which exercises a station supports:
+
+- Administrators maintain the links between global stations and global exercises.
+- A user maintains the links that involve their own personal station or personal exercise. This lets a coach add a personal exercise to a global station. That link is visible only to that coach and to those they share sessions with.
+
+### Station equipment
+
+One line in a station's list of needed equipment.
+
+- Station
+- Equipment
+- Quantity (example: 2 × Tunnmatta)
+
+### Equipment
+
+A type of equipment found in a hall. A single catalogue that all users can read and only administrators can edit.
+
+- Name (example: Plint, Trampett, Tjockmatta, Kil, Tunnmatta, Skumplint)
+
+### Program
+
+A reusable, named list of exercises that sessions refer to. Always personal.
+
+- Name (example: Styrkeprogram 1, Fristående-länga, Uppvärmningsdans)
+- Description (optional)
+- Owner (user)
+
+### Program item
+
+An ordered line in a program.
+
+- Text
+- Sort order
+- Exercise (optional link to the library)
+
+### Submission
+
+A request from a coach to make a personal exercise or station global.
+
+- The submitted item: exactly one exercise or station
+- Submitted by (user) and when
+- Status: pending, approved or rejected
+- Reviewed by (administrator) and when
+- Review comment (optional; example: the reason for a rejection)
+
+Rules:
+
+- On approval the item itself becomes global. It is not duplicated, so sessions that already use it keep working. The submitter can no longer edit it.
+- On rejection the item stays personal and the submitter sees the review comment. It can be changed and submitted again.
+- An item has at most one pending submission.
+
+## Later: drawn plans
+
+In a drawn plan, an activity's station is placed in the hall. A later version can add the entities below without changing the text model:
+
+- Hall: the room and its fixed features (doors, wall bars, storage).
+- Size and colour on equipment, so that it can be drawn.
+- Placement: where a station's equipment, its label and a spotter sit in the hall for a given session.
+
+## Decisions
+
+- Shares have two access levels, view and edit. Only the owner can share and delete.
+- The focus level scale is fixed, not configurable per season.
+- Exercises and stations are global or personal. Administrators maintain the global ones, and coaches can submit personal ones for review.
+- Programs are personal only.
+- An activity takes place at a station and includes one or more exercises. It may also be only free text, without a station or exercises.
+- Approving a submission converts the item to global instead of creating a global copy.
+- When a station is approved, only its links to global exercises become global. Personal exercises it supports must be submitted separately.
+- Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.
