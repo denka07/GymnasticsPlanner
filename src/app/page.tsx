@@ -43,7 +43,7 @@ async function GroupsOverview() {
   return (
     <PageShell crumbs={[]}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+        <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
           {t("Groups.heading")}
         </h1>
         <NameDialog

@@ -63,7 +63,7 @@ export function StructureEditor({
     <section className="grid gap-4" aria-busy={pending}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid gap-1">
-          <h2 className="font-heading text-lg font-semibold">{t("heading")}</h2>
+          <h2 className="font-heading text-xl font-semibold">{t("heading")}</h2>
           <p className="text-sm text-muted-foreground">{t("intro")}</p>
         </div>
         <NameDialog
@@ -137,7 +137,7 @@ function DisciplineCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading text-base">{discipline.name}</CardTitle>
+        <CardTitle className="font-heading text-lg">{discipline.name}</CardTitle>
         <CardAction className="flex gap-1">
           <Button
             variant="ghost"

@@ -51,13 +51,13 @@ async function SetupContent({
         { label: t("Nav.setup") },
       ]}
     >
-      <h1 className="font-heading text-2xl font-semibold tracking-tight break-words">
+      <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
         {t("Seasons.setupTitle", { name: season.name })}
       </h1>
 
       <section className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-heading text-lg font-semibold">{t("Seasons.details")}</h2>
+          <h2 className="font-heading text-xl font-semibold">{t("Seasons.details")}</h2>
           <div className="flex flex-wrap gap-2">
             <SeasonDialog
               trigger={

@@ -12,7 +12,7 @@ export async function AppHeader({ userName }: { userName: string }) {
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
         <span className="font-heading font-semibold">{t("App.name")}</span>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-muted-foreground">{userName}</span>
+          <span className="text-[0.9375rem] text-muted-foreground">{userName}</span>
           <form action={signOutAction}>
             <Button type="submit" variant="outline" size="sm">
               {t("Auth.signOut")}
