@@ -1,10 +1,10 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { getDb } from "@/db";
-import { groups, seasons, type User } from "@/db/schema";
+import { groups, seasons, type Group, type User } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 
 import {
@@ -100,4 +100,42 @@ export async function requireSeasonAccess(
     notFound();
   }
   return { user, access };
+}
+
+/** Like requireGroupAccess, but only the owner passes (for deleting and sharing). */
+export async function requireGroupOwner(groupId: string): Promise<Granted> {
+  const granted = await requireGroupAccess(groupId, "edit");
+  if (granted.access !== "owner") {
+    notFound();
+  }
+  return granted;
+}
+
+/** Like requireSeasonAccess, but only the owner passes (for deleting and sharing). */
+export async function requireSeasonOwner(seasonId: string): Promise<Granted> {
+  const granted = await requireSeasonAccess(seasonId, "edit");
+  if (granted.access !== "owner") {
+    notFound();
+  }
+  return granted;
+}
+
+/**
+ * The groups the user can see, with their access level, oldest first.
+ * Only owned groups for now.
+ */
+export async function getAccessibleGroups(
+  userId: string,
+): Promise<{ group: Group; access: AccessLevel }[]> {
+  if (!isUuid(userId)) {
+    return [];
+  }
+  const owned = await getDb()
+    .select()
+    .from(groups)
+    .where(eq(groups.ownerId, userId))
+    .orderBy(asc(groups.createdAt));
+  // TODO(shares): add groups shared with userId, and groups of seasons shared
+  // with userId (with only those seasons visible).
+  return owned.map((group) => ({ group, access: "owner" as const }));
 }
