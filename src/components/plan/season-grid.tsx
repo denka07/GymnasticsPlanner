@@ -4,6 +4,7 @@ import { Undo2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -99,6 +100,22 @@ export function SeasonGrid({
   const [brush, setBrush] = useState<CellLevel>("high");
   const [active, setActive] = useState<GridPosition>({ row: 0, col: 0 });
   const tableRef = useRef<HTMLTableElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  /** True when the week columns do not fit the width, so the grid scrolls sideways. */
+  const [scrolls, setScrolls] = useState(false);
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const table = tableRef.current;
+    if (!container || !table) {
+      return;
+    }
+    const measure = () => setScrolls(table.offsetWidth > container.clientWidth + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, []);
   /** Set while the mouse paints: the cell pressed if it may still toggle off. */
   const pressRef = useRef<{ toggleKey: string | null; last: GridPosition } | null>(null);
   const lastPointerType = useRef<string>("mouse");
@@ -313,7 +330,15 @@ export function SeasonGrid({
       {editable && <p className="text-sm text-muted-foreground">{t("hint")}</p>}
 
       <div
-        className="relative max-h-[calc(100dvh-14rem)] min-h-96 overflow-auto overscroll-x-contain scroll-pt-10 scroll-pr-4 scroll-pl-[calc(var(--cat-w)+var(--name-w)+1rem)] rounded-lg border [--cat-w:5rem] [--name-w:9rem] [--week-min:2.5rem] [--week-max:7rem] sm:[--cat-w:9rem] sm:[--name-w:16rem]"
+        ref={containerRef}
+        data-scrolls={scrolls ? "" : undefined}
+        className={cn(
+          // The grid is as tall as its content; the page scrolls vertically. While the
+          // weeks fit, overflow is only clipped (not a scroll container), so the week
+          // header can stick to the window. Otherwise the grid scrolls sideways.
+          scrolls ? "overflow-x-auto overscroll-x-contain" : "overflow-x-clip",
+          "relative scroll-pr-4 scroll-pl-[calc(var(--cat-w)+var(--name-w)+1rem)] rounded-lg border [--cat-w:5rem] [--name-w:9rem] [--week-min:2.5rem] [--week-max:7rem] sm:[--cat-w:9rem] sm:[--name-w:16rem]",
+        )}
       >
         <table
           ref={tableRef}
@@ -441,7 +466,7 @@ export function SeasonGrid({
                             })}
                             onFocus={() => setActive({ row, col })}
                             className={cn(
-                              "h-9 border-r border-b outline-none group-data-[pointer]/grid:focus-visible:shadow-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
+                              "h-9 scroll-mt-10 scroll-mb-4 border-r border-b outline-none group-data-[pointer]/grid:focus-visible:shadow-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
                               level ? LEVEL_CLASS[level] : "bg-background",
                               editable &&
                                 (isBreak
