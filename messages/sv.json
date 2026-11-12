@@ -1,0 +1,10 @@
+{
+  "App": {
+    "name": "Gymnastikplaneraren",
+    "description": "Planera gymnastiksäsonger och träningspass."
+  },
+  "Home": {
+    "title": "Gymnastikplaneraren",
+    "intro": "Planera säsongen, vecka för vecka, och gör den till färdiga träningspass."
+  }
+}
