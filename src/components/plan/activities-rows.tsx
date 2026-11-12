@@ -28,9 +28,12 @@ const TYPE_CLASS: Record<EventType, string> = {
   other: "bg-event-other text-event-other-foreground",
 };
 
-/** A strip fills its share of the cell; the name is written bottom to top. */
+/**
+ * A strip fills its share of the cell; the name is written bottom to top. In
+ * vertical writing Tailwind's px is the padding along the text, py at the sides.
+ */
 const STRIP_CLASS =
-  "flex min-w-0 flex-1 items-center justify-start overflow-hidden rounded-sm py-1 text-xs leading-none font-medium whitespace-nowrap [writing-mode:vertical-rl] rotate-180";
+  "flex min-w-0 flex-1 items-center justify-start overflow-hidden rounded-sm px-2 py-0.5 text-xs leading-none font-medium whitespace-nowrap [writing-mode:vertical-rl] rotate-180";
 
 type Lane = ReturnType<typeof layoutEventRows<ActivityEvent>>[number]["lanes"][number];
 
@@ -99,7 +102,7 @@ export function ActivitiesRows({
       </tr>
       {rows.map((row) => {
         const chars = visibleLabelChars(row.lanes.flat().map((p) => p.event.name));
-        const height = `max(1.75rem, calc(${chars} * 0.68em + 1.25rem))`;
+        const height = `max(1.75rem, calc(${chars} * 0.68em + 1.75rem))`;
         return row.lanes.map((lane, laneIndex) => (
           <tr key={`${row.type}-${laneIndex}`}>
             <th
