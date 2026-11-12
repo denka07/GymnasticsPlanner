@@ -5,6 +5,7 @@ import { and, asc, between, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   disciplines,
+  events,
   focusAllocations,
   focusItems,
   groups,
@@ -12,6 +13,7 @@ import {
   seasonWeeks,
   trainingSlots,
   type Discipline,
+  type Event,
   type FocusItem,
   type FocusLevel,
   type Group,
@@ -57,6 +59,8 @@ export type SeasonPlan = {
   allocations: PlanAllocation[];
   /** Rows of season_weeks within the season's weeks: break flags and notes. */
   weekRows: SeasonWeek[];
+  /** All events of the season by start date; some may fall outside its weeks. */
+  events: Event[];
 };
 
 /** Loads a season's plan. Calls notFound() without view access. */
@@ -64,7 +68,7 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
   const { access } = await requireSeasonAccess(seasonId, "view");
   const db = getDb();
 
-  const [[row], slots, disciplineRows, itemRows, allocationRows, weekRows] = await Promise.all([
+  const [[row], slots, disciplineRows, itemRows, allocationRows, weekRows, eventRows] = await Promise.all([
     db
       .select({ season: seasons, group: { id: groups.id, name: groups.name } })
       .from(seasons)
@@ -114,6 +118,11 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
         ),
       )
       .orderBy(asc(seasonWeeks.weekStart)),
+    db
+      .select()
+      .from(events)
+      .where(eq(events.seasonId, seasonId))
+      .orderBy(asc(events.startDate), asc(events.name)),
   ]);
 
   return {
@@ -130,6 +139,7 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
     weeks: weeksBetween(row.season.firstWeek, row.season.lastWeek),
     allocations: allocationRows,
     weekRows: weekRows.map((r) => r.week),
+    events: eventRows,
   };
 }
 

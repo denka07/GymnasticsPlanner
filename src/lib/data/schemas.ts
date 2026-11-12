@@ -194,3 +194,40 @@ export type WeekSettings = z.output<ReturnType<typeof weekSettingsInput>>;
 export function weekNeedsRow(s: { isBreak: boolean; note: string | null }): boolean {
   return s.isBreak || s.note !== null;
 }
+
+// --- Events ---------------------------------------------------------------
+
+export const eventTypeInput = z.enum(["competition", "camp", "show", "other"], {
+  error: "invalid",
+});
+
+const isoDate = z
+  .string({ error: "invalidDate" })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "invalidDate" })
+  .refine(
+    (v) => {
+      const d = new Date(`${v}T00:00:00Z`);
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+    },
+    { error: "invalidDate" },
+  );
+
+/** An event of a season. An empty end date means the same day as the start. */
+export const eventInput = z
+  .object({
+    name,
+    type: eventTypeInput,
+    startDate: isoDate,
+    endDate: z.union([isoDate, z.literal(""), z.null(), z.undefined()]),
+  })
+  .transform((e, ctx) => {
+    const endDate = e.endDate || e.startDate;
+    if (endDate < e.startDate) {
+      ctx.addIssue({ code: "custom", message: "dateOrder", path: ["endDate"] });
+      return z.NEVER;
+    }
+    return { name: e.name, type: e.type, startDate: e.startDate, endDate };
+  });
+
+export type EventInput = z.input<typeof eventInput>;
+export type EventValues = z.output<typeof eventInput>;

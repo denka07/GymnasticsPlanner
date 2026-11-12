@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
+import { ActivitiesRows } from "@/components/plan/activities-rows";
 import { SeasonGrid, type GridWeek } from "@/components/plan/season-grid";
 import { SeasonSummary } from "@/components/plan/season-summary";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,14 @@ async function SeasonContent({
             weeks={weeks}
             allocations={plan.allocations}
             editable={editable}
+            footerRows={
+              <ActivitiesRows
+                seasonId={season.id}
+                weeks={weeks}
+                events={plan.events}
+                editable={editable}
+              />
+            }
           />
         )}
       </section>

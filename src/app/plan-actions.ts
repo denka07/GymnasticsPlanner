@@ -28,6 +28,7 @@ import {
   renameDiscipline,
   updateFocusItem,
 } from "@/lib/data/structure";
+import { createEvent, deleteEvent, updateEvent } from "@/lib/data/events";
 import { saveSeasonWeek } from "@/lib/data/weeks";
 import type { Direction } from "@/lib/reorder";
 
@@ -203,4 +204,26 @@ export async function saveSeasonWeekAction(
   input: unknown,
 ): Promise<ActionResult> {
   return run(() => saveSeasonWeek(seasonId, input));
+}
+
+// --- Events --------------------------------------------------------------
+
+export async function createEventAction(
+  seasonId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    await createEvent(seasonId, input);
+  });
+}
+
+export async function updateEventAction(
+  eventId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  return run(() => updateEvent(eventId, input));
+}
+
+export async function deleteEventAction(eventId: string): Promise<ActionResult> {
+  return run(() => deleteEvent(eventId));
 }
