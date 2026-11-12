@@ -23,6 +23,7 @@ The site runs at http://localhost:3000.
 | `npm run build` | Build for production |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run the TypeScript compiler without output |
+| `npm test` | Run the unit tests with Vitest |
 | `npm run db:generate` | Create a migration from changes in `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations to the database in `DATABASE_URL` |
 
@@ -33,6 +34,7 @@ The site runs at http://localhost:3000.
 | `src/app` | Pages and layouts |
 | `src/components/ui` | shadcn/ui components |
 | `src/db` | Database schema and client |
+| `src/lib/auth` | Google sign-in through Neon Auth and the current user |
 | `src/i18n` | Language configuration |
 | `messages` | Interface text, one file per language |
 | `drizzle` | Database migrations |
