@@ -288,3 +288,20 @@ export function keyLevel(
       return undefined;
   }
 }
+
+/**
+ * The cells on a straight line from `from` to `to`, excluding `from` and
+ * including `to`. A fast drag can skip cells between two pointer events;
+ * painting this line fills them in.
+ */
+export function cellsBetween(from: GridPosition, to: GridPosition): GridPosition[] {
+  const steps = Math.max(Math.abs(to.row - from.row), Math.abs(to.col - from.col));
+  const cells: GridPosition[] = [];
+  for (let i = 1; i <= steps; i++) {
+    cells.push({
+      row: Math.round(from.row + ((to.row - from.row) * i) / steps),
+      col: Math.round(from.col + ((to.col - from.col) * i) / steps),
+    });
+  }
+  return cells;
+}

@@ -107,7 +107,6 @@
     "timeTo": "till {end}",
     "setupLink": "Inställningar",
     "gridTitle": "Säsongsplan",
-    "gridPlaceholder": "Här kommer säsongsplanen: veckor åt höger och fokusområden nedåt. Lägg upp discipliner och fokusområden under Inställningar.",
     "setupTitle": "Inställningar för {name}",
     "deleteSeason": "Ta bort säsong",
     "deleteTitle": "Ta bort {name}?",
@@ -139,5 +138,33 @@
     "actions": "Åtgärder för {name}",
     "deleteTitle": "Ta bort {name}?",
     "deleteText": "Fokusområdet {name} och dess planering tas bort. Det går inte att ångra."
+  },
+  "Plan": {
+    "legend": "Färgförklaring",
+    "palette": "Välj fokusnivå att måla med",
+    "levels": {
+      "high": "Mycket fokus",
+      "medium": "Visst fokus",
+      "low": "Tränas, men inte fokus",
+      "none": "Tränas inte alls"
+    },
+    "hint": "Klicka eller dra över rutorna för att måla med vald fokusnivå. Klicka på en ruta som redan har nivån för att ta bort den. Med tangentbordet: piltangenter flyttar, 1, 2 och 3 sätter nivå, 0 tar bort.",
+    "gridLabel": "Säsongsplan för {name}",
+    "category": "Kategori",
+    "focusItem": "Fokusområde",
+    "weekPrefix": "Vecka",
+    "currentWeek": "Denna vecka",
+    "cellLabel": "{item}, vecka {week}: {level}",
+    "undo": "Ångra",
+    "saving": "Sparar …",
+    "saved": "Sparat",
+    "saveFailed": "Ändringarna kunde inte sparas och har tagits tillbaka.",
+    "emptyTitle": "Inga fokusområden än",
+    "emptyText": "Lägg upp discipliner och fokusområden, så blir de rader i säsongsplanen.",
+    "emptyLink": "Gå till inställningar",
+    "emptyTextView": "Säsongen har inga fokusområden än."
+  },
+  "Toasts": {
+    "label": "Aviseringar"
   }
 }
