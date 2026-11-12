@@ -5,8 +5,9 @@ import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { EventType } from "@/db/schema";
-import { layoutEventRows } from "@/lib/events";
+import { layoutEventRows, truncateLabel, visibleLabelChars } from "@/lib/events";
 import { cn } from "@/lib/utils";
 
 import { EventDialog } from "./event-dialog";
@@ -27,8 +28,11 @@ const TYPE_CLASS: Record<EventType, string> = {
   other: "bg-event-other text-event-other-foreground",
 };
 
-const LABEL_CLASS =
-  "absolute inset-y-0.5 left-0.5 z-[1] flex min-w-[calc(100%-0.25rem)] items-center rounded px-1.5 text-left font-medium whitespace-nowrap";
+/** A strip fills its share of the cell; the name is written bottom to top. */
+const STRIP_CLASS =
+  "flex min-w-0 flex-1 items-center justify-start overflow-hidden rounded-sm py-1 text-xs leading-none font-medium whitespace-nowrap [writing-mode:vertical-rl] rotate-180";
+
+type Lane = ReturnType<typeof layoutEventRows<ActivityEvent>>[number]["lanes"][number];
 
 /**
  * The "Aktiviteter" block for the footer of the season grid: a heading row
@@ -55,7 +59,7 @@ export function ActivitiesRows({
   );
 
   return (
-    <>
+    <TooltipProvider>
       <tr>
         <th
           scope="colgroup"
@@ -93,116 +97,165 @@ export function ActivitiesRows({
           </th>
         ))}
       </tr>
-      {rows.map((row) =>
-        row.lanes.map((lane, laneIndex) => (
+      {rows.map((row) => {
+        const chars = visibleLabelChars(row.lanes.flat().map((p) => p.event.name));
+        const height = `max(1.75rem, calc(${chars} * 0.68em + 1.25rem))`;
+        return row.lanes.map((lane, laneIndex) => (
           <tr key={`${row.type}-${laneIndex}`}>
             <th
               scope="row"
               colSpan={2}
               className="sticky left-0 z-10 border-r border-b bg-background px-2 py-1 text-left font-normal"
             >
-              {laneIndex === 0 ? t(`types.${row.type}`) : <span className="sr-only">{t(`types.${row.type}`)}</span>}
+              {laneIndex === 0 ? (
+                t(`types.${row.type}`)
+              ) : (
+                <span className="sr-only">{t(`types.${row.type}`)}</span>
+              )}
             </th>
-            {cellsOf(lane, weeks, (event) => (
-              <EventLabel
-                key={event.id}
-                seasonId={seasonId}
-                event={event}
-                editable={editable}
-                text={
-                  event.startDate === event.endDate
-                    ? t("date", { date: event.startDate })
-                    : t("dates", { start: event.startDate, end: event.endDate })
-                }
-              />
-            ))}
+            {cellsOf(lane, weeks, height, seasonId, editable)}
           </tr>
-        )),
-      )}
-    </>
+        ));
+      })}
+    </TooltipProvider>
   );
 }
 
-/** One <td> per week, with an event's <td> spanning the weeks it covers. */
+/**
+ * One <td> per week, with an event's <td> spanning the weeks it covers.
+ * Single-week events in the same week share that week's <td> side by side.
+ */
 function cellsOf(
-  lane: ReturnType<typeof layoutEventRows<ActivityEvent>>[number]["lanes"][number],
+  lane: Lane,
   weeks: GridWeek[],
-  label: (event: ActivityEvent) => ReactNode,
+  height: string,
+  seasonId: string,
+  editable: boolean,
 ): ReactNode[] {
   const cells: ReactNode[] = [];
   let col = 0;
-  for (const placed of lane) {
-    for (; col < placed.startCol; col++) {
-      cells.push(emptyCell(weeks[col]));
+  let i = 0;
+  while (i < lane.length) {
+    const first = lane[i];
+    const group = [first];
+    while (first.endCol === first.startCol && lane[i + group.length]?.startCol === first.startCol) {
+      group.push(lane[i + group.length]);
+    }
+    i += group.length;
+    for (; col < first.startCol; col++) {
+      cells.push(emptyCell(weeks[col], height));
     }
     cells.push(
       <td
-        key={placed.event.id}
-        colSpan={placed.endCol - placed.startCol + 1}
-        data-week={weeks[placed.startCol].weekStart}
-        className="relative h-7 border-r border-b p-0"
+        key={first.event.id}
+        colSpan={first.endCol - first.startCol + 1}
+        data-week={weeks[first.startCol].weekStart}
+        style={{ height }}
+        className="relative border-r text-xs border-b p-0"
       >
-        {label(placed.event)}
+        <div className="absolute inset-0.5 flex gap-px">
+          {group.map((placed) => (
+            <EventStrip
+              key={placed.event.id}
+              seasonId={seasonId}
+              event={placed.event}
+              editable={editable}
+            />
+          ))}
+        </div>
       </td>,
     );
-    col = placed.endCol + 1;
+    col = first.endCol + 1;
   }
   for (; col < weeks.length; col++) {
-    cells.push(emptyCell(weeks[col]));
+    cells.push(emptyCell(weeks[col], height));
   }
   return cells;
 }
 
-function emptyCell(week: GridWeek): ReactNode {
+function emptyCell(week: GridWeek, height: string): ReactNode {
   return (
     <td
       key={week.weekStart}
       data-week={week.weekStart}
-      className={cn("h-7 min-w-8 border-r border-b bg-background", week.className)}
+      style={{ height }}
+      className={cn("min-w-8 border-r border-b bg-background text-xs", week.className)}
     />
   );
 }
 
-function EventLabel({
+function EventStrip({
   seasonId,
   event,
   editable,
-  text,
 }: {
   seasonId: string;
   event: ActivityEvent;
   editable: boolean;
-  /** The event's dates, for the tooltip. */
-  text: string;
 }) {
   const t = useTranslations("Events");
-  const className = cn(LABEL_CLASS, TYPE_CLASS[event.type]);
-  const title = `${event.name} (${t(`types.${event.type}`)}), ${text}`;
+  const dates =
+    event.startDate === event.endDate
+      ? t("date", { date: event.startDate })
+      : t("dates", { start: event.startDate, end: event.endDate });
+  const type = t(`types.${event.type}`);
+  const className = cn(STRIP_CLASS, TYPE_CLASS[event.type]);
+  const label = truncateLabel(event.name);
+
+  const tooltip = (
+    <TooltipContent>
+      <span className="flex flex-col">
+        <span className="font-medium">{event.name}</span>
+        <span>{dates}</span>
+      </span>
+    </TooltipContent>
+  );
 
   if (!editable) {
     return (
-      <span title={title} className={className}>
-        {event.name}
-      </span>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <span
+              role="img"
+              tabIndex={0}
+              aria-label={t("viewLabel", { name: event.name, type, dates })}
+              className={cn(
+                className,
+                "outline-none focus-visible:outline-2 focus-visible:outline-ring",
+              )}
+            />
+          }
+        >
+          {label}
+        </TooltipTrigger>
+        {tooltip}
+      </Tooltip>
     );
   }
   return (
-    <EventDialog
-      seasonId={seasonId}
-      event={event}
-      trigger={
-        <button
-          type="button"
-          title={title}
-          aria-label={t("editLabel", { name: event.name })}
-          className={cn(
-            className,
-            "cursor-pointer outline-none hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring dark:hover:brightness-125",
-          )}
-        >
-          {event.name}
-        </button>
-      }
-    />
+    <Tooltip>
+      <EventDialog
+        seasonId={seasonId}
+        event={event}
+        trigger={
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                aria-label={t("editLabel", { name: event.name, type, dates })}
+                className={cn(
+                  className,
+                  "cursor-pointer outline-none hover:brightness-95 focus-visible:outline-2 focus-visible:outline-ring dark:hover:brightness-125",
+                )}
+              />
+            }
+          >
+            {label}
+          </TooltipTrigger>
+        }
+      />
+      {tooltip}
+    </Tooltip>
   );
 }

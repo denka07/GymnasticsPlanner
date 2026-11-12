@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { EventType } from "@/db/schema";
 
-import { eventColumns, layoutEventRows } from "./events";
+import { eventColumns, layoutEventRows, truncateLabel, visibleLabelChars } from "./events";
 import { weeksBetween } from "./weeks";
 
 // Weeks 34-50 of 2026: Mondays 2026-08-17 ... 2026-12-07.
@@ -13,7 +13,10 @@ describe("eventColumns", () => {
   it("places a one-day event in its week", () => {
     // Tuesday 2026-10-20 is in week 43 (Monday 2026-10-19).
     const c = col("2026-10-19");
-    expect(eventColumns(weeks, "2026-10-20", "2026-10-20")).toEqual({ startCol: c, endCol: c });
+    expect(eventColumns(weeks, "2026-10-20", "2026-10-20")).toEqual({
+      startCol: c,
+      endCol: c,
+    });
   });
 
   it("covers every week an event touches", () => {
@@ -31,7 +34,10 @@ describe("eventColumns", () => {
   });
 
   it("clips an event that starts before the first week", () => {
-    expect(eventColumns(weeks, "2026-08-01", "2026-08-18")).toEqual({ startCol: 0, endCol: 0 });
+    expect(eventColumns(weeks, "2026-08-01", "2026-08-18")).toEqual({
+      startCol: 0,
+      endCol: 0,
+    });
   });
 
   it("clips an event that ends after the last week", () => {
@@ -90,15 +96,69 @@ describe("layoutEventRows", () => {
     expect(rows[0].lanes.map((l) => l.map((p) => p.event.name))).toEqual([["A"], ["B"]]);
   });
 
-  it("puts a long label that would run into the next event in another lane", () => {
+  it("does not let label length affect lanes", () => {
     const rows = layoutEventRows(weeks, [
       ev("Mycket långt lägernamn", "camp", "2026-10-19"),
       ev("Kort", "camp", "2026-10-26"),
+    ]);
+    expect(rows[0].lanes).toHaveLength(1);
+  });
+
+  it("puts single-week events in the same week side by side in one lane", () => {
+    const rows = layoutEventRows(weeks, [
+      ev("Falun", "competition", "2026-10-20"),
+      ev("Extra", "competition", "2026-10-21"),
+    ]);
+    expect(rows[0].lanes).toHaveLength(1);
+    expect(rows[0].lanes[0].map((p) => p.event.name)).toEqual(["Extra", "Falun"]);
+  });
+
+  it("moves a single-week event off a multi-week event's weeks", () => {
+    const rows = layoutEventRows(weeks, [
+      ev("Två veckor", "camp", "2026-10-19", "2026-10-27"),
+      ev("Mitt i", "camp", "2026-10-27"),
+      ev("Efter", "camp", "2026-11-10"),
+    ]);
+    expect(rows[0].lanes.map((l) => l.map((p) => p.event.name))).toEqual([
+      ["Två veckor", "Efter"],
+      ["Mitt i"],
+    ]);
+  });
+
+  it("puts overlapping multi-week events in separate lanes", () => {
+    const rows = layoutEventRows(weeks, [
+      ev("A", "camp", "2026-10-19", "2026-10-27"),
+      ev("B", "camp", "2026-10-27", "2026-11-03"),
     ]);
     expect(rows[0].lanes).toHaveLength(2);
   });
 
   it("omits events outside the weeks and their type", () => {
     expect(layoutEventRows(weeks, [ev("Förra året", "show", "2025-05-01")])).toEqual([]);
+  });
+});
+
+describe("truncateLabel", () => {
+  it("keeps names up to the maximum", () => {
+    expect(truncateLabel("Nordfemman")).toBe("Nordfemman");
+    expect(truncateLabel("123456789012")).toBe("123456789012");
+  });
+
+  it("cuts longer names to the maximum including the ellipsis", () => {
+    const out = truncateLabel("Abcdefghijklmnopqrstuvwxy");
+    expect(out).toBe("Abcdefghijk…");
+    expect(Array.from(out)).toHaveLength(12);
+  });
+
+  it("supports another maximum", () => {
+    expect(truncateLabel("Abcdef", 4)).toBe("Abc…");
+  });
+});
+
+describe("visibleLabelChars", () => {
+  it("is the longest name, capped", () => {
+    expect(visibleLabelChars(["Falun", "Nordfemman"])).toBe(10);
+    expect(visibleLabelChars(["x".repeat(25)])).toBe(12);
+    expect(visibleLabelChars([])).toBe(0);
   });
 });
