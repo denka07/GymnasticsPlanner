@@ -60,11 +60,11 @@ async function SeasonContent({
 
   return (
     <PageShell
+      wide
       crumbs={[{ label: group.name, href: `/groups/${group.id}` }, { label: season.name }]}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid min-w-0 gap-2">
-          <p className="text-sm text-muted-foreground">{group.name}</p>
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="grid min-w-0 gap-1">
           <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
             {season.name}
           </h1>
@@ -100,7 +100,7 @@ async function SeasonContent({
         </div>
       </header>
 
-      <section aria-labelledby="season-grid-heading" className="grid min-w-0 gap-3">
+      <section aria-labelledby="season-grid-heading" className="grid min-w-0 gap-2">
         <h2 id="season-grid-heading" className="font-heading text-xl font-semibold">
           {t("Seasons.gridTitle")}
         </h2>

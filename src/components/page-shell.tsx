@@ -12,6 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { requireUser } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export type Crumb = { label: string; href?: string };
 
@@ -21,9 +22,12 @@ export type Crumb = { label: string; href?: string };
  */
 export async function PageShell({
   crumbs,
+  wide = false,
   children,
 }: {
   crumbs: Crumb[];
+  /** Use the full window width, for the season plan; otherwise a reading width. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   const user = await requireUser();
@@ -32,8 +36,11 @@ export async function PageShell({
 
   return (
     <>
-      <AppHeader userName={user.name} />
-      <main className="mx-auto grid w-full max-w-5xl flex-1 content-start gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <AppHeader userName={user.name} wide={wide} />
+      <main className={cn(
+          "mx-auto grid w-full min-w-0 flex-1 content-start px-4 sm:px-6",
+          wide ? "gap-4 py-4 lg:px-8" : "max-w-[75rem] gap-6 py-6 sm:py-8",
+        )}>
         <Breadcrumb aria-label={t("label")}>
           <BreadcrumbList>
             {all.map((crumb, index) => {
