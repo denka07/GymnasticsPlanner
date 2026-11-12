@@ -224,7 +224,7 @@ export function SeasonDialog({
           )}
 
           <fieldset className="grid gap-2">
-            <legend className="mb-2 text-sm font-medium">{t("trainingDays")}</legend>
+            <legend className="mb-2 text-base font-medium">{t("trainingDays")}</legend>
             {WEEKDAYS.map((weekday) => {
               const day = state.days[weekday];
               const dayId = `${id}-day-${weekday}`;
@@ -242,7 +242,7 @@ export function SeasonDialog({
                   {day.on && (
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-[auto_auto_1fr]">
                       <div className="grid gap-1">
-                        <Label htmlFor={`${dayId}-start`} className="text-xs text-muted-foreground">
+                        <Label htmlFor={`${dayId}-start`} className="text-sm text-muted-foreground">
                           {t("startTime")}
                         </Label>
                         <Input
@@ -253,7 +253,7 @@ export function SeasonDialog({
                         />
                       </div>
                       <div className="grid gap-1">
-                        <Label htmlFor={`${dayId}-end`} className="text-xs text-muted-foreground">
+                        <Label htmlFor={`${dayId}-end`} className="text-sm text-muted-foreground">
                           {t("endTime")}
                         </Label>
                         <Input
@@ -264,7 +264,7 @@ export function SeasonDialog({
                         />
                       </div>
                       <div className="col-span-2 grid gap-1 sm:col-span-1">
-                        <Label htmlFor={`${dayId}-location`} className="text-xs text-muted-foreground">
+                        <Label htmlFor={`${dayId}-location`} className="text-sm text-muted-foreground">
                           {t("location")} ({tc("optional")})
                         </Label>
                         <Input
@@ -319,10 +319,10 @@ export function WeekFields({
   const t = useTranslations("Seasons");
   return (
     <fieldset className="grid gap-2">
-      <legend className="mb-2 text-sm font-medium">{legend}</legend>
+      <legend className="mb-2 text-base font-medium">{legend}</legend>
       <div className="grid grid-cols-[5fr_4fr] gap-2">
         <div className="grid gap-1">
-          <Label htmlFor={`${id}-year`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`${id}-year`} className="text-sm text-muted-foreground">
             {t("year")}
           </Label>
           <Input
@@ -336,7 +336,7 @@ export function WeekFields({
           />
         </div>
         <div className="grid gap-1">
-          <Label htmlFor={`${id}-week`} className="text-xs text-muted-foreground">
+          <Label htmlFor={`${id}-week`} className="text-sm text-muted-foreground">
             {t("week")}
           </Label>
           <Input

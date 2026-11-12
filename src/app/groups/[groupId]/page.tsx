@@ -38,7 +38,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
   return (
     <PageShell crumbs={[{ label: group.name }]}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="min-w-0 font-heading text-2xl font-semibold tracking-tight break-words">
+        <h1 className="min-w-0 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
           {group.name}
         </h1>
         {editable && (
@@ -79,7 +79,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
 
       <section className="grid gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-heading text-lg font-semibold">{t("Groups.seasonsHeading")}</h2>
+          <h2 className="font-heading text-xl font-semibold">{t("Groups.seasonsHeading")}</h2>
           {editable && (
             <SeasonDialog
               trigger={
@@ -107,7 +107,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
                   className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3"
                 >
                   <span className="font-medium">{season.name}</span>
-                  <span className="text-sm text-muted-foreground">{ranges[i]}</span>
+                  <span className="text-base text-muted-foreground">{ranges[i]}</span>
                 </Link>
                 {targetGroups.length > 0 && (
                   <CopySeasonDialog

@@ -193,7 +193,7 @@ export function CopySeasonDialog({
               />
               {t("copyIncludePlan")}
             </Label>
-            <p className="pl-6 text-xs text-muted-foreground">{t("copyIncludePlanHelp")}</p>
+            <p className="pl-6 text-sm text-muted-foreground">{t("copyIncludePlanHelp")}</p>
           </div>
 
           {error && (
