@@ -8,6 +8,13 @@
       "when": 1794512859056,
       "tag": "0000_slim_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794516273071,
+      "tag": "0001_dapper_santa_claus",
+      "breakpoints": true
     }
   ]
 }
