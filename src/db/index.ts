@@ -13,7 +13,13 @@ function createDb() {
 
 let instance: ReturnType<typeof createDb> | undefined;
 
-/** The database client, created on first use so that builds need no database. */
+/**
+ * The database client, created on first use so that builds need no database.
+ *
+ * The neon-http driver has no interactive transactions (`db.transaction`
+ * throws). Writes that touch several rows use `db.batch([...])`, which runs
+ * the statements in one transaction, or a single statement.
+ */
 export function getDb() {
   instance ??= createDb();
   return instance;
