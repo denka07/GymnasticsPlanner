@@ -10,7 +10,7 @@ In scope:
 
 - Season plans: what to focus on during which weeks.
 - Text-based session plans derived from the season plan.
-- A library of reusable exercises, stations and programs.
+- A library of reusable exercises and stations.
 - Global library content maintained by administrators, with coaches able to submit their own for review.
 - Sharing groups, seasons and sessions with other users (help coaches).
 - An optional free-text note on each session about how it went.
@@ -28,12 +28,11 @@ erDiagram
     USER ||--o{ SHARE : receives
     USER |o--o{ EXERCISE : "owns (personal)"
     USER |o--o{ STATION : "owns (personal)"
-    USER ||--o{ PROGRAM : owns
     USER ||--o{ SUBMISSION : submits
 
-    GROUP ||--o{ TRAINING_SLOT : has
     GROUP ||--o{ SEASON : has
 
+    SEASON ||--o{ TRAINING_SLOT : has
     SEASON ||--o{ DISCIPLINE : has
     SEASON ||--o{ SEASON_WEEK : has
     SEASON ||--o{ EVENT : has
@@ -46,17 +45,12 @@ erDiagram
     SESSION ||--o{ SESSION_PART : has
     SESSION_PART ||--o{ ACTIVITY : has
     SESSION_PART }o--o| DISCIPLINE : "relates to"
-    SESSION_PART }o--o| PROGRAM : uses
     ACTIVITY }o--o| STATION : "takes place at"
     ACTIVITY }o--o{ EXERCISE : includes
-    ACTIVITY }o--o| PROGRAM : uses
 
     STATION ||--o{ STATION_EQUIPMENT : needs
     EQUIPMENT ||--o{ STATION_EQUIPMENT : "used in"
     STATION }o--o{ EXERCISE : supports
-
-    PROGRAM ||--o{ PROGRAM_ITEM : has
-    PROGRAM_ITEM }o--o| EXERCISE : uses
 ```
 
 Two relationships are left out of the diagram to keep it readable: a share points at exactly one group, season or session, and a submission points at exactly one exercise or station.
@@ -84,7 +78,7 @@ Rules:
 - Every group has one owner, the user who created it. Seasons and sessions belong to the group and so have the same owner.
 - Only the owner can share and delete.
 - Access is inherited downwards. Sharing a group gives access to all its seasons and sessions. Sharing a season gives access to all its sessions. Sharing a session gives access to that session only.
-- Someone with access to a session can read the personal exercises, stations and programs it links to, even though they belong to another user. They cannot edit them. Global library content is readable by everyone.
+- Someone with access to a session can read the personal exercises and stations it links to, even though they belong to another user. They cannot edit them. Global library content is readable by everyone.
 
 ## Season level
 
@@ -95,14 +89,6 @@ A team that is coached.
 - Name (example: Trupp 5)
 - Owner (user)
 
-### Training slot
-
-A recurring training time for a group. Sessions for a season are generated from these.
-
-- Weekday (example: Monday, Wednesday, Sunday)
-- Start and end time (optional)
-- Location (optional)
-
 ### Season
 
 One term for one group.
@@ -110,6 +96,17 @@ One term for one group.
 - Name (example: 2026 HT)
 - Group
 - First and last week (example: weeks 34–50 of 2026)
+
+A new season can be created as a copy of an earlier one. The copy includes its training slots, disciplines and focus items.
+
+### Training slot
+
+A recurring training time during a season. Training times can differ between seasons, so slots belong to the season and not to the group. The season's sessions are generated from these.
+
+- Season
+- Weekday (example: Monday, Wednesday, Sunday)
+- Start and end time (optional)
+- Location (optional)
 
 ### Season week
 
@@ -186,25 +183,27 @@ An ordered entry in a session's agenda.
 - Title (example: Samling, Mjukning, Trampett, Paus, Teknikstationer)
 - Sort order
 - Discipline (optional)
-- Program (optional; example: the part "Styrkeprogram 1" links to that program)
 
 ### Activity
 
 An ordered line under a session part: what the gymnasts do at one place in the hall.
 
-- Station (the equipment setup it takes place at)
-- Exercises (one or more, in order, from the library)
+- Station (optional; the equipment setup it takes place at)
+- Exercises (zero or more, in order, from the library)
 - Text (optional free text; example: + filma ström 3 varv)
 - Sort order
-- Program (optional link; example: Fristående-länga)
+
+An activity has at least one of exercises or text. This allows, for example:
+
+- A station with exercises from the library.
+- A station with only text describing what to do there.
+- Only text, without a station or exercises (example: Styrkeövning från program, Fristående-länga).
 
 When a station is chosen, the exercises it supports are offered first. Other exercises can still be added.
 
-An activity may also be only free text, without a station or exercises, so that a plan can be typed quickly and linked to the library later.
-
 ## Library
 
-The library holds exercises, stations and programs that are reused across groups and seasons.
+The library holds exercises and stations that are reused across groups and seasons.
 
 ### Global and personal
 
@@ -216,8 +215,6 @@ Exercises and stations each have a scope:
 A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original.
 
 A coach can submit a personal exercise or station for review to make it global, see [Submission](#submission).
-
-Programs are always personal.
 
 ### Exercise
 
@@ -265,22 +262,6 @@ A type of equipment found in a hall. A single catalogue that all users can read 
 
 - Name (example: Plint, Trampett, Tjockmatta, Kil, Tunnmatta, Skumplint)
 
-### Program
-
-A reusable, named list of exercises that sessions refer to. Always personal.
-
-- Name (example: Styrkeprogram 1, Fristående-länga, Uppvärmningsdans)
-- Description (optional)
-- Owner (user)
-
-### Program item
-
-An ordered line in a program.
-
-- Text
-- Sort order
-- Exercise (optional link to the library)
-
 ### Submission
 
 A request from a coach to make a personal exercise or station global.
@@ -310,8 +291,9 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - Shares have two access levels, view and edit. Only the owner can share and delete.
 - The focus level scale is fixed, not configurable per season.
 - Exercises and stations are global or personal. Administrators maintain the global ones, and coaches can submit personal ones for review.
-- Programs are personal only.
-- An activity takes place at a station and includes one or more exercises. It may also be only free text, without a station or exercises.
+- Training slots belong to the season and are copied when a season is copied.
+- There is no program entity. Recurring routines such as a strength program are referred to in an activity's text.
+- An activity has an optional station, zero or more exercises and optional text, with at least one of exercises or text.
 - Approving a submission converts the item to global instead of creating a global copy.
 - When a station is approved, only its links to global exercises become global. Personal exercises it supports must be submitted separately.
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.
