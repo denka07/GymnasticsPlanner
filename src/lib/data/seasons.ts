@@ -9,12 +9,14 @@ import {
   focusItems,
   groups,
   seasons,
+  seasonWeeks,
   trainingSlots,
   type Discipline,
   type FocusItem,
   type FocusLevel,
   type Group,
   type Season,
+  type SeasonWeek,
   type TrainingSlot,
 } from "@/db/schema";
 import {
@@ -53,6 +55,8 @@ export type SeasonPlan = {
   weeks: string[];
   /** Allocations of the season's focus items within its weeks. */
   allocations: PlanAllocation[];
+  /** Rows of season_weeks within the season's weeks: break flags and notes. */
+  weekRows: SeasonWeek[];
 };
 
 /** Loads a season's plan. Calls notFound() without view access. */
@@ -60,7 +64,7 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
   const { access } = await requireSeasonAccess(seasonId, "view");
   const db = getDb();
 
-  const [[row], slots, disciplineRows, itemRows, allocationRows] = await Promise.all([
+  const [[row], slots, disciplineRows, itemRows, allocationRows, weekRows] = await Promise.all([
     db
       .select({ season: seasons, group: { id: groups.id, name: groups.name } })
       .from(seasons)
@@ -99,6 +103,17 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
           between(focusAllocations.weekStart, seasons.firstWeek, seasons.lastWeek),
         ),
       ),
+    db
+      .select({ week: seasonWeeks })
+      .from(seasonWeeks)
+      .innerJoin(seasons, eq(seasons.id, seasonWeeks.seasonId))
+      .where(
+        and(
+          eq(seasonWeeks.seasonId, seasonId),
+          between(seasonWeeks.weekStart, seasons.firstWeek, seasons.lastWeek),
+        ),
+      )
+      .orderBy(asc(seasonWeeks.weekStart)),
   ]);
 
   return {
@@ -114,6 +129,7 @@ export async function getSeasonPlan(seasonId: string): Promise<SeasonPlan> {
     })),
     weeks: weeksBetween(row.season.firstWeek, row.season.lastWeek),
     allocations: allocationRows,
+    weekRows: weekRows.map((r) => r.week),
   };
 }
 

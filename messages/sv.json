@@ -162,7 +162,14 @@
     "emptyTitle": "Inga fokusområden än",
     "emptyText": "Lägg upp discipliner och fokusområden, så blir de rader i säsongsplanen.",
     "emptyLink": "Gå till inställningar",
-    "emptyTextView": "Säsongen har inga fokusområden än."
+    "emptyTextView": "Säsongen har inga fokusområden än.",
+    "weekNote": "anteckning: {note}",
+    "weekBreak": "uppehåll",
+    "weekEditLabel": "Redigera vecka {week}",
+    "weekTitle": "Vecka {week}",
+    "breakLabel": "Uppehåll (ingen träning)",
+    "noteLabel": "Anteckning",
+    "notePlaceholder": "Till exempel Höstlov"
   },
   "Toasts": {
     "label": "Aviseringar"

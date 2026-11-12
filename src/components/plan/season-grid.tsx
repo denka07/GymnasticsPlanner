@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { usePlanGrid } from "./use-plan-grid";
+import { WeekHeaderContent } from "./week-header";
 
 export type GridWeek = {
   /** Monday of the week. */
@@ -39,6 +40,10 @@ export type GridWeek = {
    * such as break weeks.
    */
   className?: string;
+  /** A week without training; the header is a decoration, the cells keep their level. */
+  isBreak?: boolean;
+  /** Free text about the week, shown as a tooltip on the header. */
+  note?: string | null;
 };
 
 export type GridDiscipline = {
@@ -333,15 +338,21 @@ export function SeasonGrid({
                   scope="col"
                   data-week={week.weekStart}
                   aria-current={week.isCurrent ? "date" : undefined}
-                  title={week.isCurrent ? t("currentWeek") : undefined}
+                  title={week.note ?? (week.isCurrent ? t("currentWeek") : undefined)}
                   className={cn(
-                    "sticky top-0 z-20 h-7 min-w-8 border-r border-b bg-background px-1 text-center font-medium tabular-nums",
+                    "sticky top-0 z-20 h-7 min-w-8 border-r border-b bg-background p-0 text-center font-medium tabular-nums",
                     week.isCurrent && "bg-primary text-primary-foreground",
                     week.className,
                   )}
                 >
-                  <span className="sr-only">{t("weekPrefix")} </span>
-                  {week.week}
+                  <WeekHeaderContent
+                    seasonId={seasonId}
+                    weekStart={week.weekStart}
+                    week={week.week}
+                    isBreak={week.isBreak ?? false}
+                    note={week.note ?? null}
+                    editable={editable}
+                  />
                 </th>
               ))}
             </tr>

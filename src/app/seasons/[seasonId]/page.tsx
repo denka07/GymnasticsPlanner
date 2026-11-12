@@ -12,6 +12,9 @@ import { canEdit } from "@/lib/access";
 import { getSeasonPlan } from "@/lib/data/seasons";
 import { isoWeek, mondayOf } from "@/lib/weeks";
 
+/** Greys out a break week's column: a translucent layer over the cell colour. */
+const BREAK_WEEK_CLASS = "bg-[linear-gradient(var(--break-tint),var(--break-tint))]";
+
 export default function SeasonPage({ params }: PageProps<"/seasons/[seasonId]">) {
   return (
     <Suspense fallback={<PageLoading />}>
@@ -32,11 +35,18 @@ async function SeasonContent({
   const t = await getTranslations();
   const editable = canEdit(plan.access);
   const currentWeek = await currentMonday();
-  const weeks: GridWeek[] = plan.weeks.map((weekStart) => ({
-    weekStart,
-    week: isoWeek(weekStart).week,
-    isCurrent: weekStart === currentWeek,
-  }));
+  const weekRows = new Map(plan.weekRows.map((r) => [r.weekStart, r]));
+  const weeks: GridWeek[] = plan.weeks.map((weekStart) => {
+    const row = weekRows.get(weekStart);
+    return {
+      weekStart,
+      week: isoWeek(weekStart).week,
+      isCurrent: weekStart === currentWeek,
+      isBreak: row?.isBreak ?? false,
+      note: row?.note ?? null,
+      className: row?.isBreak ? BREAK_WEEK_CLASS : undefined,
+    };
+  });
   const focusItemCount = plan.disciplines.reduce((n, d) => n + d.focusItems.length, 0);
   const gridKey = [
     plan.weeks.join(),

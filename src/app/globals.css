@@ -88,6 +88,8 @@
   --focus-high: oklch(0.55 0.15 148);
   --focus-medium: oklch(0.74 0.15 145);
   --focus-low: oklch(0.91 0.07 140);
+  /* Laid over the cells of a break week; the focus colour shows through. */
+  --break-tint: oklch(0.5 0 0 / 0.2);
 }
 
 .dark {
@@ -126,6 +128,7 @@
   --focus-high: oklch(0.72 0.17 147);
   --focus-medium: oklch(0.52 0.12 147);
   --focus-low: oklch(0.36 0.06 147);
+  --break-tint: oklch(0.8 0 0 / 0.22);
 }
 
 @layer base {
