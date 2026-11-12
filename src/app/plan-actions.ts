@@ -28,6 +28,7 @@ import {
   renameDiscipline,
   updateFocusItem,
 } from "@/lib/data/structure";
+import { saveSeasonWeek } from "@/lib/data/weeks";
 import type { Direction } from "@/lib/reorder";
 
 /*
@@ -192,4 +193,14 @@ export async function saveFocusAllocationsAction(
     throw error;
   }
   return { ok: true };
+}
+
+// --- Week settings -------------------------------------------------------
+
+/** Saves the break flag and note of one week of the season plan. */
+export async function saveSeasonWeekAction(
+  seasonId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  return run(() => saveSeasonWeek(seasonId, input));
 }

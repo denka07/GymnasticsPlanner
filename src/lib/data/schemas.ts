@@ -164,3 +164,33 @@ export function allocationChangesInput(firstWeek: string, lastWeek: string) {
 }
 
 export type AllocationChange = z.output<ReturnType<typeof allocationChangesInput>>[number];
+
+// --- Week settings (break and note) --------------------------------------
+
+/** Longest note on a week, in characters. */
+export const MAX_WEEK_NOTE_LENGTH = 500;
+
+/**
+ * Break flag and note for one week of a season running from `firstWeek` to
+ * `lastWeek` (both Mondays). `weekStart` must be a Monday within the season.
+ */
+export function weekSettingsInput(firstWeek: string, lastWeek: string) {
+  return z
+    .object({
+      weekStart,
+      isBreak: z.boolean({ error: "invalid" }),
+      note: optionalText(MAX_WEEK_NOTE_LENGTH),
+    })
+    .superRefine((s, ctx) => {
+      if (s.weekStart < firstWeek || s.weekStart > lastWeek) {
+        ctx.addIssue({ code: "custom", message: "weekOutsideSeason", path: ["weekStart"] });
+      }
+    });
+}
+
+export type WeekSettings = z.output<ReturnType<typeof weekSettingsInput>>;
+
+/** True when a week with these settings needs a row in season_weeks. */
+export function weekNeedsRow(s: { isBreak: boolean; note: string | null }): boolean {
+  return s.isBreak || s.note !== null;
+}
