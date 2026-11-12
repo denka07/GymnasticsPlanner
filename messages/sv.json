@@ -46,7 +46,9 @@
     "tooManyWeeks": "En säsong får vara högst 60 veckor.",
     "duplicateWeekday": "Varje veckodag kan bara väljas en gång.",
     "tooManyChanges": "För många ändringar på en gång. Ändra färre veckor åt gången.",
-    "weekOutsideSeason": "Veckan ligger utanför säsongen."
+    "weekOutsideSeason": "Veckan ligger utanför säsongen.",
+    "invalidDate": "Ange ett giltigt datum.",
+    "dateOrder": "Slutdatumet får inte vara före startdatumet."
   },
   "Nav": {
     "label": "Sökväg",
@@ -170,6 +172,29 @@
     "breakLabel": "Uppehåll (ingen träning)",
     "noteLabel": "Anteckning",
     "notePlaceholder": "Till exempel Höstlov"
+  },
+  "Events": {
+    "heading": "Aktiviteter",
+    "newEvent": "Ny aktivitet",
+    "createTitle": "Ny aktivitet",
+    "editTitle": "Redigera aktivitet",
+    "nameLabel": "Namn",
+    "namePlaceholder": "Falun",
+    "typeLabel": "Typ",
+    "startDate": "Startdatum",
+    "endDate": "Slutdatum",
+    "editLabel": "Redigera aktiviteten {name}",
+    "dates": "{start} – {end}",
+    "date": "{date}",
+    "deleteEvent": "Ta bort aktivitet",
+    "deleteTitle": "Ta bort {name}?",
+    "deleteText": "Aktiviteten {name} tas bort från säsongen. Det går inte att ångra.",
+    "types": {
+      "competition": "Tävling",
+      "camp": "Läger",
+      "show": "Uppvisning",
+      "other": "Övrigt"
+    }
   },
   "Toasts": {
     "label": "Aviseringar"
