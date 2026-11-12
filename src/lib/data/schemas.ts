@@ -11,6 +11,7 @@ import {
   MAX_SEASON_WEEKS,
   weekCount,
   weekInputToMonday,
+  type WeekInput,
 } from "../season-weeks";
 import { isMonday } from "../weeks";
 
@@ -58,6 +59,27 @@ const weekInput = z.object({
   week: z.number({ error: "invalidWeek" }).int({ error: "invalidWeek" }),
 });
 
+/**
+ * The Mondays of a season first and last week, or null (after reporting an
+ * issue) when the last week is before the first or the season is too long.
+ */
+function mondayRange(
+  s: { firstWeek: WeekInput; lastWeek: WeekInput },
+  ctx: z.RefinementCtx,
+): { firstWeek: string; lastWeek: string } | null {
+  const firstMonday = weekInputToMonday(s.firstWeek);
+  const lastMonday = weekInputToMonday(s.lastWeek);
+  if (lastMonday < firstMonday) {
+    ctx.addIssue({ code: "custom", message: "weekOrder", path: ["lastWeek"] });
+    return null;
+  }
+  if (weekCount(firstMonday, lastMonday) > MAX_SEASON_WEEKS) {
+    ctx.addIssue({ code: "custom", message: "tooManyWeeks", path: ["lastWeek"] });
+    return null;
+  }
+  return { firstWeek: firstMonday, lastWeek: lastMonday };
+}
+
 export const seasonInput = z
   .object({
     name,
@@ -72,20 +94,13 @@ export const seasonInput = z
     }
   })
   .transform((s, ctx) => {
-    const firstMonday = weekInputToMonday(s.firstWeek);
-    const lastMonday = weekInputToMonday(s.lastWeek);
-    if (lastMonday < firstMonday) {
-      ctx.addIssue({ code: "custom", message: "weekOrder", path: ["lastWeek"] });
-      return z.NEVER;
-    }
-    if (weekCount(firstMonday, lastMonday) > MAX_SEASON_WEEKS) {
-      ctx.addIssue({ code: "custom", message: "tooManyWeeks", path: ["lastWeek"] });
+    const range = mondayRange(s, ctx);
+    if (range === null) {
       return z.NEVER;
     }
     return {
       name: s.name,
-      firstWeek: firstMonday,
-      lastWeek: lastMonday,
+      ...range,
       trainingSlots: [...s.trainingSlots].sort((a, b) => a.weekday - b.weekday),
     };
   });
@@ -231,3 +246,34 @@ export const eventInput = z
 
 export type EventInput = z.input<typeof eventInput>;
 export type EventValues = z.output<typeof eventInput>;
+
+// --- Copying a season -----------------------------------------------------
+
+/**
+ * Where and how to copy a season: the name, weeks and group of the copy, and
+ * whether the focus allocations come along. The weeks follow the same rules
+ * as when creating a season.
+ */
+export const copySeasonInput = z
+  .object({
+    name,
+    firstWeek: weekInput.refine(isValidIsoWeek, { error: "invalidWeek" }),
+    lastWeek: weekInput.refine(isValidIsoWeek, { error: "invalidWeek" }),
+    groupId: id,
+    includeAllocations: z.boolean({ error: "invalid" }),
+  })
+  .transform((s, ctx) => {
+    const range = mondayRange(s, ctx);
+    if (range === null) {
+      return z.NEVER;
+    }
+    return {
+      name: s.name,
+      ...range,
+      groupId: s.groupId,
+      includeAllocations: s.includeAllocations,
+    };
+  });
+
+export type CopySeasonInput = z.input<typeof copySeasonInput>;
+export type CopySeasonValues = z.output<typeof copySeasonInput>;

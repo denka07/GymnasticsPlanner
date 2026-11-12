@@ -1,4 +1,4 @@
-import { SettingsIcon } from "lucide-react";
+import { CopyIcon, SettingsIcon } from "lucide-react";
 import { io } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
@@ -6,11 +6,14 @@ import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { ActivitiesRows } from "@/components/plan/activities-rows";
+import { CopySeasonDialog } from "@/components/plan/copy-season-dialog";
 import { SeasonGrid, type GridWeek } from "@/components/plan/season-grid";
 import { SeasonSummary } from "@/components/plan/season-summary";
 import { Button } from "@/components/ui/button";
 import { canEdit } from "@/lib/access";
+import { listEditableGroups } from "@/lib/data/groups";
 import { getSeasonPlan } from "@/lib/data/seasons";
+import { mondayToWeekInput } from "@/lib/season-weeks";
 import { isoWeek, mondayOf } from "@/lib/weeks";
 
 /** Greys out a break week's column: a translucent layer over the cell colour. */
@@ -36,6 +39,7 @@ async function SeasonContent({
   const t = await getTranslations();
   const editable = canEdit(plan.access);
   const currentWeek = await currentMonday();
+  const targetGroups = await listEditableGroups();
   const weekRows = new Map(plan.weekRows.map((r) => [r.weekStart, r]));
   const weeks: GridWeek[] = plan.weeks.map((weekStart) => {
     const row = weekRows.get(weekStart);
@@ -66,16 +70,34 @@ async function SeasonContent({
           </h1>
           <SeasonSummary season={season} trainingSlots={plan.trainingSlots} />
         </div>
-        {editable && (
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href={`/seasons/${season.id}/setup`} />}
-          >
-            <SettingsIcon data-icon="inline-start" />
-            {t("Seasons.setupLink")}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {targetGroups.length > 0 && (
+            <CopySeasonDialog
+              trigger={
+                <Button variant="outline">
+                  <CopyIcon data-icon="inline-start" />
+                  {t("Seasons.copySeason")}
+                </Button>
+              }
+              sourceSeasonId={season.id}
+              sourceName={season.name}
+              firstWeek={mondayToWeekInput(season.firstWeek)}
+              lastWeek={mondayToWeekInput(season.lastWeek)}
+              groups={targetGroups}
+              defaultGroupId={group.id}
+            />
+          )}
+          {editable && (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/seasons/${season.id}/setup`} />}
+            >
+              <SettingsIcon data-icon="inline-start" />
+              {t("Seasons.setupLink")}
+            </Button>
+          )}
+        </div>
       </header>
 
       <section aria-labelledby="season-grid-heading" className="grid min-w-0 gap-3">
