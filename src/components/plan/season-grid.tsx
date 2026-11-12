@@ -289,7 +289,7 @@ export function SeasonGrid({
   let rowIndex = 0;
 
   return (
-    <div className="grid min-w-0 gap-3">
+    <div className="grid min-w-0 gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <Legend
           editable={editable}
@@ -300,7 +300,7 @@ export function SeasonGrid({
         />
         {editable && (
           <div className="flex items-center gap-3">
-            <p className="text-sm text-muted-foreground" aria-live="polite" role="status">
+            <p className="text-[0.9375rem] text-muted-foreground" aria-live="polite" role="status">
               {grid.status === "saving" ? t("saving") : grid.status === "saved" ? t("saved") : ""}
             </p>
             <Button variant="outline" size="sm" onClick={grid.undo} disabled={!grid.canUndo}>
@@ -310,10 +310,10 @@ export function SeasonGrid({
           </div>
         )}
       </div>
-      {editable && <p className="text-xs text-muted-foreground">{t("hint")}</p>}
+      {editable && <p className="text-sm text-muted-foreground">{t("hint")}</p>}
 
       <div
-        className="max-h-[75dvh] overflow-auto overscroll-x-contain scroll-pt-9 scroll-pr-4 scroll-pl-[calc(var(--cat-w)+var(--name-w)+1rem)] rounded-lg border [--cat-w:4.5rem] [--name-w:7.5rem] sm:[--cat-w:6.5rem] sm:[--name-w:12rem]"
+        className="relative max-h-[calc(100dvh-14rem)] min-h-96 overflow-auto overscroll-x-contain scroll-pt-10 scroll-pr-4 scroll-pl-[calc(var(--cat-w)+var(--name-w)+1rem)] rounded-lg border [--cat-w:5rem] [--name-w:9rem] [--week-min:2.5rem] [--week-max:7rem] sm:[--cat-w:9rem] sm:[--name-w:16rem]"
       >
         <table
           ref={tableRef}
@@ -321,25 +321,37 @@ export function SeasonGrid({
           aria-label={t("gridLabel", { name: seasonName })}
           aria-readonly={!editable || undefined}
           className={cn(
-            "group/grid border-separate border-spacing-0 text-xs",
+            "group/grid table-fixed border-separate border-spacing-0 text-[0.9375rem]",
             editable && "select-none",
           )}
           onPointerDown={onPointerDown}
           onPointerOver={onPointerOver}
           onClick={onClick}
           onKeyDown={onKeyDown}
+          // Week columns share what the two label columns leave, between a
+          // minimum and a maximum width; past the maximum the table stops growing.
+          style={{
+            width: `clamp(calc(var(--cat-w) + var(--name-w) + ${cols} * var(--week-min)), 100%, calc(var(--cat-w) + var(--name-w) + ${cols} * var(--week-max)))`,
+          }}
         >
+          <colgroup>
+            <col style={{ width: "var(--cat-w)" }} />
+            <col style={{ width: "var(--name-w)" }} />
+            {weeks.map((week) => (
+              <col key={week.weekStart} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th
                 scope="col"
-                className="sticky top-0 left-0 z-30 w-(--cat-w) min-w-(--cat-w) border-r border-b bg-background px-2 py-1 text-left font-medium text-muted-foreground"
+                className="sticky top-0 left-0 z-30 h-9 border-r border-b bg-background px-2 text-left font-medium text-muted-foreground"
               >
                 {t("category")}
               </th>
               <th
                 scope="col"
-                className="sticky top-0 left-(--cat-w) z-30 w-(--name-w) min-w-(--name-w) border-r border-b bg-background px-2 py-1 text-left font-medium text-muted-foreground"
+                className="sticky top-0 left-(--cat-w) z-30 h-9 border-r border-b bg-background px-2 text-left font-medium text-muted-foreground"
               >
                 {t("focusItem")}
               </th>
@@ -351,7 +363,7 @@ export function SeasonGrid({
                   aria-current={week.isCurrent ? "date" : undefined}
                   title={week.note ?? (week.isCurrent ? t("currentWeek") : undefined)}
                   className={cn(
-                    "sticky top-0 z-20 h-7 min-w-8 border-r border-b bg-background p-0 text-center font-medium tabular-nums",
+                    "sticky top-0 z-20 h-9 border-r border-b bg-background p-0 text-center font-medium tabular-nums",
                     week.isCurrent && "bg-primary text-primary-foreground",
                     week.className,
                   )}
@@ -380,9 +392,9 @@ export function SeasonGrid({
                   <th
                     scope="colgroup"
                     colSpan={2 + cols}
-                    className="border-b bg-muted p-0 text-left text-sm font-semibold"
+                    className="border-b bg-muted p-0 text-left text-base font-semibold"
                   >
-                    <span className="sticky left-0 inline-block px-2 py-1">{discipline.name}</span>
+                    <span className="sticky left-0 inline-block px-2 py-1.5">{discipline.name}</span>
                   </th>
                 </tr>
                 {discipline.focusItems.map((item, i) => {
@@ -392,14 +404,16 @@ export function SeasonGrid({
                       {spans[i] > 0 && (
                         <td
                           rowSpan={spans[i]}
-                          className="sticky left-0 z-10 w-(--cat-w) max-w-(--cat-w) border-r border-b bg-background px-2 py-1 align-middle text-muted-foreground break-words"
+                          title={item.category ?? undefined}
+                          className="sticky left-0 z-10 overflow-hidden border-r border-b bg-background px-2 py-1 align-middle text-ellipsis whitespace-nowrap text-muted-foreground"
                         >
                           {item.category}
                         </td>
                       )}
                       <th
                         scope="row"
-                        className="sticky left-(--cat-w) z-10 w-(--name-w) max-w-(--name-w) border-r border-b bg-background px-2 py-1 text-left font-normal break-words"
+                        title={item.name}
+                        className="sticky left-(--cat-w) z-10 h-9 overflow-hidden border-r border-b bg-background px-2 text-left font-normal text-ellipsis whitespace-nowrap"
                       >
                         {item.name}
                       </th>
@@ -427,7 +441,7 @@ export function SeasonGrid({
                             })}
                             onFocus={() => setActive({ row, col })}
                             className={cn(
-                              "h-7 min-w-8 border-r border-b outline-none group-data-[pointer]/grid:focus-visible:shadow-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
+                              "h-9 border-r border-b outline-none group-data-[pointer]/grid:focus-visible:shadow-none focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
                               level ? LEVEL_CLASS[level] : "bg-background",
                               editable &&
                                 (isBreak

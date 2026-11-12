@@ -33,7 +33,7 @@ const TYPE_CLASS: Record<EventType, string> = {
  * vertical writing Tailwind's px is the padding along the text, py at the sides.
  */
 const STRIP_CLASS =
-  "flex min-w-0 flex-1 items-center justify-start overflow-hidden rounded-sm px-2 py-0.5 text-xs leading-none font-medium whitespace-nowrap [writing-mode:vertical-rl] rotate-180";
+  "flex min-w-0 flex-1 items-center justify-start overflow-hidden rounded-sm px-2 py-0.5 text-[0.8125rem] leading-none font-medium whitespace-nowrap [writing-mode:vertical-rl] rotate-180";
 
 type Lane = ReturnType<typeof layoutEventRows<ActivityEvent>>[number]["lanes"][number];
 
@@ -67,7 +67,7 @@ export function ActivitiesRows({
         <th
           scope="colgroup"
           colSpan={2}
-          className="sticky left-0 z-10 border-t border-r border-b bg-muted px-2 py-1 text-left text-sm font-semibold"
+          className="sticky left-0 z-10 border-t border-r border-b bg-muted px-2 py-1.5 text-left text-base font-semibold"
         >
           <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             {t("heading")}
@@ -91,7 +91,7 @@ export function ActivitiesRows({
             scope="col"
             data-week={week.weekStart}
             className={cn(
-              "h-7 min-w-8 border-t border-r border-b bg-muted px-1 text-center font-medium tabular-nums",
+              "h-9 border-t border-r border-b bg-muted px-1 text-center text-[0.9375rem] font-medium tabular-nums",
               week.className,
             )}
           >
@@ -102,7 +102,7 @@ export function ActivitiesRows({
       </tr>
       {rows.map((row) => {
         const chars = visibleLabelChars(row.lanes.flat().map((p) => p.event.name));
-        const height = `max(1.75rem, calc(${chars} * 0.68em + 1.75rem))`;
+        const height = `max(2.25rem, calc(${chars} * 0.68em + 1.75rem))`;
         return row.lanes.map((lane, laneIndex) => (
           <tr key={`${row.type}-${laneIndex}`}>
             <th
@@ -154,7 +154,7 @@ function cellsOf(
         colSpan={first.endCol - first.startCol + 1}
         data-week={weeks[first.startCol].weekStart}
         style={{ height }}
-        className="relative border-r text-xs border-b p-0"
+        className="relative border-r border-b p-0 text-[0.8125rem]"
       >
         <div className="absolute inset-0.5 flex gap-px">
           {group.map((placed) => (
@@ -182,7 +182,7 @@ function emptyCell(week: GridWeek, height: string): ReactNode {
       key={week.weekStart}
       data-week={week.weekStart}
       style={{ height }}
-      className={cn("min-w-8 border-r border-b bg-background text-xs", week.className)}
+      className={cn("border-r border-b bg-background text-[0.8125rem]", week.className)}
     />
   );
 }

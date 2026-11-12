@@ -162,7 +162,7 @@
       "low": "Tränas, men inte fokus",
       "none": "Tränas inte alls"
     },
-    "hint": "Klicka eller dra över rutorna för att måla med vald fokusnivå. Klicka på en ruta som redan har nivån för att ta bort den. Med tangentbordet: piltangenter flyttar, 1, 2 och 3 sätter nivå, 0 tar bort.",
+    "hint": "Klicka eller dra för att måla, klicka igen för att ta bort. Tangentbord: piltangenter flyttar, 1–3 sätter nivå, 0 tar bort.",
     "gridLabel": "Säsongsplan för {name}",
     "category": "Kategori",
     "focusItem": "Fokusområde",
