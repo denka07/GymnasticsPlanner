@@ -12,6 +12,7 @@ import {
   weekCount,
   weekInputToMonday,
 } from "../season-weeks";
+import { isMonday } from "../weeks";
 
 export const id = z.uuid({ error: "invalid" });
 
@@ -102,3 +103,64 @@ export const direction = z.enum(["up", "down"]);
 export function errorKey(error: z.ZodError): string {
   return error.issues[0]?.message ?? "invalid";
 }
+
+// --- Focus allocations ---------------------------------------------------
+
+/** Most cells one save may change. */
+export const MAX_ALLOCATION_CHANGES = 1000;
+
+export const focusLevelInput = z.enum(["high", "medium", "low"], {
+  error: "invalid",
+});
+
+const weekStart = z
+  .string({ error: "invalid" })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "invalid" })
+  .refine(
+    (v) => {
+      try {
+        return isMonday(v);
+      } catch {
+        return false;
+      }
+    },
+    { error: "invalid" },
+  );
+
+const allocationChange = z.object({
+  focusItemId: id,
+  weekStart,
+  /** null clears the cell (not trained that week). */
+  level: focusLevelInput.nullable(),
+});
+
+/**
+ * A list of cell changes for one season whose weeks run from `firstWeek` to
+ * `lastWeek` (both Mondays). Each cell may appear once. Whether the focus
+ * items belong to the season is checked against the database separately.
+ */
+export function allocationChangesInput(firstWeek: string, lastWeek: string) {
+  return z
+    .array(allocationChange, { error: "invalid" })
+    .min(1, { error: "invalid" })
+    .max(MAX_ALLOCATION_CHANGES, { error: "tooManyChanges" })
+    .superRefine((changes, ctx) => {
+      const seen = new Set<string>();
+      changes.forEach((change, index) => {
+        if (change.weekStart < firstWeek || change.weekStart > lastWeek) {
+          ctx.addIssue({
+            code: "custom",
+            message: "weekOutsideSeason",
+            path: [index, "weekStart"],
+          });
+        }
+        const key = `${change.focusItemId}|${change.weekStart}`;
+        if (seen.has(key)) {
+          ctx.addIssue({ code: "custom", message: "invalid", path: [index] });
+        }
+        seen.add(key);
+      });
+    });
+}
+
+export type AllocationChange = z.output<ReturnType<typeof allocationChangesInput>>[number];
