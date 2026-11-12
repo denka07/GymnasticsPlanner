@@ -20,6 +20,7 @@ import {
   keyLevel,
   levelOf,
   moveFocus,
+  parseCellKey,
   type CellLevel,
   type GridPosition,
   type Level,
@@ -40,7 +41,7 @@ export type GridWeek = {
    * such as break weeks.
    */
   className?: string;
-  /** A week without training; the header is a decoration, the cells keep their level. */
+  /** A week without training: its cells are grey and cannot hold a focus level. */
   isBreak?: boolean;
   /** Free text about the week, shown as a tooltip on the header. */
   note?: string | null;
@@ -87,7 +88,14 @@ export function SeasonGrid({
   footerRows?: ReactNode;
 }) {
   const t = useTranslations("Plan");
-  const grid = usePlanGrid(seasonId, allocations);
+  const breakWeeks = weeks.filter((w) => w.isBreak).map((w) => w.weekStart);
+  const grid = usePlanGrid(seasonId, allocations, breakWeeks);
+  /** Painted cells per week, for the warning when a week becomes a break. */
+  const paintedByWeek = new Map<string, number>();
+  for (const key of Object.keys(grid.levels)) {
+    const { weekStart } = parseCellKey(key);
+    paintedByWeek.set(weekStart, (paintedByWeek.get(weekStart) ?? 0) + 1);
+  }
   const [brush, setBrush] = useState<CellLevel>("high");
   const [active, setActive] = useState<GridPosition>({ row: 0, col: 0 });
   const tableRef = useRef<HTMLTableElement>(null);
@@ -351,6 +359,7 @@ export function SeasonGrid({
                     week={week.week}
                     isBreak={week.isBreak ?? false}
                     note={week.note ?? null}
+                    paintedCount={paintedByWeek.get(week.weekStart) ?? 0}
                     editable={editable}
                   />
                 </th>
@@ -393,7 +402,9 @@ export function SeasonGrid({
                       </th>
                       {weeks.map((week, col) => {
                         const key = cellKey(item.id, week.weekStart);
-                        const level = levelOf(grid.levels, key);
+                        const isBreak = week.isBreak ?? false;
+                        // A break week never shows a level, whatever the state holds.
+                        const level = isBreak ? null : levelOf(grid.levels, key);
                         const isActive = row === activeRow && col === activeCol;
                         return (
                           <td
@@ -404,17 +415,21 @@ export function SeasonGrid({
                             data-col={col}
                             data-week={week.weekStart}
                             data-level={level ?? undefined}
+                            data-break={isBreak ? "" : undefined}
                             tabIndex={isActive ? 0 : -1}
                             aria-label={t("cellLabel", {
                               item: item.name,
                               week: week.week,
-                              level: levelLabel(level),
+                              level: isBreak ? t("weekBreak") : levelLabel(level),
                             })}
                             onFocus={() => setActive({ row, col })}
                             className={cn(
                               "h-7 min-w-8 border-r border-b outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
                               level ? LEVEL_CLASS[level] : "bg-background",
-                              editable && "cursor-pointer hover:brightness-95 dark:hover:brightness-125",
+                              editable &&
+                                (isBreak
+                                  ? "cursor-not-allowed"
+                                  : "cursor-pointer hover:brightness-95 dark:hover:brightness-125"),
                               week.className,
                             )}
                           />

@@ -47,6 +47,7 @@
     "duplicateWeekday": "Varje veckodag kan bara väljas en gång.",
     "tooManyChanges": "För många ändringar på en gång. Ändra färre veckor åt gången.",
     "weekOutsideSeason": "Veckan ligger utanför säsongen.",
+    "breakWeek": "Veckan är ett uppehåll och kan inte ha fokus.",
     "invalidDate": "Ange ett giltigt datum.",
     "dateOrder": "Slutdatumet får inte vara före startdatumet."
   },
@@ -181,6 +182,7 @@
     "weekEditLabel": "Redigera vecka {week}",
     "weekTitle": "Vecka {week}",
     "breakLabel": "Uppehåll (ingen träning)",
+    "breakClears": "{count, plural, one {# markering i veckan tas bort} other {# markeringar i veckan tas bort}}",
     "noteLabel": "Anteckning",
     "notePlaceholder": "Till exempel Höstlov"
   },

@@ -8,6 +8,7 @@ import {
   commitStroke,
   finishSave,
   initialState,
+  isBreakCell,
   isDirty,
   keyLevel,
   levelOf,
@@ -15,6 +16,7 @@ import {
   paintCell,
   parseCellKey,
   pendingChanges,
+  setBreakWeeks,
   startSave,
   undo,
   type CellKey,
@@ -227,6 +229,98 @@ describe("saving", () => {
   it("ignores finishSave without a batch in flight", () => {
     const s = start();
     expect(finishSave(s, true).state).toBe(s);
+  });
+});
+
+describe("break weeks", () => {
+  const withBreak = () =>
+    initialState(
+      [
+        { focusItemId: A, weekStart: W1, level: "low" },
+        { focusItemId: A, weekStart: W2, level: "high" },
+      ],
+      [W2],
+    );
+
+  it("leaves out allocations left in a break week", () => {
+    const s = withBreak();
+    expect(levelOf(s.current, a1)).toBe("low");
+    expect(levelOf(s.current, a2)).toBeNull();
+    expect(isBreakCell(s, a2)).toBe(true);
+    expect(isBreakCell(s, a1)).toBe(false);
+  });
+
+  it("never paints a cell in a break week, with a key press or a tap", () => {
+    for (const level of ["high", "medium", "low", null] as const) {
+      const { state, stroke: st } = paintCell(withBreak(), [], a2, level);
+      expect(levelOf(state.current, a2)).toBeNull();
+      expect(st).toEqual([]);
+      expect(commitStroke(state, st).undo).toEqual([]);
+    }
+  });
+
+  it("skips break weeks in a drag across a column range", () => {
+    const s = stroke(withBreak(), [
+      [a1, "high"],
+      [a2, "high"],
+      [a3, "high"],
+    ]);
+    expect(levelOf(s.current, a1)).toBe("high");
+    expect(levelOf(s.current, a2)).toBeNull();
+    expect(levelOf(s.current, a3)).toBe("high");
+    expect(s.undo).toEqual([
+      [
+        { key: a1, before: "low", after: "high" },
+        { key: a3, before: null, after: "high" },
+      ],
+    ]);
+    expect(pendingChanges(s).map((c) => c.weekStart).sort()).toEqual([W1, W3]);
+  });
+
+  it("clears a week that becomes a break, also from saved and undo", () => {
+    let s = stroke(start(), [
+      [a1, "high"],
+      [b1, "medium"],
+      [a2, "low"],
+    ]);
+    s = setBreakWeeks(s, [W1]);
+    expect(s.current).toEqual({ [a2]: "low" });
+    expect(s.saved).toEqual({});
+    expect(s.undo).toEqual([[{ key: a2, before: null, after: "low" }]]);
+    expect(isBreakCell(s, b1)).toBe(true);
+    expect(pendingChanges(s)).toEqual([{ focusItemId: A, weekStart: W2, level: "low" }]);
+  });
+
+  it("drops an undo step that only touched the new break week", () => {
+    const s = setBreakWeeks(stroke(start(), [[a1, "high"]]), [W1]);
+    expect(s.undo).toEqual([]);
+    expect(undo(s)).toBe(s);
+  });
+
+  it("undo never puts a level back into a break week", () => {
+    const base = stroke(start(), [[a2, "low"]]);
+    // A step recorded before the week became a break, applied directly.
+    const withStep: GridState = {
+      ...base,
+      breakWeeks: new Set([W2]),
+      undo: [[{ key: a2, before: "high", after: null }]],
+    };
+    expect(levelOf(undo(withStep).current, a2)).toBe("low");
+  });
+
+  it("does not save a break-week level when a batch settles", () => {
+    let s = stroke(start(), [[a2, "high"]]);
+    const started = startSave(s)!;
+    s = setBreakWeeks(started.state, [W2]);
+    s = finishSave(s, true).state;
+    expect(s.saved).toEqual({ [a1]: "low" });
+  });
+
+  it("keeps a week empty when it stops being a break", () => {
+    const s = setBreakWeeks(withBreak(), []);
+    expect(levelOf(s.current, a2)).toBeNull();
+    expect(isBreakCell(s, a2)).toBe(false);
+    expect(setBreakWeeks(s, [])).toBe(s);
   });
 });
 
