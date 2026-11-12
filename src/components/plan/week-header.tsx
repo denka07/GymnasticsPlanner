@@ -25,6 +25,7 @@ export function WeekHeaderContent({
   week,
   isBreak,
   note,
+  paintedCount,
   editable,
 }: {
   seasonId: string;
@@ -32,6 +33,8 @@ export function WeekHeaderContent({
   week: number;
   isBreak: boolean;
   note: string | null;
+  /** Cells of this week that have a focus level; they are removed if it becomes a break. */
+  paintedCount: number;
   editable: boolean;
 }) {
   const t = useTranslations("Plan");
@@ -54,7 +57,14 @@ export function WeekHeaderContent({
     return <span className="relative block px-1 py-1">{label}</span>;
   }
   return (
-    <WeekPopover seasonId={seasonId} weekStart={weekStart} week={week} isBreak={isBreak} note={note}>
+    <WeekPopover
+      seasonId={seasonId}
+      weekStart={weekStart}
+      week={week}
+      isBreak={isBreak}
+      note={note}
+      paintedCount={paintedCount}
+    >
       {label}
     </WeekPopover>
   );
@@ -66,6 +76,7 @@ function WeekPopover({
   week,
   isBreak,
   note,
+  paintedCount,
   children,
 }: {
   seasonId: string;
@@ -73,6 +84,7 @@ function WeekPopover({
   week: number;
   isBreak: boolean;
   note: string | null;
+  paintedCount: number;
   children: React.ReactNode;
 }) {
   const t = useTranslations("Plan");
@@ -131,6 +143,11 @@ function WeekPopover({
             />
             {t("breakLabel")}
           </Label>
+          {breakValue && paintedCount > 0 && (
+            <p role="status" className="text-sm text-destructive">
+              {t("breakClears", { count: paintedCount })}
+            </p>
+          )}
           <div className="grid gap-1.5">
             <Label htmlFor={`${id}-note`}>{t("noteLabel")}</Label>
             <Textarea

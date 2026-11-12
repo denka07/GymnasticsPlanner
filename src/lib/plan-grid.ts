@@ -45,6 +45,11 @@ export type GridState = {
   inFlight: readonly SaveChange[] | null;
   /** Strokes of this visit, newest last. */
   undo: readonly Stroke[];
+  /**
+   * Mondays of the break weeks. A break week holds no focus: its cells are
+   * never painted, never part of undo and never sent to the server.
+   */
+  breakWeeks: ReadonlySet<string>;
 };
 
 export function cellKey(focusItemId: string, weekStart: string): CellKey {
@@ -58,6 +63,11 @@ export function parseCellKey(key: CellKey): { focusItemId: string; weekStart: st
 
 export function levelOf(levels: Levels, key: CellKey): CellLevel {
   return Object.hasOwn(levels, key) ? levels[key] : null;
+}
+
+/** True if the cell lies in a break week. */
+export function isBreakCell(state: Pick<GridState, "breakWeeks">, key: CellKey): boolean {
+  return state.breakWeeks.has(parseCellKey(key).weekStart);
 }
 
 function withLevel(levels: Levels, key: CellKey, level: CellLevel): Levels {
@@ -75,12 +85,43 @@ function withLevel(levels: Levels, key: CellKey, level: CellLevel): Levels {
 
 export function initialState(
   allocations: readonly { focusItemId: string; weekStart: string; level: Level }[],
+  breakWeeks: readonly string[] = [],
 ): GridState {
+  const breaks = new Set(breakWeeks);
   const levels: Record<CellKey, Level> = {};
   for (const a of allocations) {
-    levels[cellKey(a.focusItemId, a.weekStart)] = a.level;
+    // Allocations left in a break week are not shown.
+    if (!breaks.has(a.weekStart)) {
+      levels[cellKey(a.focusItemId, a.weekStart)] = a.level;
+    }
   }
-  return { current: levels, saved: levels, inFlight: null, undo: [] };
+  return { current: levels, saved: levels, inFlight: null, undo: [], breakWeeks: breaks };
+}
+
+/**
+ * Makes `breakWeeks` the break weeks. Cells in a week that became a break
+ * are cleared (the server clears them when the week is saved as a break) and
+ * dropped from undo, so no undo can put a level back. A week that stopped
+ * being a break stays empty.
+ */
+export function setBreakWeeks(state: GridState, breakWeeks: readonly string[]): GridState {
+  const next = new Set(breakWeeks);
+  if (next.size === state.breakWeeks.size && [...next].every((w) => state.breakWeeks.has(w))) {
+    return state;
+  }
+  const inBreak = (key: CellKey) => next.has(parseCellKey(key).weekStart);
+  const without = (levels: Levels): Levels =>
+    Object.fromEntries(Object.entries(levels).filter(([key]) => !inBreak(key)));
+  const undoSteps = state.undo
+    .map((stroke) => stroke.filter((c) => !inBreak(c.key)))
+    .filter((stroke) => stroke.length > 0);
+  return {
+    ...state,
+    current: without(state.current),
+    saved: without(state.saved),
+    undo: undoSteps,
+    breakWeeks: next,
+  };
 }
 
 // --- Strokes -------------------------------------------------------------
@@ -96,7 +137,8 @@ export function clickLevel(current: CellLevel, brush: CellLevel): CellLevel {
 /**
  * Sets `key` to `level` as part of `stroke`. The first time a stroke touches
  * a cell it records the level before; touching it again keeps that. Returns
- * the state and stroke unchanged if nothing changes.
+ * the state and stroke unchanged if nothing changes, and always for a cell in
+ * a break week.
  */
 export function paintCell(
   state: GridState,
@@ -105,7 +147,7 @@ export function paintCell(
   level: CellLevel,
 ): { state: GridState; stroke: Stroke } {
   const before = levelOf(state.current, key);
-  if (before === level) {
+  if (before === level || isBreakCell(state, key)) {
     return { state, stroke };
   }
   const index = stroke.findIndex((c) => c.key === key);
@@ -139,7 +181,9 @@ export function undo(state: GridState): GridState {
   }
   let current = state.current;
   for (const change of last) {
-    current = withLevel(current, change.key, change.before);
+    if (!isBreakCell(state, change.key)) {
+      current = withLevel(current, change.key, change.before);
+    }
   }
   return { ...state, current, undo: state.undo.slice(0, -1) };
 }
@@ -198,7 +242,10 @@ export function finishSave(
   if (ok) {
     let saved = state.saved;
     for (const change of batch) {
-      saved = withLevel(saved, cellKey(change.focusItemId, change.weekStart), change.level);
+      const key = cellKey(change.focusItemId, change.weekStart);
+      if (!isBreakCell(state, key)) {
+        saved = withLevel(saved, key, change.level);
+      }
     }
     return { state: { ...state, saved, inFlight: null }, reverted: [] };
   }
@@ -207,7 +254,7 @@ export function finishSave(
   for (const change of batch) {
     const key = cellKey(change.focusItemId, change.weekStart);
     if (levelOf(current, key) === change.level) {
-      current = withLevel(current, key, levelOf(state.saved, key));
+      current = withLevel(current, key, isBreakCell(state, key) ? null : levelOf(state.saved, key));
       reverted.push(key);
     }
   }

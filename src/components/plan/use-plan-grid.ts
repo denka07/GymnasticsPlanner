@@ -11,6 +11,7 @@ import {
   initialState,
   isDirty,
   paintCell,
+  setBreakWeeks,
   startSave,
   undo,
   type CellKey,
@@ -148,6 +149,11 @@ class PlanGridStore {
     }
   };
 
+  /** Follows the page when a week is marked or unmarked as a break. */
+  setBreakWeeks = (breakWeeks: readonly string[]) => {
+    this.set(setBreakWeeks(this.snapshot.grid, breakWeeks));
+  };
+
   undo = () => {
     if (this.stroke !== null) {
       return;
@@ -164,10 +170,17 @@ class PlanGridStore {
 export function usePlanGrid(
   seasonId: string,
   allocations: readonly { focusItemId: string; weekStart: string; level: Level }[],
+  breakWeeks: readonly string[],
 ) {
   const t = useTranslations("Plan");
   const errorMessage = useErrorMessage();
-  const [store] = useState(() => new PlanGridStore(initialState(allocations)));
+  const [store] = useState(() => new PlanGridStore(initialState(allocations, breakWeeks)));
+  const breakKey = breakWeeks.join();
+
+  // A week marked as a break loses its cells; one unmarked stays empty.
+  useEffect(() => {
+    store.setBreakWeeks(breakKey === "" ? [] : breakKey.split(","));
+  }, [store, breakKey]);
   const { grid, savedOnce } = useSyncExternalStore(
     store.subscribe,
     store.getSnapshot,
@@ -204,6 +217,7 @@ export function usePlanGrid(
 
   return {
     levels: grid.current,
+    breakWeeks: grid.breakWeeks,
     canUndo: grid.undo.length > 0,
     status,
     beginStroke: store.beginStroke,

@@ -4,7 +4,7 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import { getDb } from "@/db";
-import { disciplines, focusAllocations, focusItems, seasons } from "@/db/schema";
+import { disciplines, focusAllocations, focusItems, seasons, seasonWeeks } from "@/db/schema";
 import { requireSeasonAccess } from "@/lib/access";
 
 import { allocationChangesInput } from "./schemas";
@@ -14,8 +14,9 @@ import { allocationChangesInput } from "./schemas";
 /**
  * Sets or clears focus levels for a list of cells of a season, all in one
  * transaction. Requires edit access. Every focus item must belong to the
- * season and every week must lie within it; otherwise nothing is written and
- * a ZodError is thrown.
+ * season and every week must lie within it, and no level may be set in a
+ * break week (clearing is fine); otherwise nothing is written and a ZodError
+ * is thrown.
  */
 export async function saveFocusAllocations(
   seasonId: string,
@@ -42,6 +43,28 @@ export async function saveFocusAllocations(
     throw new ZodError([
       { code: "custom", message: "invalid", path: ["focusItemId"], input: itemIds },
     ]);
+  }
+
+  // A break week holds no focus: refuse to set a level there. Checked here
+  // against the database; clearing a cell in a break week is still allowed.
+  const setWeeks = [...new Set(changes.filter((c) => c.level !== null).map((c) => c.weekStart))];
+  if (setWeeks.length > 0) {
+    const breaks = await db
+      .select({ weekStart: seasonWeeks.weekStart })
+      .from(seasonWeeks)
+      .where(
+        and(
+          eq(seasonWeeks.seasonId, seasonId),
+          eq(seasonWeeks.isBreak, true),
+          inArray(seasonWeeks.weekStart, setWeeks),
+        ),
+      )
+      .limit(1);
+    if (breaks.length > 0) {
+      throw new ZodError([
+        { code: "custom", message: "breakWeek", path: ["weekStart"], input: breaks[0].weekStart },
+      ]);
+    }
   }
 
   const upserts = changes.flatMap((c) =>
