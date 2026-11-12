@@ -301,7 +301,7 @@ export function SeasonDialog({
   );
 }
 
-function WeekFields({
+export function WeekFields({
   id,
   legend,
   year,

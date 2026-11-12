@@ -5,6 +5,7 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db";
 import { groups, seasons, type Group, type Season } from "@/db/schema";
 import {
+  canEdit,
   getAccessibleGroups,
   requireGroupAccess,
   requireGroupOwner,
@@ -88,4 +89,13 @@ export async function renameGroup(
 export async function deleteGroup(groupId: string): Promise<void> {
   await requireGroupOwner(groupId);
   await getDb().delete(groups).where(eq(groups.id, groupId));
+}
+
+/** The groups the current user may add seasons to, oldest first. */
+export async function listEditableGroups(): Promise<{ id: string; name: string }[]> {
+  const user = await requireUser();
+  const accessible = await getAccessibleGroups(user.id);
+  return accessible
+    .filter((a) => canEdit(a.access))
+    .map((a) => ({ id: a.group.id, name: a.group.name }));
 }

@@ -28,6 +28,7 @@ import {
   renameDiscipline,
   updateFocusItem,
 } from "@/lib/data/structure";
+import { copySeason } from "@/lib/data/copy-season";
 import { createEvent, deleteEvent, updateEvent } from "@/lib/data/events";
 import { saveSeasonWeek } from "@/lib/data/weeks";
 import type { Direction } from "@/lib/reorder";
@@ -89,6 +90,21 @@ export async function createSeasonAction(
   });
   if (seasonId) {
     redirect(`/seasons/${seasonId}/setup`);
+  }
+  return result;
+}
+
+/** Copies a season; on success goes to the new season. */
+export async function copySeasonAction(
+  sourceSeasonId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  let seasonId: string | undefined;
+  const result = await run(async () => {
+    seasonId = await copySeason(sourceSeasonId, input);
+  });
+  if (seasonId) {
+    redirect(`/seasons/${seasonId}`);
   }
   return result;
 }

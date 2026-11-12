@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CopyIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -10,12 +10,14 @@ import {
 } from "@/app/plan-actions";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { ConfirmDelete } from "@/components/plan/confirm-delete";
+import { CopySeasonDialog } from "@/components/plan/copy-season-dialog";
 import { NameDialog } from "@/components/plan/name-dialog";
 import { SeasonDialog } from "@/components/plan/season-dialog";
 import { weekRangeText } from "@/components/plan/season-summary";
 import { Button } from "@/components/ui/button";
 import { canEdit } from "@/lib/access";
-import { getGroup } from "@/lib/data/groups";
+import { getGroup, listEditableGroups } from "@/lib/data/groups";
+import { mondayToWeekInput } from "@/lib/season-weeks";
 
 export default function GroupPage({ params }: PageProps<"/groups/[groupId]">) {
   return (
@@ -31,6 +33,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
   const t = await getTranslations();
   const editable = canEdit(access);
   const ranges = await Promise.all(seasons.map(weekRangeText));
+  const targetGroups = await listEditableGroups();
 
   return (
     <PageShell crumbs={[{ label: group.name }]}>
@@ -98,14 +101,35 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
         ) : (
           <ul className="divide-y rounded-xl ring-1 ring-foreground/10">
             {seasons.map((season, i) => (
-              <li key={season.id}>
+              <li key={season.id} className="flex items-center hover:bg-muted">
                 <Link
                   href={`/seasons/${season.id}`}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted"
+                  className="flex min-w-0 flex-1 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3"
                 >
                   <span className="font-medium">{season.name}</span>
                   <span className="text-sm text-muted-foreground">{ranges[i]}</span>
                 </Link>
+                {targetGroups.length > 0 && (
+                  <CopySeasonDialog
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mr-2 shrink-0"
+                        aria-label={t("Seasons.copyLabel", { name: season.name })}
+                        title={t("Seasons.copySeason")}
+                      >
+                        <CopyIcon />
+                      </Button>
+                    }
+                    sourceSeasonId={season.id}
+                    sourceName={season.name}
+                    firstWeek={mondayToWeekInput(season.firstWeek)}
+                    lastWeek={mondayToWeekInput(season.lastWeek)}
+                    groups={targetGroups}
+                    defaultGroupId={group.id}
+                  />
+                )}
               </li>
             ))}
           </ul>
