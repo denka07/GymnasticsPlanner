@@ -49,12 +49,12 @@ export async function SeasonSummary({
   const slots = await Promise.all(trainingSlots.map(trainingSlotText));
 
   return (
-    <div className="grid gap-1 text-sm text-muted-foreground">
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-base text-muted-foreground">
       <p>{range}</p>
       {slots.length === 0 ? (
         <p>{t("noTrainingDays")}</p>
       ) : (
-        <ul className="flex flex-wrap gap-x-4 gap-y-1">
+        <ul className="flex flex-wrap gap-x-4 gap-y-0.5">
           {slots.map((text, i) => (
             <li key={i}>{text}</li>
           ))}
