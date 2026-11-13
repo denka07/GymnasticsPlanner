@@ -13,6 +13,7 @@ import {
   time,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -255,7 +256,111 @@ export const activities = pgTable(
   (t) => [index("activities_session_part_id_idx").on(t.sessionPartId)],
 );
 
-export const groupsRelations = relations(groups, ({ one, many }) => ({
+// --- Library -------------------------------------------------------------------
+
+/** Global items are visible to everyone and edited by administrators; personal ones by their owner. */
+export const libraryScope = pgEnum("library_scope", ["global", "personal"]);
+
+/** One catalogue of equipment types, read by everyone and edited by administrators. */
+export const equipment = pgTable(
+  "equipment",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("equipment_name_lower_unique").on(sql`lower(${t.name})`)],
+);
+
+/** A reusable exercise. A personal one has an owner; a global one has none. */
+export const exercises = pgTable(
+  "exercises",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** Short cues in display order, for example "Raka armar". */
+    focusCues: text("focus_cues").array().notNull().default(sql`'{}'::text[]`),
+    easierVariant: text("easier_variant"),
+    harderVariant: text("harder_variant"),
+    /** Free text, since disciplines are defined per season. */
+    disciplineName: text("discipline_name"),
+    scope: libraryScope("scope").notNull(),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("exercises_owner_id_idx").on(t.ownerId),
+    check(
+      "exercises_scope_owner_check",
+      sql`(${t.scope} = 'personal' and ${t.ownerId} is not null) or (${t.scope} = 'global' and ${t.ownerId} is null)`,
+    ),
+  ],
+);
+
+/** A configuration of equipment that exercises can be performed at. */
+export const stations = pgTable(
+  "stations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    scope: libraryScope("scope").notNull(),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("stations_owner_id_idx").on(t.ownerId),
+    check(
+      "stations_scope_owner_check",
+      sql`(${t.scope} = 'personal' and ${t.ownerId} is not null) or (${t.scope} = 'global' and ${t.ownerId} is null)`,
+    ),
+  ],
+);
+
+/** One line of a station's needed equipment. Equipment in use cannot be deleted. */
+export const stationEquipment = pgTable(
+  "station_equipment",
+  {
+    stationId: uuid("station_id")
+      .notNull()
+      .references(() => stations.id, { onDelete: "cascade" }),
+    equipmentId: uuid("equipment_id")
+      .notNull()
+      .references(() => equipment.id, { onDelete: "restrict" }),
+    quantity: integer("quantity").notNull().default(1),
+  },
+  (t) => [
+    primaryKey({ columns: [t.stationId, t.equipmentId] }),
+    index("station_equipment_equipment_id_idx").on(t.equipmentId),
+    check("station_equipment_quantity_check", sql`${t.quantity} >= 1`),
+  ],
+);
+
+/** An exercise a station supports. */
+export const stationExercises = pgTable(
+  "station_exercises",
+  {
+    stationId: uuid("station_id")
+      .notNull()
+      .references(() => stations.id, { onDelete: "cascade" }),
+    exerciseId: uuid("exercise_id")
+      .notNull()
+      .references(() => exercises.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.stationId, t.exerciseId] }),
+    index("station_exercises_exercise_id_idx").on(t.exerciseId),
+  ],
+);
+
+export const groupsRelations =relations(groups, ({ one, many }) => ({
   owner: one(users, { fields: [groups.ownerId], references: [users.id] }),
   seasons: many(seasons),
 }));
@@ -365,3 +470,11 @@ export type SessionPart = typeof sessionParts.$inferSelect;
 export type NewSessionPart = typeof sessionParts.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;
+export type LibraryScope = (typeof libraryScope.enumValues)[number];
+export type Equipment = typeof equipment.$inferSelect;
+export type Exercise = typeof exercises.$inferSelect;
+export type NewExercise = typeof exercises.$inferInsert;
+export type Station = typeof stations.$inferSelect;
+export type NewStation = typeof stations.$inferInsert;
+export type StationEquipment = typeof stationEquipment.$inferSelect;
+export type StationExercise = typeof stationExercises.$inferSelect;
