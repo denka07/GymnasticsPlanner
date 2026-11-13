@@ -35,6 +35,7 @@ export function StationEditor({
   initialExercises,
   catalogue,
   exercises: initialAllExercises,
+  activityCount,
 }: {
   station: { id: string; name: string; description: string | null };
   initialEquipment: { equipmentId: string; name: string; quantity: number }[];
@@ -43,6 +44,8 @@ export function StationEditor({
   catalogue: Item[];
   /** Every exercise the user may see. */
   exercises: Item[];
+  /** How many session activities use the station. */
+  activityCount: number;
 }) {
   const t = useTranslations("Stations");
   const tl = useTranslations("Library");
@@ -255,7 +258,7 @@ export function StationEditor({
             </Button>
           }
           title={t("deleteTitle")}
-          description={t("deleteText", { name: station.name })}
+          description={t("deleteText", { name: station.name, count: activityCount })}
           action={() => deleteStationAction(station.id)}
         />
       </div>

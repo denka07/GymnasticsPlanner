@@ -26,6 +26,7 @@ export function ExerciseEditor({
   exercise,
   initialStations,
   stations,
+  activityCount,
 }: {
   exercise: {
     id: string;
@@ -39,6 +40,8 @@ export function ExerciseEditor({
   initialStations: Item[];
   /** Every station the user may see. */
   stations: Item[];
+  /** How many session activities use the exercise. */
+  activityCount: number;
 }) {
   const t = useTranslations("Exercises");
   const tl = useTranslations("Library");
@@ -283,7 +286,7 @@ export function ExerciseEditor({
             </Button>
           }
           title={t("deleteTitle")}
-          description={t("deleteText", { name: exercise.name })}
+          description={t("deleteText", { name: exercise.name, count: activityCount })}
           action={() => deleteExerciseAction(exercise.id)}
         />
       </div>

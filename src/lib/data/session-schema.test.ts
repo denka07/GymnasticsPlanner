@@ -57,8 +57,34 @@ describe("outlineInput", () => {
       part(1, { title: " Samling ", durationMinutes: 10, activities: [{ id: uuid(2), text: " Volt " }] }),
     ]);
     expect(parsed).toEqual([
-      { id: uuid(1), title: "Samling", durationMinutes: 10, activities: [{ id: uuid(2), text: "Volt" }] },
+      {
+        id: uuid(1),
+        title: "Samling",
+        durationMinutes: 10,
+        activities: [{ id: uuid(2), text: "Volt", stationId: null, exerciseIds: [] }],
+      },
     ]);
+  });
+  it("accepts linked activities, with or without text", () => {
+    const linked = { id: uuid(2), stationId: uuid(3), exerciseIds: [uuid(4), uuid(5)] };
+    const parsed = outlineInput.parse([part(1, { activities: [linked] })]);
+    expect(parsed[0].activities[0]).toEqual({ ...linked, text: "" });
+    expect(
+      outlineInput.safeParse([part(1, { activities: [{ id: uuid(2), text: "x", stationId: uuid(3) }] })])
+        .success,
+    ).toBe(true);
+  });
+  it("needs exercises or text on an activity", () => {
+    expect(
+      errorOf(outlineInput.safeParse([part(1, { activities: [{ id: uuid(2), text: " ", stationId: uuid(3) }] })])),
+    ).toBe("activityEmpty");
+  });
+  it("rejects repeated, invalid or too many exercises", () => {
+    const act = (exerciseIds: unknown) => [part(1, { activities: [{ id: uuid(2), exerciseIds }] })];
+    expect(outlineInput.safeParse(act([uuid(4), uuid(4)])).success).toBe(false);
+    expect(outlineInput.safeParse(act(["nope"])).success).toBe(false);
+    const many = Array.from({ length: 21 }, (_, i) => uuid(100 + i));
+    expect(errorOf(outlineInput.safeParse(act(many)))).toBe("tooManyExercises");
   });
   it("accepts an empty outline and an empty title", () => {
     expect(outlineInput.safeParse([]).success).toBe(true);

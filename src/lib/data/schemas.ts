@@ -17,6 +17,7 @@ import {
   MAX_ACTIVITIES_PER_PART,
   MAX_ACTIVITY_LENGTH,
   MAX_DURATION,
+  MAX_EXERCISES_PER_ACTIVITY,
   MAX_PARTS,
   MAX_TITLE_LENGTH,
   MIN_DURATION,
@@ -324,14 +325,26 @@ const durationInput = z
   .max(MAX_DURATION, { error: "invalidDuration" })
   .nullable();
 
-const activityInput = z.object({
-  id,
-  text: z
-    .string({ error: "invalid" })
-    .trim()
-    .min(1, { error: "invalid" })
-    .max(MAX_ACTIVITY_LENGTH, { error: "textTooLong" }),
-});
+/**
+ * One activity: optional station, exercises in order (each once) and
+ * optional text; it needs exercises or text.
+ */
+const activityInput = z
+  .object({
+    id,
+    text: z
+      .string({ error: "invalid" })
+      .trim()
+      .max(MAX_ACTIVITY_LENGTH, { error: "textTooLong" })
+      .default(""),
+    stationId: id.nullable().default(null),
+    exerciseIds: z
+      .array(id, { error: "invalid" })
+      .max(MAX_EXERCISES_PER_ACTIVITY, { error: "tooManyExercises" })
+      .refine((ids) => new Set(ids).size === ids.length, { error: "invalid" })
+      .default([]),
+  })
+  .refine((a) => a.text !== "" || a.exerciseIds.length > 0, { error: "activityEmpty" });
 
 const partInput = z.object({
   id,

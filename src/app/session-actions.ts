@@ -13,7 +13,7 @@ import {
   updateSessionDetails,
 } from "@/lib/data/sessions";
 import { resetTicks, setNoteAfter, setPartDone } from "@/lib/data/session-view";
-import type { SavedPart } from "@/lib/outline";
+import type { LoadedPart } from "@/lib/outline";
 
 /*
  * Thin wrappers around src/lib/data/sessions.ts, like plan-actions.ts. A
@@ -101,7 +101,7 @@ export async function saveSessionOutlineAction(
 export async function copySessionContentAction(
   sourceSessionId: string,
   target: unknown,
-): Promise<SessionActionResult<{ parts: SavedPart[] }>> {
+): Promise<SessionActionResult<{ parts: LoadedPart[] }>> {
   return run(() => copySessionContent(sourceSessionId, target), { refreshPage: true });
 }
 

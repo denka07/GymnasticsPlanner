@@ -1,10 +1,12 @@
 import "server-only";
 
-import { and, eq, ilike, inArray } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, notExists, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 
 import { getDb } from "@/db";
 import {
+  activities,
+  activityExercises,
   equipment,
   exercises,
   stationEquipment,
@@ -82,13 +84,15 @@ export type StationDetails = {
   equipment: { equipmentId: string; name: string; quantity: number }[];
   /** Supported exercises the user may see, by name. */
   exercises: { id: string; name: string }[];
+  /** How many session activities use the station, in anyone's sessions. */
+  activityCount: number;
 };
 
 /** One station with its equipment and supported exercises. notFound() without access. */
 export async function getStation(stationId: string): Promise<StationDetails> {
   const { user, station, access } = await requireStationAccess(stationId, "view");
   const db = getDb();
-  const [lines, linked] = await Promise.all([
+  const [lines, linked, [uses]] = await Promise.all([
     db
       .select({
         equipmentId: stationEquipment.equipmentId,
@@ -103,12 +107,14 @@ export async function getStation(stationId: string): Promise<StationDetails> {
       .from(stationExercises)
       .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
       .where(and(eq(stationExercises.stationId, station.id), visibleTo(exercises, user))),
+    db.select({ n: count() }).from(activities).where(eq(activities.stationId, station.id)),
   ]);
   return {
     station,
     access,
     equipment: lines.sort(byName),
     exercises: linked.sort(byName),
+    activityCount: uses?.n ?? 0,
   };
 }
 
@@ -122,15 +128,17 @@ export async function listVisibleStationNames(): Promise<{ id: string; name: str
   return rows.sort(byName);
 }
 
-/** Creates a personal station owned by the current user and returns its id. */
-export async function createStation(input: { name: unknown }): Promise<string> {
+/** Creates a personal station owned by the current user and returns it. */
+export async function createStation(input: {
+  name: unknown;
+}): Promise<{ id: string; name: string }> {
   const user = await requireUser();
   const value = name.parse(input.name);
   const [row] = await getDb()
     .insert(stations)
     .values({ name: value, scope: "personal", ownerId: user.id })
-    .returning({ id: stations.id });
-  return row.id;
+    .returning({ id: stations.id, name: stations.name });
+  return row;
 }
 
 /**
@@ -193,8 +201,31 @@ export async function updateStation(stationId: string, input: unknown): Promise<
   ]);
 }
 
-/** Deletes a station with its equipment lines and exercise links. */
+/**
+ * Deletes a station with its equipment lines and exercise links. Activities
+ * that used it lose their station (the foreign key sets it to null); one that
+ * would be left with neither exercises nor text gets the station's name as
+ * text, in the same transaction.
+ */
 export async function deleteStation(stationId: string): Promise<void> {
   const { station } = await requireStationAccess(stationId, "edit");
-  await getDb().delete(stations).where(eq(stations.id, station.id));
+  const db = getDb();
+  await db.batch([
+    db
+      .update(activities)
+      .set({ text: station.name })
+      .where(
+        and(
+          eq(activities.stationId, station.id),
+          eq(activities.text, ""),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(activityExercises)
+              .where(eq(activityExercises.activityId, activities.id)),
+          ),
+        ),
+      ),
+    db.delete(stations).where(eq(stations.id, station.id)),
+  ]);
 }

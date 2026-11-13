@@ -7,8 +7,10 @@ import { ZodError } from "zod";
 import { getDb } from "@/db";
 import {
   activities,
+  activityExercises,
   disciplines,
   events,
+  exercises,
   focusAllocations,
   focusItems,
   groups,
@@ -16,6 +18,8 @@ import {
   seasonWeeks,
   sessionParts,
   sessions,
+  stationExercises,
+  stations,
   trainingSlots,
   type Event,
   type FocusLevel,
@@ -25,12 +29,17 @@ import {
   type TrainingSlot,
 } from "@/db/schema";
 import {
+  allVisible,
+  canEdit,
   requireSeasonAccess,
   requireSessionAccess,
+  visibleTo,
   type AccessLevel,
 } from "@/lib/access";
 import { isUuid } from "@/lib/access/levels";
-import type { SavedPart } from "@/lib/outline";
+import { requireUser } from "@/lib/auth";
+import { byName, libraryAccess } from "@/lib/library";
+import type { LinkedItem, LoadedActivity, LoadedPart } from "@/lib/outline";
 import { weekSessions, type WeekEntry } from "@/lib/week-sessions";
 import { addWeeks, isMonday, mondayOf, weekdayDate } from "@/lib/weeks";
 
@@ -47,7 +56,20 @@ function invalid(message = "invalid"): ZodError {
 
 // --- Reading ------------------------------------------------------------------
 
-export type StoredSession = Session & { parts: SavedPart[] };
+export type StoredSession = Session & { parts: LoadedPart[] };
+
+/**
+ * What the activity picker offers: the stations and exercises the user may
+ * see, and which exercises each station supports.
+ */
+export type ActivityLibrary = {
+  stations: LinkedItem[];
+  exercises: LinkedItem[];
+  /** Station id to the ids of the visible exercises it supports. */
+  supports: Record<string, string[]>;
+  /** Stations whose supported exercises the user may change. */
+  editableStationIds: string[];
+};
 
 export type WeekFocus = {
   disciplineId: string;
@@ -82,6 +104,8 @@ export type WeekPlan = {
   sessions: WeekEntry<StoredSession>[];
   /** Sessions of the season with at least one part, newest first. */
   copySources: CopySource[];
+  /** For linking activities; null without edit access. */
+  library: ActivityLibrary | null;
 };
 
 /** True when `weekStart` is a Monday within the season. */
@@ -93,30 +117,62 @@ function isSeasonWeek(season: Pick<Season, "firstWeek" | "lastWeek">, weekStart:
   }
 }
 
-/** The parts and activities of the given sessions, by session id. */
-async function loadOutlines(sessionIds: string[]): Promise<Map<string, SavedPart[]>> {
-  const result = new Map<string, SavedPart[]>(sessionIds.map((sid) => [sid, []]));
+/**
+ * The parts and activities of the given sessions, by session id, with the
+ * names of linked stations and exercises. Callers have checked view access to
+ * the sessions; linked library items are shown whoever owns them
+ * (docs/data-model.md), so they are not filtered by library visibility.
+ */
+async function loadOutlines(sessionIds: string[]): Promise<Map<string, LoadedPart[]>> {
+  const result = new Map<string, LoadedPart[]>(sessionIds.map((sid) => [sid, []]));
   if (sessionIds.length === 0) {
     return result;
   }
   const db = getDb();
-  const [partRows, activityRows] = await Promise.all([
+  const [partRows, activityRows, exerciseRows] = await Promise.all([
     db
       .select()
       .from(sessionParts)
       .where(inArray(sessionParts.sessionId, sessionIds))
       .orderBy(asc(sessionParts.sortOrder)),
     db
-      .select({ activity: activities })
+      .select({
+        activity: activities,
+        station: { id: stations.id, name: stations.name },
+      })
       .from(activities)
       .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
+      .leftJoin(stations, eq(stations.id, activities.stationId))
       .where(inArray(sessionParts.sessionId, sessionIds))
       .orderBy(asc(activities.sortOrder)),
+    db
+      .select({
+        activityId: activityExercises.activityId,
+        id: exercises.id,
+        name: exercises.name,
+      })
+      .from(activityExercises)
+      .innerJoin(exercises, eq(exercises.id, activityExercises.exerciseId))
+      .innerJoin(activities, eq(activities.id, activityExercises.activityId))
+      .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
+      .where(inArray(sessionParts.sessionId, sessionIds))
+      .orderBy(asc(activityExercises.sortOrder)),
   ]);
-  const byPart = new Map<string, SavedPart["activities"]>();
-  for (const { activity } of activityRows) {
+  const exercisesByActivity = new Map<string, LinkedItem[]>();
+  for (const e of exerciseRows) {
+    const list = exercisesByActivity.get(e.activityId) ?? [];
+    list.push({ id: e.id, name: e.name });
+    exercisesByActivity.set(e.activityId, list);
+  }
+  const byPart = new Map<string, LoadedActivity[]>();
+  for (const { activity, station } of activityRows) {
     const list = byPart.get(activity.sessionPartId) ?? [];
-    list.push({ id: activity.id, text: activity.text });
+    list.push({
+      id: activity.id,
+      text: activity.text,
+      station,
+      exercises: exercisesByActivity.get(activity.id) ?? [],
+    });
     byPart.set(activity.sessionPartId, list);
   }
   for (const p of partRows) {
@@ -209,7 +265,10 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
       .orderBy(desc(sessions.date), desc(sessions.startTime)),
   ]);
 
-  const outlines = await loadOutlines(sessionRows.map((s) => s.id));
+  const [outlines, library] = await Promise.all([
+    loadOutlines(sessionRows.map((s) => s.id)),
+    canEdit(access) ? loadActivityLibrary() : null,
+  ]);
   const stored: StoredSession[] = sessionRows.map((s) => ({ ...s, parts: outlines.get(s.id) ?? [] }));
   const week = weekRows[0];
   const isBreak = week?.isBreak ?? false;
@@ -240,6 +299,36 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
     trainingSlots: slots,
     sessions: weekSessions(slots, weekStart, isBreak, stored),
     copySources: sourceRows,
+    library,
+  };
+}
+
+/** The stations and exercises the user may link to activities. */
+async function loadActivityLibrary(): Promise<ActivityLibrary> {
+  const user = await requireUser();
+  const db = getDb();
+  const [stationRows, exerciseRows, supportRows] = await Promise.all([
+    db
+      .select({ id: stations.id, name: stations.name, scope: stations.scope, ownerId: stations.ownerId })
+      .from(stations)
+      .where(visibleTo(stations, user)),
+    db.select({ id: exercises.id, name: exercises.name }).from(exercises).where(visibleTo(exercises, user)),
+    db
+      .select({ stationId: stationExercises.stationId, exerciseId: stationExercises.exerciseId })
+      .from(stationExercises)
+      .innerJoin(stations, eq(stations.id, stationExercises.stationId))
+      .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
+      .where(and(visibleTo(stations, user), visibleTo(exercises, user))),
+  ]);
+  const supports: Record<string, string[]> = {};
+  for (const r of supportRows) {
+    (supports[r.stationId] ??= []).push(r.exerciseId);
+  }
+  return {
+    stations: stationRows.map(({ id, name }) => ({ id, name })).sort(byName),
+    exercises: exerciseRows.sort(byName),
+    supports,
+    editableStationIds: stationRows.filter((s) => libraryAccess(s, user) === "edit").map((s) => s.id),
   };
 }
 
@@ -413,22 +502,64 @@ async function checkNewIds(
   }
 }
 
+/**
+ * Throws unless the user may see every station and exercise the outline
+ * links that the session does not link already. Links the session already
+ * has stay allowed, so an editor can keep items someone else linked.
+ */
+async function checkNewLinks(
+  sessionId: string,
+  outline: OutlineInput,
+  existingStationIds: Set<string>,
+) {
+  const stationIds = new Set(
+    outline.flatMap((p) => p.activities.flatMap((a) => (a.stationId ? [a.stationId] : []))),
+  );
+  const exerciseIds = new Set(outline.flatMap((p) => p.activities.flatMap((a) => a.exerciseIds)));
+  if (stationIds.size === 0 && exerciseIds.size === 0) {
+    return;
+  }
+  const db = getDb();
+  const linkedExercises =
+    exerciseIds.size === 0
+      ? []
+      : await db
+          .select({ id: activityExercises.exerciseId })
+          .from(activityExercises)
+          .innerJoin(activities, eq(activities.id, activityExercises.activityId))
+          .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
+          .where(eq(sessionParts.sessionId, sessionId));
+  const known = new Set(linkedExercises.map((e) => e.id));
+  const user = await requireUser();
+  const [stationsOk, exercisesOk] = await Promise.all([
+    allVisible(stations, user, [...stationIds].filter((i) => !existingStationIds.has(i))),
+    allVisible(exercises, user, [...exerciseIds].filter((i) => !known.has(i))),
+  ]);
+  if (!stationsOk || !exercisesOk) {
+    throw invalid();
+  }
+}
+
 /** The statements that make a session's outline equal `outline`. */
 async function outlineStatements(sessionId: string, outline: OutlineInput) {
   const db = getDb();
   const [existingParts, existingActivities] = await Promise.all([
     db.select({ id: sessionParts.id }).from(sessionParts).where(eq(sessionParts.sessionId, sessionId)),
     db
-      .select({ id: activities.id })
+      .select({ id: activities.id, stationId: activities.stationId })
       .from(activities)
       .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
       .where(eq(sessionParts.sessionId, sessionId)),
   ]);
   const partIds = outline.map((p) => p.id);
   const activityIds = outline.flatMap((p) => p.activities.map((a) => a.id));
+  const existingStationIds = new Set(
+    existingActivities.flatMap((a) => (a.stationId ? [a.stationId] : [])),
+  );
   await Promise.all([
     checkNewIds(sessionParts, partIds, new Set(existingParts.map((p) => p.id))),
     checkNewIds(activities, activityIds, new Set(existingActivities.map((a) => a.id))),
+    checkNewLinks(sessionId, outline, existingStationIds),
   ]);
 
   const partsOfSession = db
@@ -480,7 +611,13 @@ async function outlineStatements(sessionId: string, outline: OutlineInput) {
     );
   }
   const activityRows = outline.flatMap((p) =>
-    p.activities.map((a, i) => ({ id: a.id, sessionPartId: p.id, text: a.text, sortOrder: i })),
+    p.activities.map((a, i) => ({
+      id: a.id,
+      sessionPartId: p.id,
+      stationId: a.stationId,
+      text: a.text,
+      sortOrder: i,
+    })),
   );
   if (activityRows.length > 0) {
     writes.push(
@@ -492,11 +629,31 @@ async function outlineStatements(sessionId: string, outline: OutlineInput) {
           // An activity may move to another part of the same session.
           set: {
             sessionPartId: sql`excluded.session_part_id`,
+            stationId: sql`excluded.station_id`,
             text: sql`excluded.text`,
             sortOrder: sql`excluded.sort_order`,
           },
         }),
     );
+  }
+  // Exercise links are rewritten whole: cleared for every activity of the
+  // session (after the upserts, so moved activities are included), then
+  // inserted again in order.
+  writes.push(
+    db.delete(activityExercises).where(
+      inArray(
+        activityExercises.activityId,
+        db.select({ id: activities.id }).from(activities).where(inArray(activities.sessionPartId, partsOfSession)),
+      ),
+    ),
+  );
+  const exerciseRows = outline.flatMap((p) =>
+    p.activities.flatMap((a) =>
+      a.exerciseIds.map((exerciseId, i) => ({ activityId: a.id, exerciseId, sortOrder: i })),
+    ),
+  );
+  if (exerciseRows.length > 0) {
+    writes.push(db.insert(activityExercises).values(exerciseRows));
   }
   // Upserts first: an activity moved out of a removed part must already point
   // at its new part when the removed part's cascade runs.
@@ -526,7 +683,7 @@ export async function saveSessionOutline(target: unknown, input: unknown): Promi
 export async function copySessionContent(
   sourceSessionId: string,
   target: unknown,
-): Promise<{ sessionId: string; parts: SavedPart[] }> {
+): Promise<{ sessionId: string; parts: LoadedPart[] }> {
   if (!isUuid(sourceSessionId)) {
     notFound();
   }
@@ -536,11 +693,12 @@ export async function copySessionContent(
     throw invalid();
   }
   const source = (await loadOutlines([sourceSessionId])).get(sourceSessionId) ?? [];
-  const parts: SavedPart[] = source.map((p) => ({
+  // Station and exercise links are copied as they are, like the text.
+  const parts: LoadedPart[] = source.map((p) => ({
     id: crypto.randomUUID(),
     title: p.title,
     durationMinutes: p.durationMinutes,
-    activities: p.activities.map((a) => ({ id: crypto.randomUUID(), text: a.text })),
+    activities: p.activities.map((a) => ({ ...a, id: crypto.randomUUID() })),
   }));
   const db = getDb();
   // Deleting the parts deletes their activities too; the new rows start not done.
@@ -559,10 +717,24 @@ export async function copySessionContent(
       ),
     );
     const activityRows = parts.flatMap((p) =>
-      p.activities.map((a, i) => ({ id: a.id, sessionPartId: p.id, text: a.text, sortOrder: i })),
+      p.activities.map((a, i) => ({
+        id: a.id,
+        sessionPartId: p.id,
+        stationId: a.station?.id ?? null,
+        text: a.text,
+        sortOrder: i,
+      })),
     );
     if (activityRows.length > 0) {
       inserts.push(db.insert(activities).values(activityRows));
+    }
+    const exerciseRows = parts.flatMap((p) =>
+      p.activities.flatMap((a) =>
+        a.exercises.map((e, i) => ({ activityId: a.id, exerciseId: e.id, sortOrder: i })),
+      ),
+    );
+    if (exerciseRows.length > 0) {
+      inserts.push(db.insert(activityExercises).values(exerciseRows));
     }
   }
   await db.batch([clear, ...inserts]);

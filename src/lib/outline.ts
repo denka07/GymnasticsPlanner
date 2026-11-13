@@ -11,6 +11,9 @@
 
 export type LineKind = "part" | "activity";
 
+/** A station or exercise from the library, by id with its name for display. */
+export type LinkedItem = { id: string; name: string };
+
 export type OutlineLine = {
   /** Stable id. The client makes it for new lines; the server keeps it. */
   id: string;
@@ -18,6 +21,10 @@ export type OutlineLine = {
   text: string;
   /** Minutes; parts only, null for activities. */
   duration: number | null;
+  /** Activities only: the station it takes place at, or null. */
+  station: LinkedItem | null;
+  /** Activities only: exercises from the library, in order. */
+  exercises: LinkedItem[];
 };
 
 /** Where the caret goes after an operation. */
@@ -32,15 +39,56 @@ export const MAX_PARTS = 60;
 export const MAX_ACTIVITIES_PER_PART = 60;
 export const MAX_TITLE_LENGTH = 300;
 export const MAX_ACTIVITY_LENGTH = 1000;
+export const MAX_EXERCISES_PER_ACTIVITY = 20;
 export const MIN_DURATION = 1;
 export const MAX_DURATION = 600;
 
 export function part(id: string, text: string, duration: number | null = null): OutlineLine {
-  return { id, kind: "part", text, duration };
+  return { id, kind: "part", text, duration, station: null, exercises: [] };
 }
 
-export function activity(id: string, text: string): OutlineLine {
-  return { id, kind: "activity", text, duration: null };
+export function activity(
+  id: string,
+  text: string,
+  links: { station?: LinkedItem | null; exercises?: LinkedItem[] } = {},
+): OutlineLine {
+  return {
+    id,
+    kind: "activity",
+    text,
+    duration: null,
+    station: links.station ?? null,
+    exercises: links.exercises ?? [],
+  };
+}
+
+/** True when an activity links a station or exercises. */
+export function hasLinks(line: OutlineLine): boolean {
+  return line.station !== null || line.exercises.length > 0;
+}
+
+/** True for a line with no text and no links: one that may be removed or replaced. */
+export function isBlank(line: OutlineLine): boolean {
+  return line.text === "" && !hasLinks(line);
+}
+
+/**
+ * True when an activity can be saved: it has exercises or text. A station
+ * alone is not enough (docs/data-model.md, "Activity").
+ */
+export function isSavableActivity(line: Pick<OutlineLine, "text" | "exercises">): boolean {
+  return line.text.trim() !== "" || line.exercises.length > 0;
+}
+
+/** Sets the station and exercises of the activity at `index`. */
+export function setLinks(
+  lines: readonly OutlineLine[],
+  index: number,
+  links: { station: LinkedItem | null; exercises: LinkedItem[] },
+): OutlineLine[] {
+  const next = [...lines];
+  next[index] = { ...next[index], station: links.station, exercises: links.exercises };
+  return next;
 }
 
 /** A list that obeys the invariants: not empty, first line a part. */
@@ -77,8 +125,9 @@ function toActivity(line: OutlineLine): OutlineLine {
   return { ...line, kind: "activity", duration: null };
 }
 
+/** Only for lines without links: a part holds none. */
 function toPart(line: OutlineLine): OutlineLine {
-  return { ...line, kind: "part", duration: null };
+  return { ...line, kind: "part", duration: null, station: null, exercises: [] };
 }
 
 /**
@@ -89,7 +138,8 @@ function toPart(line: OutlineLine): OutlineLine {
  * - otherwise the title splits and the rest becomes the next part, which takes
  *   the activities below (as splitting a heading in a document would).
  * On an activity:
- * - an empty activity turns into a part;
+ * - an empty activity without links turns into a part (one with links and
+ *   no text gets a new activity below it);
  * - at the start of a non-empty text, an empty activity is inserted above;
  * - otherwise the text splits and the rest becomes the next activity.
  */
@@ -104,7 +154,7 @@ export function pressEnter(
   const after = line.text.slice(offset);
   const next = [...lines];
 
-  if (line.kind === "activity" && line.text.trim() === "") {
+  if (line.kind === "activity" && line.text.trim() === "" && !hasLinks(line)) {
     next[index] = toPart(line);
     return { lines: next, focus: { index, offset: 0 } };
   }
@@ -141,10 +191,11 @@ export function indent(lines: readonly OutlineLine[], index: number, offset: num
 
 /**
  * Shift+Tab: turns an activity into a part. The activities below it in the
- * same part come along and become its activities. Null for parts.
+ * same part come along and become its activities. Null for parts, and for
+ * activities with links, which a part cannot hold.
  */
 export function outdent(lines: readonly OutlineLine[], index: number, offset: number): Edit | null {
-  if (lines[index].kind !== "activity") {
+  if (lines[index].kind !== "activity" || hasLinks(lines[index])) {
     return null;
   }
   const next = [...lines];
@@ -154,12 +205,12 @@ export function outdent(lines: readonly OutlineLine[], index: number, offset: nu
 
 /**
  * Backspace at the start of an empty line: removes it and puts the caret at
- * the end of the previous line. Null when the line is not empty, or when it
+ * the end of the previous line. Null when the line has text or links, or when it
  * is the only line, or the first line with activities below (they would have
  * no part).
  */
 export function removeEmptyLine(lines: readonly OutlineLine[], index: number): Edit | null {
-  if (lines[index].text !== "" || lines.length === 1) {
+  if (!isBlank(lines[index]) || lines.length === 1) {
     return null;
   }
   if (index === 0) {
@@ -311,7 +362,7 @@ export function applyPaste(
   let insertAt = caretBlock + 1;
   // The empty line the caret is on is replaced by the paste.
   const current = lines[index];
-  if (current.text === "") {
+  if (isBlank(current)) {
     if (current.kind === "activity") {
       blocks[caretBlock].activities = blocks[caretBlock].activities.filter((a) => a !== current);
     } else if (blocks[caretBlock].activities.length === 0) {
@@ -405,16 +456,40 @@ export function sessionLength(startTime: string | null, endTime: string | null):
 
 // --- Saving -------------------------------------------------------------------
 
+/** An activity as it is sent to the server: library items by id only. */
+export type SavedActivity = {
+  id: string;
+  text: string;
+  stationId: string | null;
+  exerciseIds: string[];
+};
+
 export type SavedPart = {
   id: string;
   title: string;
   durationMinutes: number | null;
-  activities: { id: string; text: string }[];
+  activities: SavedActivity[];
+};
+
+/** An activity as the server returns it, with the names of its library items. */
+export type LoadedActivity = {
+  id: string;
+  text: string;
+  station: LinkedItem | null;
+  exercises: LinkedItem[];
+};
+
+export type LoadedPart = {
+  id: string;
+  title: string;
+  durationMinutes: number | null;
+  activities: LoadedActivity[];
 };
 
 /**
- * The outline as it is sent to the server: nested, trimmed, with empty
- * activities left out, and empty parts left out unless they hold activities.
+ * The outline as it is sent to the server: nested, trimmed, with activities
+ * that have neither exercises nor text left out (a station alone is not
+ * saved), and empty parts left out unless they hold activities.
  */
 export function toSavedParts(lines: readonly OutlineLine[]): SavedPart[] {
   return toBlocks(lines)
@@ -422,17 +497,45 @@ export function toSavedParts(lines: readonly OutlineLine[]): SavedPart[] {
       id: b.part.id,
       title: b.part.text.trim(),
       durationMinutes: b.part.duration,
-      activities: b.activities
-        .map((a) => ({ id: a.id, text: a.text.trim() }))
-        .filter((a) => a.text !== ""),
+      activities: b.activities.filter(isSavableActivity).map((a) => ({
+        id: a.id,
+        text: a.text.trim(),
+        stationId: a.station?.id ?? null,
+        exerciseIds: a.exercises.map((e) => e.id),
+      })),
     }))
     .filter((p) => p.title !== "" || p.activities.length > 0);
 }
 
-/** The flat lines of a saved outline. */
-export function fromSavedParts(parts: readonly SavedPart[]): OutlineLine[] {
+/** The flat lines of an outline loaded from the server. */
+export function fromLoadedParts(parts: readonly LoadedPart[]): OutlineLine[] {
   return parts.flatMap((p) => [
     part(p.id, p.title, p.durationMinutes),
-    ...p.activities.map((a) => activity(a.id, a.text)),
+    ...p.activities.map((a) => activity(a.id, a.text, a)),
   ]);
+}
+
+// --- Library links -------------------------------------------------------------
+
+/**
+ * The exercises a picker offers for an activity: those not already chosen
+ * whose name contains the search. The ones the chosen station supports come
+ * first, then all others, each by name; at most `limit` in all.
+ */
+export function exerciseOptions<T extends LinkedItem>(
+  items: readonly T[],
+  supportedIds: ReadonlySet<string>,
+  chosenIds: readonly string[],
+  search: string,
+  limit = 12,
+): { item: T; supported: boolean }[] {
+  const chosen = new Set(chosenIds);
+  const needle = search.trim().toLocaleLowerCase("sv");
+  const matches = items
+    .filter((i) => !chosen.has(i.id) && i.name.toLocaleLowerCase("sv").includes(needle))
+    .sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  return [
+    ...matches.filter((i) => supportedIds.has(i.id)).map((item) => ({ item, supported: true })),
+    ...matches.filter((i) => !supportedIds.has(i.id)).map((item) => ({ item, supported: false })),
+  ].slice(0, limit);
 }

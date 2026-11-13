@@ -61,7 +61,9 @@
     "tooManyCues": "En övning får ha högst 20 fokuspunkter.",
     "invalidQuantity": "Ange antalet som ett heltal, 1–99.",
     "tooManyEquipmentLines": "En station får ha högst 30 redskap.",
-    "duplicateEquipment": "Varje redskap kan bara finnas med en gång."
+    "duplicateEquipment": "Varje redskap kan bara finnas med en gång.",
+    "activityEmpty": "En rad behöver en övning eller text.",
+    "tooManyExercises": "En rad får ha högst 20 övningar."
   },
   "Nav": {
     "label": "Sökväg",
@@ -292,7 +294,30 @@
     "notSaved": "Inte sparat",
     "saveFailed": "Passet kunde inte sparas. Dina ändringar finns kvar; ändra något för att försöka igen.",
     "openSession": "Öppna pass",
-    "noteAfterLabel": "Anteckning efter passet"
+    "noteAfterLabel": "Anteckning efter passet",
+    "linkButton": "Station och övningar för {line}",
+    "linkTitle": "Station och övningar",
+    "linkIntro": "Välj en station först om du vill; övningarna den stöder visas då överst.",
+    "stationHeading": "Station",
+    "findStation": "Sök station",
+    "chooseStation": "Välj {name}",
+    "createStation": "Skapa stationen ”{name}”",
+    "removeStation": "Ta bort stationen {name} från raden",
+    "noStations": "Ingen station matchar.",
+    "exercisesHeading": "Övningar",
+    "findExercise": "Sök övning",
+    "addExercise": "Lägg till {name}",
+    "supported": "Stöds av stationen",
+    "createExercise": "Skapa övningen ”{name}”",
+    "createExerciseAtStation": "Skapa övningen ”{name}” och koppla till stationen",
+    "removeExercise": "Ta bort {name} från raden",
+    "moveExerciseUp": "Flytta {name} upp",
+    "noExercises": "Ingen övning matchar.",
+    "noneChosen": "Inga övningar valda.",
+    "createFailed": "Kunde inte skapa",
+    "done": "Klar",
+    "stationOnly": "Välj en övning eller skriv text, annars sparas inte raden.",
+    "stationLabel": "Station"
   },
   "Toasts": {
     "label": "Aviseringar"
@@ -320,7 +345,14 @@
     "noteFailed": "Anteckningen kunde inte sparas.",
     "noteLength": "{count} av {max} tecken",
     "empty": "Inget är planerat för det här passet än.",
-    "plan": "Planera passet"
+    "plan": "Planera passet",
+    "equipmentHeading": "Redskap",
+    "noEquipment": "Inga redskap angivna.",
+    "cuesHeading": "Fokuspunkter",
+    "easierLabel": "Lättare",
+    "harderLabel": "Svårare",
+    "noDetails": "Inga detaljer än.",
+    "stationLabel": "Station"
   },
   "Start": {
     "nextSessions": "Nästa pass",
@@ -373,7 +405,8 @@
     "noMatches": "Ingen övning matchar.",
     "deleteStation": "Ta bort stationen",
     "deleteTitle": "Ta bort stationen?",
-    "deleteText": "Stationen ”{name}” tas bort. Övningarna finns kvar i biblioteket."
+    "deleteText": "Stationen ”{name}” tas bort. Övningarna finns kvar i biblioteket. {count, plural, =0 {Den används inte i något pass.} one {Den används i # aktivitet i ett pass; aktiviteten behåller sina övningar och sin text.} other {Den används i # aktiviteter i pass; de behåller sina övningar och sin text.}}",
+    "usage": "{count, plural, =0 {Används inte i något pass.} one {Används i # aktivitet i ett pass.} other {Används i # aktiviteter i pass.}}"
   },
   "Exercises": {
     "new": "Ny övning",
@@ -403,7 +436,8 @@
     "noMatches": "Ingen station matchar.",
     "deleteExercise": "Ta bort övningen",
     "deleteTitle": "Ta bort övningen?",
-    "deleteText": "Övningen ”{name}” tas bort och försvinner från alla stationer."
+    "deleteText": "Övningen ”{name}” tas bort och försvinner från alla stationer. {count, plural, =0 {Den används inte i något pass.} one {Den används i # aktivitet i ett pass och tas bort därifrån; står inget annat kvar på raden skrivs övningens namn in som text.} other {Den används i # aktiviteter i pass och tas bort därifrån; där inget annat står kvar på raden skrivs övningens namn in som text.}}",
+    "usage": "{count, plural, =0 {Används inte i något pass.} one {Används i # aktivitet i ett pass.} other {Används i # aktiviteter i pass.}}"
   },
   "Equipment": {
     "intro": "Redskapen är gemensamma för alla. Bara administratörer kan ändra listan.",

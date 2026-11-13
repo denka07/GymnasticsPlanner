@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { SessionTarget } from "@/lib/data/schemas";
 import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
-import { fromSavedParts, type SavedPart } from "@/lib/outline";
+import { fromLoadedParts, hasLinks, type LoadedPart } from "@/lib/outline";
 import { cn } from "@/lib/utils";
 
 import { CopySessionDialog, type CopySourceOption } from "./copy-session-dialog";
@@ -51,7 +51,7 @@ export type SessionColumnData = {
   location: string | null;
   isCancelled: boolean;
   noteAfter: string | null;
-  parts: SavedPart[];
+  parts: LoadedPart[];
 };
 
 export function SessionColumn({
@@ -79,7 +79,7 @@ export function SessionColumn({
   const target: SessionTarget = sessionId
     ? { sessionId }
     : { seasonId, trainingSlotId: data.trainingSlotId!, weekStart };
-  const { lines, status, store } = useSessionOutline(fromSavedParts(data.parts), target, setStoredId);
+  const { lines, status, store } = useSessionOutline(fromLoadedParts(data.parts), target, setStoredId);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -90,7 +90,7 @@ export function SessionColumn({
   const end = shortTime(data.endTime);
   const time = start && end ? `${start}–${end}` : (start ?? end);
   const isPlaceholder = sessionId === null;
-  const hasContent = lines.some((l) => l.text.trim() !== "");
+  const hasContent = lines.some((l) => l.text.trim() !== "" || hasLinks(l));
   const headingId = `session-${data.trainingSlotId ?? data.sessionId}`;
 
   function report(result: { ok: boolean; error?: string }) {
@@ -226,7 +226,7 @@ export function SessionColumn({
               if (!result.ok) {
                 return result.error;
               }
-              store.replace(fromSavedParts(result.parts), result.sessionId);
+              store.replace(fromLoadedParts(result.parts), result.sessionId);
               setStoredId(result.sessionId);
               return null;
             }}
