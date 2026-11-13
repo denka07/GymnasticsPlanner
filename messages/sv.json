@@ -344,8 +344,10 @@
     "noteLength": "{count} av {max} tecken",
     "empty": "Inget är planerat för det här passet än.",
     "plan": "Planera passet",
-    "equipmentHeading": "Redskap",
-    "noEquipment": "Inga redskap angivna.",
+    "more": "+ {count} mer",
+    "quantityLine": "{quantity} × {name}",
+    "listSeparator": ", ",
+    "textSeparator": ": ",
     "stationLabel": "Station"
   },
   "Start": {
