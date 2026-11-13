@@ -43,9 +43,9 @@ How GymnasticsPlanner is built: the technology choices and the order of work. Th
 
 ### Environments
 
-- Local development against a Neon development branch.
+- Local development against the Neon branch `dev`.
 - A preview deployment for each pull request, with its own database branch.
-- Production on Vercel, deployed when a pull request is merged into `main`.
+- Production on Vercel, deployed when a pull request is merged into `main`. Pending migrations are applied to the production database as part of that build.
 
 ## Build order
 

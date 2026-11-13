@@ -25,7 +25,13 @@ The site runs at http://localhost:3000.
 | `npm run typecheck` | Run the TypeScript compiler without output |
 | `npm test` | Run the unit tests with Vitest |
 | `npm run db:generate` | Create a migration from changes in `src/db/schema.ts` |
-| `npm run db:migrate` | Apply migrations to the database in `DATABASE_URL` |
+| `npm run db:migrate` | Apply migrations to the database in `DATABASE_URL` (locally: the `dev` branch) |
+
+## Databases
+
+The Neon project has two branches. Production deployments on Vercel use the default branch. Local development uses the branch `dev`, set as `DATABASE_URL` in `.env.local`.
+
+Run `npm run db:migrate` locally to apply migrations to `dev`. Production is migrated automatically: Vercel runs the `vercel-build` script, which applies pending migrations before building a production deployment. Preview deployments are never migrated.
 
 ## Layout
 
