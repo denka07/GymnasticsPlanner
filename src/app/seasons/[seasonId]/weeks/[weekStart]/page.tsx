@@ -34,6 +34,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
       endTime: s.endTime,
       location: s.location,
       isCancelled: s.isCancelled,
+      noteAfter: s.noteAfter,
       parts: s.parts,
     };
   }
@@ -46,6 +47,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
     endTime: p.endTime,
     location: p.location,
     isCancelled: false,
+    noteAfter: null,
     parts: [],
   };
 }

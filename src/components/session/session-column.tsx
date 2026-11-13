@@ -2,6 +2,7 @@
 
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -49,6 +50,7 @@ export type SessionColumnData = {
   endTime: string | null;
   location: string | null;
   isCancelled: boolean;
+  noteAfter: string | null;
   parts: SavedPart[];
 };
 
@@ -176,6 +178,19 @@ export function SessionColumn({
         </>
       ) : (
         <SessionOutlineView lines={lines} startTime={data.startTime} name={name} />
+      )}
+
+      {data.noteAfter && (
+        <div className="grid gap-0.5 border-t pt-2">
+          <p className="text-sm font-semibold text-muted-foreground">{t("noteAfterLabel")}</p>
+          <p className="break-words whitespace-pre-wrap">{data.noteAfter}</p>
+        </div>
+      )}
+
+      {sessionId && (
+        <Button variant="outline" nativeButton={false} render={<Link href={`/sessions/${sessionId}`} />}>
+          {t("openSession")}
+        </Button>
       )}
 
       {editable && (
