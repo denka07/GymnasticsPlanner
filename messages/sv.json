@@ -49,7 +49,12 @@
     "weekOutsideSeason": "Veckan ligger utanför säsongen.",
     "breakWeek": "Veckan är ett uppehåll och kan inte ha fokus.",
     "invalidDate": "Ange ett giltigt datum.",
-    "dateOrder": "Slutdatumet får inte vara före startdatumet."
+    "dateOrder": "Slutdatumet får inte vara före startdatumet.",
+    "dateOutsideWeek": "Datumet måste ligga i samma vecka.",
+    "invalidDuration": "Ange längden som hela minuter, 1–600.",
+    "tooManyParts": "Ett pass får ha högst 60 delar.",
+    "tooManyActivities": "En del får ha högst 60 rader.",
+    "slotSession": "Ordinarie pass kan inte tas bort, bara ställas in."
   },
   "Nav": {
     "label": "Sökväg",

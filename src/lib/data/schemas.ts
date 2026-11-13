@@ -13,6 +13,14 @@ import {
   weekInputToMonday,
   type WeekInput,
 } from "../season-weeks";
+import {
+  MAX_ACTIVITIES_PER_PART,
+  MAX_ACTIVITY_LENGTH,
+  MAX_DURATION,
+  MAX_PARTS,
+  MAX_TITLE_LENGTH,
+  MIN_DURATION,
+} from "../outline";
 import { isMonday } from "../weeks";
 
 export const id = z.uuid({ error: "invalid" });
@@ -277,3 +285,81 @@ export const copySeasonInput = z
 
 export type CopySeasonInput = z.input<typeof copySeasonInput>;
 export type CopySeasonValues = z.output<typeof copySeasonInput>;
+
+// --- Sessions -------------------------------------------------------------
+
+/** Where a session edit goes: a stored session, or a slot's placeholder in a week. */
+export const sessionTargetInput = z.union(
+  [
+    z.object({ sessionId: id }).strict(),
+    z
+      .object({ seasonId: id, trainingSlotId: id, weekStart })
+      .strict(),
+  ],
+  { error: "invalid" },
+);
+
+export type SessionTarget = z.input<typeof sessionTargetInput>;
+
+/** Date, times and location of a session. */
+export const sessionDetailsInput = z
+  .object({
+    date: isoDate,
+    startTime: time,
+    endTime: time,
+    location: optionalText(100),
+  })
+  .refine((s) => !s.startTime || !s.endTime || s.endTime > s.startTime, {
+    error: "timeOrder",
+    path: ["endTime"],
+  });
+
+export type SessionDetailsInput = z.input<typeof sessionDetailsInput>;
+export type SessionDetails = z.output<typeof sessionDetailsInput>;
+
+const durationInput = z
+  .number({ error: "invalidDuration" })
+  .int({ error: "invalidDuration" })
+  .min(MIN_DURATION, { error: "invalidDuration" })
+  .max(MAX_DURATION, { error: "invalidDuration" })
+  .nullable();
+
+const activityInput = z.object({
+  id,
+  text: z
+    .string({ error: "invalid" })
+    .trim()
+    .min(1, { error: "invalid" })
+    .max(MAX_ACTIVITY_LENGTH, { error: "textTooLong" }),
+});
+
+const partInput = z.object({
+  id,
+  title: z.string({ error: "invalid" }).trim().max(MAX_TITLE_LENGTH, { error: "textTooLong" }),
+  durationMinutes: durationInput,
+  activities: z
+    .array(activityInput, { error: "invalid" })
+    .max(MAX_ACTIVITIES_PER_PART, { error: "tooManyActivities" }),
+});
+
+/**
+ * The whole outline of a session: parts in order, each with its activities in
+ * order. Ids are made by the client for new lines; every id appears once.
+ */
+export const outlineInput = z
+  .array(partInput, { error: "invalid" })
+  .max(MAX_PARTS, { error: "tooManyParts" })
+  .superRefine((parts, ctx) => {
+    const seen = new Set<string>();
+    for (const p of parts) {
+      for (const lineId of [p.id, ...p.activities.map((a) => a.id)]) {
+        if (seen.has(lineId)) {
+          ctx.addIssue({ code: "custom", message: "invalid", path: [] });
+          return;
+        }
+        seen.add(lineId);
+      }
+    }
+  });
+
+export type OutlineInput = z.output<typeof outlineInput>;
