@@ -251,7 +251,6 @@ export const activities = pgTable(
       .references(() => sessionParts.id, { onDelete: "cascade" }),
     text: text("text").notNull(),
     sortOrder: integer("sort_order").notNull(),
-    isDone: boolean("is_done").notNull().default(false),
   },
   (t) => [index("activities_session_part_id_idx").on(t.sessionPartId)],
 );

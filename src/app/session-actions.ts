@@ -12,7 +12,7 @@ import {
   setSessionCancelled,
   updateSessionDetails,
 } from "@/lib/data/sessions";
-import { resetTicks, setItemDone, setNoteAfter } from "@/lib/data/session-view";
+import { resetTicks, setNoteAfter, setPartDone } from "@/lib/data/session-view";
 import type { SavedPart } from "@/lib/outline";
 
 /*
@@ -108,16 +108,15 @@ export async function copySessionContentAction(
 // --- Session page ---------------------------------------------------------------
 // None of these refresh the page: the page already holds the state it shows.
 
-/** Ticks or unticks one part or activity of a session. */
-export async function setItemDoneAction(
+/** Ticks or unticks one part of a session. */
+export async function setPartDoneAction(
   sessionId: string,
-  kind: "part" | "activity",
-  itemId: string,
+  partId: string,
   done: boolean,
 ): Promise<SessionActionResult> {
   return run(
     async () => {
-      await setItemDone({ sessionId, kind, itemId, done });
+      await setPartDone({ sessionId, partId, done });
       return { sessionId };
     },
     { refreshPage: false },

@@ -370,8 +370,7 @@ export type OutlineInput = z.output<typeof outlineInput>;
 export const tickInput = z.object(
   {
     sessionId: id,
-    kind: z.enum(["part", "activity"], { error: "invalid" }),
-    itemId: id,
+    partId: id,
     done: z.boolean({ error: "invalid" }),
   },
   { error: "invalid" },

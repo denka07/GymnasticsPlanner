@@ -3,17 +3,13 @@ import { describe, expect, it } from "vitest";
 import { neighbours, nextSessions, progress, todayInStockholm, type NextCandidate } from "./session-view";
 
 describe("progress", () => {
-  it("counts parts and activities separately", () => {
+  it("counts ticked parts out of all parts", () => {
     expect(progress([])).toEqual({ done: 0, total: 0 });
-    expect(
-      progress([
-        { isDone: true, activities: [{ isDone: false }, { isDone: true }] },
-        { isDone: false, activities: [] },
-      ]),
-    ).toEqual({ done: 2, total: 4 });
+    expect(progress([{ isDone: true }, { isDone: false }, { isDone: true }])).toEqual({ done: 2, total: 3 });
   });
-  it("does not tick a part when its activities are all done", () => {
-    expect(progress([{ isDone: false, activities: [{ isDone: true }] }])).toEqual({ done: 1, total: 2 });
+  it("counts parts only, however many activities they have", () => {
+    const parts = [{ isDone: false, activities: [{}, {}, {}] }];
+    expect(progress(parts)).toEqual({ done: 0, total: 1 });
   });
 });
 

@@ -198,7 +198,8 @@ An ordered line under a session part: what the gymnasts do at one place in the h
 - Exercises (zero or more, in order, from the library)
 - Text (optional free text; example: + filma ström 3 varv)
 - Sort order
-- Done flag (ticked off during the session)
+
+All activities of a part run at the same time, typically as a circuit of stations the gymnasts rotate through until the part's time is up. That is why only the part is ticked off, not its activities.
 
 An activity has at least one of exercises or text. This allows, for example:
 
@@ -295,6 +296,7 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 
 ## Decisions
 
+- Only a session part has a done flag. All activities of a part happen at the same time (a circuit of stations), so activities are not ticked off one by one.
 - Shares have two access levels, view and edit. Only the owner can share and delete.
 - The focus level scale is fixed, not configurable per season.
 - Exercises and stations are global or personal. Administrators maintain the global ones, and coaches can submit personal ones for review.

@@ -16,7 +16,7 @@ function invalid(message = "invalid"): ZodError {
   return new ZodError([{ code: "custom", message, path: [], input: undefined }]);
 }
 
-export type ViewActivity = { id: string; text: string; isDone: boolean };
+export type ViewActivity = { id: string; text: string };
 export type ViewPart = {
   id: string;
   title: string;
@@ -80,7 +80,7 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
   const byPart = new Map<string, ViewActivity[]>();
   for (const { activity } of activityRows) {
     const list = byPart.get(activity.sessionPartId) ?? [];
-    list.push({ id: activity.id, text: activity.text, isDone: activity.isDone });
+    list.push({ id: activity.id, text: activity.text });
     byPart.set(activity.sessionPartId, list);
   }
   return {
@@ -100,34 +100,19 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
   };
 }
 
-function partsOf(sessionId: string) {
-  return getDb()
-    .select({ id: sessionParts.id })
-    .from(sessionParts)
-    .where(eq(sessionParts.sessionId, sessionId));
-}
-
 /**
- * Ticks or unticks one part or activity. Needs edit access to the session and
- * checks in the database that the item belongs to it. Nothing else is touched:
- * ticking a part does not tick its activities, or the other way round.
+ * Ticks or unticks one part. Needs edit access to the session and checks in the
+ * database that the part belongs to it. Activities have no done state: all
+ * activities of a part happen at the same time.
  */
-export async function setItemDone(input: unknown): Promise<void> {
-  const { sessionId, kind, itemId, done } = tickInput.parse(input);
+export async function setPartDone(input: unknown): Promise<void> {
+  const { sessionId, partId, done } = tickInput.parse(input);
   await requireSessionAccess(sessionId, "edit");
-  const db = getDb();
-  const updated =
-    kind === "part"
-      ? await db
-          .update(sessionParts)
-          .set({ isDone: done })
-          .where(and(eq(sessionParts.id, itemId), eq(sessionParts.sessionId, sessionId)))
-          .returning({ id: sessionParts.id })
-      : await db
-          .update(activities)
-          .set({ isDone: done })
-          .where(and(eq(activities.id, itemId), inArray(activities.sessionPartId, partsOf(sessionId))))
-          .returning({ id: activities.id });
+  const updated = await getDb()
+    .update(sessionParts)
+    .set({ isDone: done })
+    .where(and(eq(sessionParts.id, partId), eq(sessionParts.sessionId, sessionId)))
+    .returning({ id: sessionParts.id });
   if (updated.length === 0) {
     throw invalid();
   }
@@ -136,14 +121,10 @@ export async function setItemDone(input: unknown): Promise<void> {
 /** Clears every tick of a session. Needs edit access. */
 export async function resetTicks(sessionId: string): Promise<void> {
   await requireSessionAccess(sessionId, "edit");
-  const db = getDb();
-  await db.batch([
-    db.update(sessionParts).set({ isDone: false }).where(eq(sessionParts.sessionId, sessionId)),
-    db
-      .update(activities)
-      .set({ isDone: false })
-      .where(inArray(activities.sessionPartId, partsOf(sessionId))),
-  ]);
+  await getDb()
+    .update(sessionParts)
+    .set({ isDone: false })
+    .where(eq(sessionParts.sessionId, sessionId));
 }
 
 /** Saves the note after a session (empty clears it). Needs edit access. */
