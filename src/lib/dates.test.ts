@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDayMonth, shortTime, weekdayOf } from "./dates";
+import { formatDayMonth, formatDayMonthLong, shortTime, weekdayOf } from "./dates";
 
 describe("dates", () => {
   it("formats day and month in Swedish", () => {
@@ -13,5 +13,11 @@ describe("dates", () => {
   it("shortens times", () => {
     expect(shortTime("17:00:00")).toBe("17:00");
     expect(shortTime(null)).toBeNull();
+  });
+});
+
+describe("formatDayMonthLong", () => {
+  it("writes the full month in Swedish", () => {
+    expect(formatDayMonthLong("2026-09-02")).toBe("2 september");
   });
 });
