@@ -209,6 +209,8 @@ An activity has at least one of exercises or text. This allows, for example:
 
 When a station is chosen, the exercises it supports are offered first. Other exercises can still be added.
 
+A station or exercise used by activities can still be deleted. The activities lose the link and keep everything else; an activity that would be left with neither exercises nor text gets the deleted item's name as its text. Whoever can view a session sees the stations and exercises its activities use, with their details, even when they are another user's personal items.
+
 ## Library
 
 The library holds exercises and stations that are reused across groups and seasons.

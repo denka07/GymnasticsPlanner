@@ -44,6 +44,7 @@ Run `npm run db:migrate` locally to apply migrations to `dev`. Production is mig
 | `src/lib/access` | Access checks for groups, seasons, sessions and library items |
 | `src/lib/data` | Data layer: reads and writes, each authorised on the server |
 | `src/lib/library.ts` | Library helpers: access rules, search, equipment lines |
+| `src/lib/outline.ts` | The session outline editor's model: parts, activities and their station and exercise links |
 | `src/lib/weeks.ts` | Week helpers: Mondays, ISO week numbers |
 | `src/i18n` | Language configuration |
 | `messages` | Interface text, one file per language |
