@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { listMyGroups } from "@/lib/data/groups";
+import { listNextSessions } from "@/lib/data/session-view";
+import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
 
 export default function HomePage() {
   // The session is request-time data, so the page streams in behind Suspense.
@@ -38,7 +40,7 @@ async function StartPage() {
 
 async function GroupsOverview() {
   const t = await getTranslations();
-  const groups = await listMyGroups();
+  const [groups, upcoming] = await Promise.all([listMyGroups(), listNextSessions()]);
 
   return (
     <PageShell crumbs={[]}>
@@ -60,6 +62,35 @@ async function GroupsOverview() {
           action={createGroupAction}
         />
       </div>
+
+      {upcoming.length > 0 && (
+        <section aria-labelledby="next-sessions-heading" className="grid gap-3">
+          <h2 id="next-sessions-heading" className="font-heading text-xl font-semibold">
+            {t("Start.nextSessions")}
+          </h2>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {upcoming.map((n) => {
+              const when = n.isToday
+                ? t("Start.today")
+                : `${t(`Weekdays.d${weekdayOf(n.date)}` as "Weekdays.d1")} ${formatDayMonth(n.date)}`;
+              const time = shortTime(n.startTime);
+              return (
+                <li key={n.id}>
+                  <Link
+                    href={`/sessions/${n.id}`}
+                    className="grid min-h-11 gap-0.5 rounded-xl border bg-card px-4 py-3 hover:bg-muted/50"
+                  >
+                    <span className="font-semibold">{n.groupName}</span>
+                    <span className="text-muted-foreground">
+                      {time ? `${when} · ${time}` : when}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {groups.length === 0 ? (
         <Card>
