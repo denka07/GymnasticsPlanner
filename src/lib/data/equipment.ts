@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
 import {
   byName,
-  PG_FOREIGN_KEY_VIOLATION,
+  isStillReferenced,
   PG_UNIQUE_VIOLATION,
   pgErrorCode,
 } from "@/lib/library";
@@ -83,7 +83,7 @@ export async function deleteEquipment(equipmentId: unknown): Promise<void> {
     await getDb().delete(equipment).where(eq(equipment.id, entryId));
   } catch (error) {
     // The foreign key from station_equipment restricts deleting used entries.
-    if (pgErrorCode(error) === PG_FOREIGN_KEY_VIOLATION) {
+    if (isStillReferenced(error)) {
       throw new UserError("equipmentInUse");
     }
     throw error;
