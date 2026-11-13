@@ -35,7 +35,7 @@ export type ChecklistPart = {
 
 /**
  * The parts of a session with a checkbox on each, and their activities as a
- * list whose stations and exercises unfold to show their details. A tick is shown at once and saved on its own; if saving fails
+ * list whose activities unfold to show their details. A tick is shown at once and saved on its own; if saving fails
  * only that tick goes back. Activities have no tick: they all happen at once.
  */
 export function SessionChecklist({
@@ -164,9 +164,9 @@ export function SessionChecklist({
                 )}
               </label>
               {p.activities.length > 0 && (
-                <ul className="ml-6 grid gap-1 border-l py-1 pl-2 text-lg leading-relaxed">
+                <ul className="ml-6 grid divide-y divide-border/60 border-l pl-2 text-base leading-snug">
                   {p.activities.map((a) => (
-                    <li key={a.id} className="pl-2 has-[details]:pl-0">
+                    <li key={a.id} className="py-1 first:pt-0 last:pb-0">
                       <ActivityDetails activity={a} />
                     </li>
                   ))}
