@@ -4,8 +4,10 @@ import {
   activity,
   applyPaste,
   ensureLines,
+  exerciseOptions,
   formatTime,
-  fromSavedParts,
+  fromLoadedParts,
+  hasLinks,
   indent,
   isOutlinePaste,
   moveLine,
@@ -17,6 +19,7 @@ import {
   pressEnter,
   removeEmptyLine,
   sessionLength,
+  setLinks,
   toSavedParts,
   totalDuration,
   type OutlineLine,
@@ -410,10 +413,112 @@ describe("saved parts", () => {
     ];
     expect(toSavedParts(lines)).toEqual([
       { id: "p1", title: "Samling", durationMinutes: 10, activities: [] },
-      { id: "p3", title: "", durationMinutes: null, activities: [{ id: "a1", text: "Volt" }] },
+      {
+        id: "p3",
+        title: "",
+        durationMinutes: null,
+        activities: [{ id: "a1", text: "Volt", stationId: null, exerciseIds: [] }],
+      },
     ]);
   });
   it("round-trips through the flat lines", () => {
-    expect(fromSavedParts(toSavedParts(sample))).toEqual(sample);
+    const loaded = toSavedParts(sample).map((p) => ({
+      ...p,
+      activities: p.activities.map((a) => ({ id: a.id, text: a.text, station: null, exercises: [] })),
+    }));
+    expect(fromLoadedParts(loaded)).toEqual(sample);
+  });
+  it("sends linked items by id, keeps exercise-only lines and drops station-only ones", () => {
+    const lines = [
+      part("p1", "Trampett"),
+      activity("a1", "", { station: trampett, exercises: [volt, skruv] }),
+      activity("a2", "", { station: trampett }),
+      activity("a3", " + filma ", { station: trampett }),
+    ];
+    expect(toSavedParts(lines)[0].activities).toEqual([
+      { id: "a1", text: "", stationId: "s1", exerciseIds: ["e1", "e2"] },
+      { id: "a3", text: "+ filma", stationId: "s1", exerciseIds: [] },
+    ]);
+  });
+  it("loads links back onto the lines", () => {
+    const lines = fromLoadedParts([
+      {
+        id: "p1",
+        title: "Trampett",
+        durationMinutes: null,
+        activities: [{ id: "a1", text: "x", station: trampett, exercises: [volt] }],
+      },
+    ]);
+    expect(lines[1]).toEqual(activity("a1", "x", { station: trampett, exercises: [volt] }));
+  });
+});
+
+const trampett = { id: "s1", name: "Trampett" };
+const volt = { id: "e1", name: "Volt" };
+const skruv = { id: "e2", name: "Skruv" };
+
+describe("activity links", () => {
+  const linked = (): OutlineLine[] => [
+    part("p1", "Trampett"),
+    activity("a1", "", { station: trampett, exercises: [volt] }),
+    activity("a2", "fri text"),
+  ];
+
+  it("sets and clears a line's links", () => {
+    const set = setLinks(linked(), 2, { station: trampett, exercises: [skruv] });
+    expect(set[2]).toMatchObject({ text: "fri text", station: trampett, exercises: [skruv] });
+    expect(hasLinks(setLinks(set, 2, { station: null, exercises: [] })[2])).toBe(false);
+  });
+  it("keeps links when lines move between parts", () => {
+    const lines = [...linked(), part("p2", "Paus")];
+    const moved = moveLine(moveLine(lines, 1, 1, 0)!.lines, 2, 1, 0)!;
+    expect(show(moved.lines)).toEqual(["P:Trampett", "  A:fri text", "P:Paus", "  A:"]);
+    expect(moved.lines[3].exercises).toEqual([volt]);
+  });
+  it("Enter on a linked line without text adds a new line instead of making a part", () => {
+    const edit = pressEnter(linked(), 1, 0, ids());
+    expect(show(edit.lines)).toEqual(["P:Trampett", "  A:", "  A:", "  A:fri text"]);
+    expect(edit.lines[1].station).toEqual(trampett);
+    expect(hasLinks(edit.lines[2])).toBe(false);
+    expect(edit.focus).toEqual({ index: 2, offset: 0 });
+  });
+  it("Enter in the middle of a linked line keeps the links on the first half", () => {
+    const lines = setLinks([part("p1", "T"), activity("a1", "ab")], 1, { station: trampett, exercises: [] });
+    const edit = pressEnter(lines, 1, 1, ids());
+    expect(edit.lines[1]).toMatchObject({ text: "a", station: trampett });
+    expect(edit.lines[2]).toMatchObject({ text: "b", station: null, exercises: [] });
+  });
+  it("Backspace does not remove a linked line without text", () => {
+    expect(removeEmptyLine(linked(), 1)).toBeNull();
+  });
+  it("Shift+Tab does not turn a linked line into a part", () => {
+    expect(outdent(linked(), 1, 0)).toBeNull();
+    expect(outdent(linked(), 2, 0)).not.toBeNull();
+  });
+  it("a paste does not replace a linked line without text", () => {
+    const edit = applyPaste(linked(), 1, parsePaste("- ett\n- två"), ids())!;
+    expect(edit.lines[1].exercises).toEqual([volt]);
+  });
+});
+
+describe("exerciseOptions", () => {
+  const all = [
+    { id: "e1", name: "Volt" },
+    { id: "e2", name: "Skruv" },
+    { id: "e3", name: "Arabhjul" },
+    { id: "e4", name: "Volt med skruv" },
+  ];
+  it("lists the station's exercises first, then the rest, each by name", () => {
+    const options = exerciseOptions(all, new Set(["e4", "e2"]), [], "");
+    expect(options.map((o) => [o.item.name, o.supported])).toEqual([
+      ["Skruv", true],
+      ["Volt med skruv", true],
+      ["Arabhjul", false],
+      ["Volt", false],
+    ]);
+  });
+  it("filters by search, leaves out chosen ones and limits the count", () => {
+    expect(exerciseOptions(all, new Set(), ["e1"], " VOLT ").map((o) => o.item.id)).toEqual(["e4"]);
+    expect(exerciseOptions(all, new Set(), [], "", 2)).toHaveLength(2);
   });
 });

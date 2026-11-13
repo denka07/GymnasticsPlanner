@@ -40,6 +40,7 @@ async function ExerciseContent({
           {exercise.name}
           {exercise.scope === "global" && <ScopeBadge />}
         </h1>
+        <p className="-mt-4 text-muted-foreground">{t("usage", { count: details.activityCount })}</p>
         {details.access === "edit" ? (
           <EditableExercise details={details} />
         ) : (
@@ -116,6 +117,7 @@ async function EditableExercise({ details }: { details: ExerciseDetails }) {
       }}
       initialStations={details.stations}
       stations={stations}
+      activityCount={details.activityCount}
     />
   );
 }

@@ -1,13 +1,19 @@
 "use client";
 
+import { LibraryBigIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   applyPaste,
+  hasLinks,
   indent,
+  isBlank,
+  isSavableActivity,
   isOutlinePaste,
   MAX_ACTIVITY_LENGTH,
   MAX_DURATION,
@@ -19,6 +25,7 @@ import {
   pressEnter,
   removeEmptyLine,
   sessionLength,
+  setLinks,
   totalDuration,
   type Edit,
   type Focus,
@@ -26,6 +33,8 @@ import {
 } from "@/lib/outline";
 import { cn } from "@/lib/utils";
 
+import { useActivityLibrary } from "./activity-library";
+import { ActivityLinkDialog } from "./activity-link-dialog";
 import { newLineId } from "./use-session-outline";
 
 /** A text line of the outline: borderless until hovered or focused; grows to fit its text. */
@@ -91,6 +100,11 @@ export function SessionOutlineEditor({
   const info = partInfo(lines, startTime);
   const total = totalDuration(lines.filter((l) => l.kind === "part").map((l) => l.duration));
   const length = sessionLength(startTime, endTime);
+  const library = useActivityLibrary();
+  /** The activity whose station and exercises are being picked. */
+  const [linkLineId, setLinkLineId] = useState<string | null>(null);
+  const linkIndex = linkLineId === null ? -1 : lines.findIndex((l) => l.id === linkLineId);
+  const linkLine = linkIndex === -1 ? null : lines[linkIndex];
 
   function focusLine(focus: Focus, current: readonly OutlineLine[]) {
     const line = current[focus.index];
@@ -248,29 +262,84 @@ export function SessionOutlineEditor({
             </div>
           );
         }
+        const linked = hasLinks(line);
+        const lineLabel = t("activityLabel", { part: partTitleOf(lines, index) });
+        const linkLabel = t("linkButton", { line: line.text.trim() || line.exercises[0]?.name || lineLabel });
         return (
           <div key={line.id} className="flex items-start gap-1.5 pl-12">
             <span aria-hidden className="w-3 shrink-0 pt-1 text-center text-muted-foreground">
               •
             </span>
-            <Textarea
-              ref={(el) => {
-                if (el) inputs.current.set(line.id, el);
-                else inputs.current.delete(line.id);
-              }}
-              rows={1}
-              value={line.text}
-              maxLength={MAX_ACTIVITY_LENGTH}
-              aria-label={t("activityLabel", { part: partTitleOf(lines, index) })}
-              placeholder={line.text === "" ? t("activityPlaceholder") : undefined}
-              onChange={(e) => setText(index, e.target.value)}
-              onKeyDown={(e) => onKeyDown(e, index)}
-              onPaste={(e) => onPaste(e, index)}
-              className={LINE_CLASS}
-            />
+            <div className="grid min-w-0 flex-1">
+              {linked && (
+                <button
+                  type="button"
+                  className="flex flex-wrap items-center gap-1 rounded-md px-1.5 pt-1 text-left hover:bg-muted"
+                  aria-label={linkLabel}
+                  onClick={() => setLinkLineId(line.id)}
+                >
+                  {line.station && (
+                    <Badge className="h-auto max-w-full whitespace-normal">
+                      <span className="sr-only">{t("stationLabel")}: </span>
+                      {line.station.name}
+                    </Badge>
+                  )}
+                  {line.exercises.map((e) => (
+                    <Badge key={e.id} variant="outline" className="h-auto max-w-full whitespace-normal">
+                      {e.name}
+                    </Badge>
+                  ))}
+                </button>
+              )}
+              <Textarea
+                ref={(el) => {
+                  if (el) inputs.current.set(line.id, el);
+                  else inputs.current.delete(line.id);
+                }}
+                rows={1}
+                value={line.text}
+                maxLength={MAX_ACTIVITY_LENGTH}
+                aria-label={lineLabel}
+                placeholder={isBlank(line) ? t("activityPlaceholder") : undefined}
+                onChange={(e) => setText(index, e.target.value)}
+                onKeyDown={(e) => onKeyDown(e, index)}
+                onPaste={(e) => onPaste(e, index)}
+                className={LINE_CLASS}
+              />
+              {line.station && !isSavableActivity(line) && (
+                <p className="px-1.5 text-sm text-destructive">{t("stationOnly")}</p>
+              )}
+            </div>
+            {library && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="shrink-0 text-muted-foreground"
+                aria-label={linkLabel}
+                onClick={() => setLinkLineId(line.id)}
+              >
+                <LibraryBigIcon />
+              </Button>
+            )}
           </div>
         );
       })}
+      {linkLine && (
+        <ActivityLinkDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              const id = linkLine.id;
+              setLinkLineId(null);
+              // Back to the line's text, to keep typing.
+              requestAnimationFrame(() => inputs.current.get(id)?.focus());
+            }
+          }}
+          links={{ station: linkLine.station, exercises: linkLine.exercises }}
+          onChange={(links) => onChange(setLinks(lines, linkIndex, links))}
+        />
+      )}
       {total !== null && (
         <p className="mt-2 text-right text-sm text-muted-foreground tabular-nums">
           {length !== null ? t("totalOf", { total, length }) : t("total", { total })}
@@ -291,7 +360,7 @@ export function SessionOutlineView({
   name: string;
 }) {
   const t = useTranslations("Session");
-  if (lines.every((l) => l.text === "")) {
+  if (lines.every(isBlank)) {
     return <p className="text-muted-foreground">{t("empty")}</p>;
   }
   const info = partInfo(lines, startTime);
@@ -321,6 +390,9 @@ export function SessionOutlineView({
               <ul className="ml-5 list-disc">
                 {children.map((a) => (
                   <li key={a.id} className="break-words">
+                    {a.station && <span className="font-medium">{a.station.name}: </span>}
+                    {a.exercises.map((e) => e.name).join(", ")}
+                    {a.exercises.length > 0 && a.text !== "" && " – "}
                     {a.text}
                   </li>
                 ))}

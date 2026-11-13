@@ -4,10 +4,23 @@ import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import { getDb } from "@/db";
-import { activities, groups, seasons, sessionParts, sessions, type Session } from "@/db/schema";
+import {
+  activities,
+  activityExercises,
+  equipment,
+  exercises,
+  groups,
+  seasons,
+  sessionParts,
+  sessions,
+  stationEquipment,
+  stations,
+  type Session,
+} from "@/db/schema";
 import { getAccessibleGroups, requireSessionAccess, type AccessLevel } from "@/lib/access";
 import { isUuid } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
+import { byName } from "@/lib/library";
 import { neighbours, nextSessions, todayInStockholm, type Dated } from "@/lib/session-view";
 
 import { noteAfterInput, tickInput } from "./schemas";
@@ -16,7 +29,28 @@ function invalid(message = "invalid"): ZodError {
   return new ZodError([{ code: "custom", message, path: [], input: undefined }]);
 }
 
-export type ViewActivity = { id: string; text: string };
+export type ViewStation = {
+  id: string;
+  name: string;
+  description: string | null;
+  equipment: { name: string; quantity: number }[];
+};
+
+export type ViewExercise = {
+  id: string;
+  name: string;
+  description: string | null;
+  focusCues: string[];
+  easierVariant: string | null;
+  harderVariant: string | null;
+};
+
+export type ViewActivity = {
+  id: string;
+  text: string;
+  station: ViewStation | null;
+  exercises: ViewExercise[];
+};
 export type ViewPart = {
   id: string;
   title: string;
@@ -36,6 +70,72 @@ export type SessionView = {
   previous: SessionNeighbour | null;
   next: SessionNeighbour | null;
 };
+
+/**
+ * The details of the stations and exercises the given activities link, by
+ * activity id. Whoever may view the session sees them, even when they are
+ * another user's personal items (docs/data-model.md), so they are not checked
+ * against library visibility.
+ */
+async function loadActivityLinks(
+  activityRows: { id: string; stationId: string | null }[],
+): Promise<{ stations: Map<string, ViewStation>; exercises: Map<string, ViewExercise[]> }> {
+  const db = getDb();
+  const stationIds = [...new Set(activityRows.flatMap((a) => (a.stationId ? [a.stationId] : [])))];
+  const activityIds = activityRows.map((a) => a.id);
+  const [stationRows, equipmentRows, exerciseRows] = await Promise.all([
+    stationIds.length === 0
+      ? []
+      : db
+          .select({ id: stations.id, name: stations.name, description: stations.description })
+          .from(stations)
+          .where(inArray(stations.id, stationIds)),
+    stationIds.length === 0
+      ? []
+      : db
+          .select({
+            stationId: stationEquipment.stationId,
+            name: equipment.name,
+            quantity: stationEquipment.quantity,
+          })
+          .from(stationEquipment)
+          .innerJoin(equipment, eq(equipment.id, stationEquipment.equipmentId))
+          .where(inArray(stationEquipment.stationId, stationIds)),
+    activityIds.length === 0
+      ? []
+      : db
+          .select({
+            activityId: activityExercises.activityId,
+            id: exercises.id,
+            name: exercises.name,
+            description: exercises.description,
+            focusCues: exercises.focusCues,
+            easierVariant: exercises.easierVariant,
+            harderVariant: exercises.harderVariant,
+          })
+          .from(activityExercises)
+          .innerJoin(exercises, eq(exercises.id, activityExercises.exerciseId))
+          .where(inArray(activityExercises.activityId, activityIds))
+          .orderBy(asc(activityExercises.sortOrder)),
+  ]);
+  const stationMap = new Map<string, ViewStation>();
+  for (const s of stationRows) {
+    stationMap.set(s.id, {
+      ...s,
+      equipment: equipmentRows
+        .filter((e) => e.stationId === s.id)
+        .map(({ name, quantity }) => ({ name, quantity }))
+        .sort(byName),
+    });
+  }
+  const exerciseMap = new Map<string, ViewExercise[]>();
+  for (const { activityId, ...exercise } of exerciseRows) {
+    const list = exerciseMap.get(activityId) ?? [];
+    list.push(exercise);
+    exerciseMap.set(activityId, list);
+  }
+  return { stations: stationMap, exercises: exerciseMap };
+}
 
 /** One session with its ticks, for the session page. Calls notFound() without view access. */
 export async function getSessionView(sessionId: string): Promise<SessionView> {
@@ -76,11 +176,17 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     .from(sessions)
     .where(eq(sessions.seasonId, row.session.seasonId));
   const { previous, next } = neighbours(siblings, sessionId);
+  const links = await loadActivityLinks(activityRows.map((r) => r.activity));
 
   const byPart = new Map<string, ViewActivity[]>();
   for (const { activity } of activityRows) {
     const list = byPart.get(activity.sessionPartId) ?? [];
-    list.push({ id: activity.id, text: activity.text });
+    list.push({
+      id: activity.id,
+      text: activity.text,
+      station: (activity.stationId && links.stations.get(activity.stationId)) || null,
+      exercises: links.exercises.get(activity.id) ?? [],
+    });
     byPart.set(activity.sessionPartId, list);
   }
   return {

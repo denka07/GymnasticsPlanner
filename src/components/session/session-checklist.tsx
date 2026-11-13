@@ -18,21 +18,24 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import type { ViewActivity } from "@/lib/data/session-view";
 import { partClockTimes } from "@/lib/outline";
 import { progress } from "@/lib/session-view";
 import { cn } from "@/lib/utils";
+
+import { ActivityDetails } from "./activity-details";
 
 export type ChecklistPart = {
   id: string;
   title: string;
   durationMinutes: number | null;
   isDone: boolean;
-  activities: { id: string; text: string }[];
+  activities: ViewActivity[];
 };
 
 /**
  * The parts of a session with a checkbox on each, and their activities as a
- * plain list. A tick is shown at once and saved on its own; if saving fails
+ * list whose stations and exercises unfold to show their details. A tick is shown at once and saved on its own; if saving fails
  * only that tick goes back. Activities have no tick: they all happen at once.
  */
 export function SessionChecklist({
@@ -161,10 +164,10 @@ export function SessionChecklist({
                 )}
               </label>
               {p.activities.length > 0 && (
-                <ul className="ml-6 grid gap-1 border-l py-1 pl-4 text-lg leading-relaxed">
+                <ul className="ml-6 grid gap-1 border-l py-1 pl-2 text-lg leading-relaxed">
                   {p.activities.map((a) => (
-                    <li key={a.id} className="break-words">
-                      {a.text}
+                    <li key={a.id} className="pl-2 has-[details]:pl-0">
+                      <ActivityDetails activity={a} />
                     </li>
                   ))}
                 </ul>

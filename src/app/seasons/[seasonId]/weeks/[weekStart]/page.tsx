@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
+import { ActivityLibraryProvider } from "@/components/session/activity-library";
 import type { CopySourceOption } from "@/components/session/copy-session-dialog";
 import { SessionColumn, type SessionColumnData } from "@/components/session/session-column";
 import { AddSessionButton, EditWeekButton } from "@/components/session/week-actions";
@@ -145,24 +146,26 @@ async function WeekContent({
         <p className="text-sm text-muted-foreground">{ts("hint")}</p>
       )}
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:overflow-x-auto lg:pb-2">
-        <FocusColumn focus={plan.focus} />
-        {plan.sessions.length === 0 ? (
-          <p className="text-muted-foreground lg:py-3">{t("noSessions")}</p>
-        ) : (
-          plan.sessions.map((entry) => (
-            <SessionColumn
-              key={columnKey(entry)}
-              data={columnData(entry)}
-              seasonId={season.id}
-              weekStart={weekStart}
-              weekEnd={weekEnd}
-              editable={editable}
-              copySources={copySources}
-            />
-          ))
-        )}
-      </div>
+      <ActivityLibraryProvider library={plan.library}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:overflow-x-auto lg:pb-2">
+          <FocusColumn focus={plan.focus} />
+          {plan.sessions.length === 0 ? (
+            <p className="text-muted-foreground lg:py-3">{t("noSessions")}</p>
+          ) : (
+            plan.sessions.map((entry) => (
+              <SessionColumn
+                key={columnKey(entry)}
+                data={columnData(entry)}
+                seasonId={season.id}
+                weekStart={weekStart}
+                weekEnd={weekEnd}
+                editable={editable}
+                copySources={copySources}
+              />
+            ))
+          )}
+        </div>
+      </ActivityLibraryProvider>
     </PageShell>
   );
 }

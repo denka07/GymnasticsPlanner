@@ -42,6 +42,7 @@ async function StationContent({
           {station.name}
           {station.scope === "global" && <ScopeBadge />}
         </h1>
+        <p className="-mt-4 text-muted-foreground">{t("usage", { count: details.activityCount })}</p>
         {details.access === "edit" ? (
           <EditableStation details={details} />
         ) : (
@@ -93,6 +94,7 @@ async function EditableStation({ details }: { details: StationDetails }) {
       initialExercises={details.exercises}
       catalogue={catalogue.map(({ id, name }) => ({ id, name }))}
       exercises={exercises}
+      activityCount={details.activityCount}
     />
   );
 }

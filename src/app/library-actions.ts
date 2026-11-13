@@ -55,7 +55,7 @@ async function run<T extends object>(
 export async function createStationAction(name: string): Promise<ActionResult> {
   let stationId: string | undefined;
   const result = await run(async () => {
-    stationId = await createStation({ name });
+    stationId = (await createStation({ name })).id;
     return {};
   });
   if (stationId) {
@@ -95,12 +95,24 @@ export async function createExerciseAction(name: string): Promise<ActionResult> 
 
 /**
  * Creates an exercise without leaving the page, for adding a new exercise to
- * a station while editing it. Returns the new exercise.
+ * a station while editing it, or to an activity in the session editor. With
+ * `stationId` the station also supports it when the user may edit the
+ * station. Returns the new exercise.
  */
 export async function createExerciseInlineAction(
   name: string,
+  stationId: string | null = null,
 ): Promise<Result<{ exercise: { id: string; name: string } }>> {
-  return run(async () => ({ exercise: await createExercise({ name }) }), {
+  return run(async () => ({ exercise: await createExercise({ name, stationId }) }), {
+    refreshPage: false,
+  });
+}
+
+/** Creates a personal station without leaving the page, for the session editor. */
+export async function createStationInlineAction(
+  name: string,
+): Promise<Result<{ station: { id: string; name: string } }>> {
+  return run(async () => ({ station: await createStation({ name }) }), {
     refreshPage: false,
   });
 }
