@@ -363,3 +363,26 @@ export const outlineInput = z
   });
 
 export type OutlineInput = z.output<typeof outlineInput>;
+
+// --- Session page: ticks and note -------------------------------------------
+
+/** One tick on the session page: a part or an activity, done or not. */
+export const tickInput = z.object(
+  {
+    sessionId: id,
+    kind: z.enum(["part", "activity"], { error: "invalid" }),
+    itemId: id,
+    done: z.boolean({ error: "invalid" }),
+  },
+  { error: "invalid" },
+);
+
+export type TickInput = z.input<typeof tickInput>;
+
+export const MAX_NOTE_AFTER_LENGTH = 5000;
+
+/** The note after a session; empty text clears it. */
+export const noteAfterInput = z
+  .string({ error: "invalid" })
+  .max(MAX_NOTE_AFTER_LENGTH, { error: "textTooLong" })
+  .transform((v) => (v.trim() === "" ? null : v));

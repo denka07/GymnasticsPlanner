@@ -12,6 +12,7 @@ import {
   setSessionCancelled,
   updateSessionDetails,
 } from "@/lib/data/sessions";
+import { resetTicks, setItemDone, setNoteAfter } from "@/lib/data/session-view";
 import type { SavedPart } from "@/lib/outline";
 
 /*
@@ -102,4 +103,46 @@ export async function copySessionContentAction(
   target: unknown,
 ): Promise<SessionActionResult<{ parts: SavedPart[] }>> {
   return run(() => copySessionContent(sourceSessionId, target), { refreshPage: true });
+}
+
+// --- Session page ---------------------------------------------------------------
+// None of these refresh the page: the page already holds the state it shows.
+
+/** Ticks or unticks one part or activity of a session. */
+export async function setItemDoneAction(
+  sessionId: string,
+  kind: "part" | "activity",
+  itemId: string,
+  done: boolean,
+): Promise<SessionActionResult> {
+  return run(
+    async () => {
+      await setItemDone({ sessionId, kind, itemId, done });
+      return { sessionId };
+    },
+    { refreshPage: false },
+  );
+}
+
+export async function resetTicksAction(sessionId: string): Promise<SessionActionResult> {
+  return run(
+    async () => {
+      await resetTicks(sessionId);
+      return { sessionId };
+    },
+    { refreshPage: false },
+  );
+}
+
+export async function setNoteAfterAction(
+  sessionId: string,
+  note: string,
+): Promise<SessionActionResult> {
+  return run(
+    async () => {
+      await setNoteAfter(sessionId, note);
+      return { sessionId };
+    },
+    { refreshPage: false },
+  );
 }
