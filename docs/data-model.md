@@ -172,7 +172,11 @@ One training occasion for a group.
 - Season
 - Date, with start and end time (optional)
 - Location (optional)
+- Training slot (optional; the recurring slot the session was created from)
+- Cancelled flag (a cancelled session keeps its content)
 - Note after the session (optional free text about how it went)
+
+A week shows one session per training slot. Until a slot's session for a week is first edited it is only a placeholder and nothing is stored; the first edit stores it, copying the slot's date, times and location. From then on the session keeps its own date, times and location even if the slot changes. There is at most one session per training slot and date. Sessions without a training slot are extra sessions added by hand; only those can be deleted. A break week shows no placeholders, but sessions stored in it are still shown.
 
 The focus for a session's week is not stored on the session. It is computed from the focus allocations for that week and shown while planning.
 
@@ -182,7 +186,9 @@ An ordered entry in a session's agenda.
 
 - Title (example: Samling, Mjukning, Trampett, Paus, Teknikstationer)
 - Sort order
+- Duration in minutes (optional; with the session's start time it gives the clock time of each part)
 - Discipline (optional)
+- Done flag (ticked off during the session)
 
 ### Activity
 
@@ -192,6 +198,7 @@ An ordered line under a session part: what the gymnasts do at one place in the h
 - Exercises (zero or more, in order, from the library)
 - Text (optional free text; example: + filma ström 3 varv)
 - Sort order
+- Done flag (ticked off during the session)
 
 An activity has at least one of exercises or text. This allows, for example:
 

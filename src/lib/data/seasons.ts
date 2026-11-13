@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, between, eq } from "drizzle-orm";
+import { and, asc, between, eq, inArray } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import {
@@ -175,6 +175,10 @@ export async function createSeason(
 /**
  * Updates name, weeks and training slots in one transaction. Allocations
  * outside a shrunk week range are kept; they are just not shown.
+ *
+ * Slots are matched by weekday and updated in place, so stored sessions stay
+ * linked to their slot. A removed weekday deletes its slot; its stored
+ * sessions remain as extra sessions (the link is set to null).
  */
 export async function updateSeason(
   seasonId: string,
@@ -183,6 +187,13 @@ export async function updateSeason(
   await requireSeasonAccess(seasonId, "edit");
   const values = seasonInput.parse(input);
   const db = getDb();
+  const existing = await db
+    .select({ id: trainingSlots.id, weekday: trainingSlots.weekday })
+    .from(trainingSlots)
+    .where(eq(trainingSlots.seasonId, seasonId));
+  const byWeekday = new Map(existing.map((s) => [s.weekday, s.id]));
+  const keep = new Set(values.trainingSlots.map((s) => s.weekday));
+
   const update = db
     .update(seasons)
     .set({
@@ -191,15 +202,29 @@ export async function updateSeason(
       lastWeek: values.lastWeek,
     })
     .where(eq(seasons.id, seasonId));
-  const clearSlots = db
-    .delete(trainingSlots)
-    .where(eq(trainingSlots.seasonId, seasonId));
-  const slots = slotRows(seasonId, values);
-  if (slots.length > 0) {
-    await db.batch([update, clearSlots, db.insert(trainingSlots).values(slots)]);
-  } else {
-    await db.batch([update, clearSlots]);
+  const removed = existing.filter((s) => !keep.has(s.weekday)).map((s) => s.id);
+  const statements = [];
+  if (removed.length > 0) {
+    statements.push(db.delete(trainingSlots).where(inArray(trainingSlots.id, removed)));
   }
+  const inserts = [];
+  for (const slot of slotRows(seasonId, values)) {
+    const slotId = byWeekday.get(slot.weekday);
+    if (slotId) {
+      statements.push(
+        db
+          .update(trainingSlots)
+          .set({ startTime: slot.startTime, endTime: slot.endTime, location: slot.location })
+          .where(eq(trainingSlots.id, slotId)),
+      );
+    } else {
+      inserts.push(slot);
+    }
+  }
+  if (inserts.length > 0) {
+    statements.push(db.insert(trainingSlots).values(inserts));
+  }
+  await db.batch([update, ...statements]);
 }
 
 /** Deletes the season and, by cascade, everything in it. Owner only. Returns its group id. */
