@@ -84,7 +84,7 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
 
         {hasParts ? (
           <SessionChecklist
-            key={session.id}
+            key={`checklist-${session.id}`}
             sessionId={session.id}
             parts={view.parts}
             startTime={session.startTime}
@@ -108,7 +108,7 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
 
         {(editable || session.noteAfter) && (
           <SessionNote
-            key={session.id}
+            key={`note-${session.id}`}
             sessionId={session.id}
             initial={session.noteAfter ?? ""}
             editable={editable}
