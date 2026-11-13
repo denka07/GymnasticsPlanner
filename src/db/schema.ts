@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  type AnyPgColumn,
   check,
   date,
   index,
@@ -242,7 +243,13 @@ export const sessionParts = pgTable(
   ],
 );
 
-/** An ordered line under a session part. Plain text for now. */
+/**
+ * An ordered line under a session part: an optional station, exercises in
+ * order (activity_exercises) and optional text, where empty text means none.
+ * An activity has at least one of exercises or text. Saving checks that, and
+ * deleting a linked exercise writes its name into the text of an activity
+ * that would otherwise be left with neither.
+ */
 export const activities = pgTable(
   "activities",
   {
@@ -250,10 +257,34 @@ export const activities = pgTable(
     sessionPartId: uuid("session_part_id")
       .notNull()
       .references(() => sessionParts.id, { onDelete: "cascade" }),
-    text: text("text").notNull(),
+    stationId: uuid("station_id").references((): AnyPgColumn => stations.id, {
+      onDelete: "set null",
+    }),
+    text: text("text").notNull().default(""),
     sortOrder: integer("sort_order").notNull(),
   },
-  (t) => [index("activities_session_part_id_idx").on(t.sessionPartId)],
+  (t) => [
+    index("activities_session_part_id_idx").on(t.sessionPartId),
+    index("activities_station_id_idx").on(t.stationId),
+  ],
+);
+
+/** An exercise of an activity, in order. */
+export const activityExercises = pgTable(
+  "activity_exercises",
+  {
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    exerciseId: uuid("exercise_id")
+      .notNull()
+      .references((): AnyPgColumn => exercises.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.activityId, t.exerciseId] }),
+    index("activity_exercises_exercise_id_idx").on(t.exerciseId),
+  ],
 );
 
 // --- Library -------------------------------------------------------------------
@@ -470,6 +501,7 @@ export type SessionPart = typeof sessionParts.$inferSelect;
 export type NewSessionPart = typeof sessionParts.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;
+export type ActivityExercise = typeof activityExercises.$inferSelect;
 export type LibraryScope = (typeof libraryScope.enumValues)[number];
 export type Equipment = typeof equipment.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
