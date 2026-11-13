@@ -10,14 +10,14 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_WEEK_NOTE_LENGTH } from "@/lib/data/schemas";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 import { useErrorMessage } from "./use-error-message";
 
 /**
- * The content of a week's column header: the week number, a marker when the
- * week has a note, and, with edit access, a popover to set the break flag and
- * note.
+ * The content of a week's column header: the week number, linking to the
+ * week page, and a marker when the week has a note. The break flag and note
+ * are set from the week page (WeekSettingsPopover).
  */
 export function WeekHeaderContent({
   seasonId,
@@ -25,21 +25,19 @@ export function WeekHeaderContent({
   week,
   isBreak,
   note,
-  paintedCount,
-  editable,
 }: {
   seasonId: string;
   weekStart: string;
   week: number;
   isBreak: boolean;
   note: string | null;
-  /** Cells of this week that have a focus level; they are removed if it becomes a break. */
-  paintedCount: number;
-  editable: boolean;
 }) {
   const t = useTranslations("Plan");
-  const label = (
-    <>
+  return (
+    <Link
+      href={`/seasons/${seasonId}/weeks/${weekStart}`}
+      className="relative block w-full px-1 py-1 outline-none hover:bg-foreground/10 hover:underline focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]"
+    >
       <span className="sr-only">{t("weekPrefix")} </span>
       {week}
       {isBreak && <span className="sr-only">, {t("weekBreak")}</span>}
@@ -50,42 +48,31 @@ export function WeekHeaderContent({
           className="absolute top-0.5 right-0.5 size-1.5 rounded-full bg-primary ring-1 ring-background"
         />
       )}
-    </>
-  );
-
-  if (!editable) {
-    return <span className="relative block px-1 py-1">{label}</span>;
-  }
-  return (
-    <WeekPopover
-      seasonId={seasonId}
-      weekStart={weekStart}
-      week={week}
-      isBreak={isBreak}
-      note={note}
-      paintedCount={paintedCount}
-    >
-      {label}
-    </WeekPopover>
+    </Link>
   );
 }
 
-function WeekPopover({
+/**
+ * A popover to set a week's break flag and note, opened by `trigger`.
+ * Requires edit access; the server checks it again.
+ */
+export function WeekSettingsPopover({
   seasonId,
   weekStart,
   week,
   isBreak,
   note,
   paintedCount,
-  children,
+  trigger,
 }: {
   seasonId: string;
   weekStart: string;
   week: number;
   isBreak: boolean;
   note: string | null;
+  /** Cells of this week that have a focus level; they are removed if it becomes a break. */
   paintedCount: number;
-  children: React.ReactNode;
+  trigger: React.ReactElement;
 }) {
   const t = useTranslations("Plan");
   const tc = useTranslations("Common");
@@ -124,14 +111,7 @@ function WeekPopover({
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger
-        aria-label={t("weekEditLabel", { week })}
-        className={cn(
-          "relative block w-full cursor-pointer px-1 py-1 outline-none hover:bg-foreground/10 focus-visible:shadow-[inset_0_0_0_2px_var(--foreground),inset_0_0_0_4px_var(--background)]",
-        )}
-      >
-        {children}
-      </PopoverTrigger>
+      <PopoverTrigger render={trigger} />
       <PopoverContent align="start" className="w-72 font-normal text-foreground">
         <form onSubmit={submit} className="grid gap-3">
           <p className="font-heading text-sm font-medium">{t("weekTitle", { week })}</p>

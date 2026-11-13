@@ -21,7 +21,6 @@ import {
   keyLevel,
   levelOf,
   moveFocus,
-  parseCellKey,
   type CellLevel,
   type GridPosition,
   type Level,
@@ -91,12 +90,6 @@ export function SeasonGrid({
   const t = useTranslations("Plan");
   const breakWeeks = weeks.filter((w) => w.isBreak).map((w) => w.weekStart);
   const grid = usePlanGrid(seasonId, allocations, breakWeeks);
-  /** Painted cells per week, for the warning when a week becomes a break. */
-  const paintedByWeek = new Map<string, number>();
-  for (const key of Object.keys(grid.levels)) {
-    const { weekStart } = parseCellKey(key);
-    paintedByWeek.set(weekStart, (paintedByWeek.get(weekStart) ?? 0) + 1);
-  }
   const [brush, setBrush] = useState<CellLevel>("high");
   const [active, setActive] = useState<GridPosition>({ row: 0, col: 0 });
   const tableRef = useRef<HTMLTableElement>(null);
@@ -399,8 +392,6 @@ export function SeasonGrid({
                     week={week.week}
                     isBreak={week.isBreak ?? false}
                     note={week.note ?? null}
-                    paintedCount={paintedByWeek.get(week.weekStart) ?? 0}
-                    editable={editable}
                   />
                 </th>
               ))}
