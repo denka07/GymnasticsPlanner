@@ -385,3 +385,84 @@ export const noteAfterInput = z
   .string({ error: "invalid" })
   .max(MAX_NOTE_AFTER_LENGTH, { error: "textTooLong" })
   .transform((v) => (v.trim() === "" ? null : v));
+
+// --- Library ------------------------------------------------------------------
+
+export const MAX_LIBRARY_DESCRIPTION_LENGTH = 2000;
+export const MAX_VARIANT_LENGTH = 1000;
+export const MAX_FOCUS_CUES = 20;
+export const MAX_FOCUS_CUE_LENGTH = 100;
+export const MAX_STATION_EQUIPMENT = 30;
+export const MAX_EQUIPMENT_QUANTITY = 99;
+export const MAX_LINKS = 200;
+
+/** A list search text; anything else than a string means no search. */
+export const searchInput = z
+  .unknown()
+  .transform((v) => (typeof v === "string" ? v.trim().slice(0, 100) : ""));
+
+/** Distinct ids; duplicates are dropped. */
+export const idList = z
+  .array(id, { error: "invalid" })
+  .max(MAX_LINKS, { error: "invalid" })
+  .transform((ids) => [...new Set(ids.map((v) => v.toLowerCase()))]);
+
+/** Focus cues in order; blank cues are dropped. */
+export const focusCuesInput = z
+  .array(
+    z.string({ error: "invalid" }).trim().max(MAX_FOCUS_CUE_LENGTH, { error: "cueTooLong" }),
+    { error: "invalid" },
+  )
+  .transform((cues) => cues.filter((c) => c !== ""))
+  .refine((cues) => cues.length <= MAX_FOCUS_CUES, { error: "tooManyCues" });
+
+export const exerciseInput = z.object(
+  {
+    name,
+    description: optionalText(MAX_LIBRARY_DESCRIPTION_LENGTH),
+    focusCues: focusCuesInput,
+    easierVariant: optionalText(MAX_VARIANT_LENGTH),
+    harderVariant: optionalText(MAX_VARIANT_LENGTH),
+    disciplineName: optionalText(100),
+    /** Every station that supports the exercise, among those the user may see. */
+    stationIds: idList,
+  },
+  { error: "invalid" },
+);
+
+export type ExerciseInput = z.input<typeof exerciseInput>;
+export type ExerciseValues = z.output<typeof exerciseInput>;
+
+const equipmentLineInput = z.object(
+  {
+    equipmentId: id,
+    quantity: z
+      .number({ error: "invalidQuantity" })
+      .int({ error: "invalidQuantity" })
+      .min(1, { error: "invalidQuantity" })
+      .max(MAX_EQUIPMENT_QUANTITY, { error: "invalidQuantity" }),
+  },
+  { error: "invalid" },
+);
+
+export const stationInput = z.object(
+  {
+    name,
+    description: optionalText(MAX_LIBRARY_DESCRIPTION_LENGTH),
+    /** Needed equipment in display order; each entry at most once. */
+    equipment: z
+      .array(equipmentLineInput, { error: "invalid" })
+      .max(MAX_STATION_EQUIPMENT, { error: "tooManyEquipmentLines" })
+      .refine(
+        (lines) =>
+          new Set(lines.map((l) => l.equipmentId.toLowerCase())).size === lines.length,
+        { error: "duplicateEquipment" },
+      ),
+    /** Every supported exercise, among those the user may see. */
+    exerciseIds: idList,
+  },
+  { error: "invalid" },
+);
+
+export type StationInput = z.input<typeof stationInput>;
+export type StationValues = z.output<typeof stationInput>;
