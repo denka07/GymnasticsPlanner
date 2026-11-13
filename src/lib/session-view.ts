@@ -4,17 +4,11 @@
  * group. Kept free of React and the database so it can be unit-tested.
  */
 
-export type TickPart = { isDone: boolean; activities: { isDone: boolean }[] };
+export type TickPart = { isDone: boolean };
 
-/** How many items (parts and activities) are done, and how many there are. */
+/** How many parts are done, and how many there are. Only parts are ticked off. */
 export function progress(parts: readonly TickPart[]): { done: number; total: number } {
-  let done = 0;
-  let total = 0;
-  for (const p of parts) {
-    total += 1 + p.activities.length;
-    done += (p.isDone ? 1 : 0) + p.activities.filter((a) => a.isDone).length;
-  }
-  return { done, total };
+  return { done: parts.filter((p) => p.isDone).length, total: parts.length };
 }
 
 export type Dated = { id: string; date: string; startTime: string | null };
