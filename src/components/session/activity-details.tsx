@@ -23,7 +23,7 @@ function Unfold({ summary, children }: { summary: ReactNode; children: ReactNode
 /**
  * One activity on the session page: its station, the exercises under it and
  * the free text. Tapping a station shows its description and equipment;
- * tapping an exercise shows its description, focus cues and variants.
+ * tapping an exercise shows its description (an exercise without one is plain text).
  */
 export function ActivityDetails({ activity }: { activity: ViewActivity }) {
   const t = useTranslations("SessionPage");
@@ -59,40 +59,17 @@ export function ActivityDetails({ activity }: { activity: ViewActivity }) {
       )}
       {exercises.length > 0 && (
         <ul className={station ? "ml-4 grid border-l pl-2" : "grid"}>
-          {exercises.map((e) => {
-            const empty =
-              !e.description && e.focusCues.length === 0 && !e.easierVariant && !e.harderVariant;
-            return (
-              <li key={e.id}>
+          {exercises.map((e) => (
+            <li key={e.id}>
+              {e.description ? (
                 <Unfold summary={e.name}>
-                  {empty && <p className="text-muted-foreground">{t("noDetails")}</p>}
-                  {e.description && <p className="whitespace-pre-line">{e.description}</p>}
-                  {e.focusCues.length > 0 && (
-                    <>
-                      <p className="font-semibold">{t("cuesHeading")}</p>
-                      <ul className="ml-5 list-disc">
-                        {e.focusCues.map((cue, i) => (
-                          <li key={i}>{cue}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  {e.easierVariant && (
-                    <p>
-                      <span className="font-semibold">{t("easierLabel")}: </span>
-                      {e.easierVariant}
-                    </p>
-                  )}
-                  {e.harderVariant && (
-                    <p>
-                      <span className="font-semibold">{t("harderLabel")}: </span>
-                      {e.harderVariant}
-                    </p>
-                  )}
+                  <p className="whitespace-pre-line">{e.description}</p>
                 </Unfold>
-              </li>
-            );
-          })}
+              ) : (
+                <p className="min-h-11 px-2 py-2 pl-9 break-words">{e.name}</p>
+              )}
+            </li>
+          ))}
         </ul>
       )}
       {text && <p className="px-2 break-words">{text}</p>}

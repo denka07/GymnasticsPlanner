@@ -312,10 +312,6 @@ export const exercises = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     description: text("description"),
-    /** Short cues in display order, for example "Raka armar". */
-    focusCues: text("focus_cues").array().notNull().default(sql`'{}'::text[]`),
-    easierVariant: text("easier_variant"),
-    harderVariant: text("harder_variant"),
     /** Free text, since disciplines are defined per season. */
     disciplineName: text("discipline_name"),
     scope: libraryScope("scope").notNull(),

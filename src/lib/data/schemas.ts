@@ -402,9 +402,6 @@ export const noteAfterInput = z
 // --- Library ------------------------------------------------------------------
 
 export const MAX_LIBRARY_DESCRIPTION_LENGTH = 2000;
-export const MAX_VARIANT_LENGTH = 1000;
-export const MAX_FOCUS_CUES = 20;
-export const MAX_FOCUS_CUE_LENGTH = 100;
 export const MAX_STATION_EQUIPMENT = 30;
 export const MAX_EQUIPMENT_QUANTITY = 99;
 export const MAX_LINKS = 200;
@@ -420,22 +417,10 @@ export const idList = z
   .max(MAX_LINKS, { error: "invalid" })
   .transform((ids) => [...new Set(ids.map((v) => v.toLowerCase()))]);
 
-/** Focus cues in order; blank cues are dropped. */
-export const focusCuesInput = z
-  .array(
-    z.string({ error: "invalid" }).trim().max(MAX_FOCUS_CUE_LENGTH, { error: "cueTooLong" }),
-    { error: "invalid" },
-  )
-  .transform((cues) => cues.filter((c) => c !== ""))
-  .refine((cues) => cues.length <= MAX_FOCUS_CUES, { error: "tooManyCues" });
-
 export const exerciseInput = z.object(
   {
     name,
     description: optionalText(MAX_LIBRARY_DESCRIPTION_LENGTH),
-    focusCues: focusCuesInput,
-    easierVariant: optionalText(MAX_VARIANT_LENGTH),
-    harderVariant: optionalText(MAX_VARIANT_LENGTH),
     disciplineName: optionalText(100),
     /** Every station that supports the exercise, among those the user may see. */
     stationIds: idList,

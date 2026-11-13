@@ -84,7 +84,7 @@ Done when a week of sessions can be planned and read on a phone in the gym.
 
 - Equipment catalogue, editable by administrators.
 - Personal stations with needed equipment and supported exercises.
-- Personal exercises with focus cues and variants.
+- Personal exercises (name, description, discipline name).
 - Linking a station and exercises from an activity.
 
 Done when an activity can be built from a station and its exercises.
