@@ -184,6 +184,78 @@ export const events = pgTable(
   ],
 );
 
+/**
+ * One training occasion. A session tied to a training slot was created from
+ * that slot the first time it was edited; it keeps its own date, times and
+ * location even if the slot later changes. Extra sessions have no slot.
+ */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    seasonId: uuid("season_id")
+      .notNull()
+      .references(() => seasons.id, { onDelete: "cascade" }),
+    date: date("date", { mode: "string" }).notNull(),
+    startTime: time("start_time"),
+    endTime: time("end_time"),
+    location: text("location"),
+    trainingSlotId: uuid("training_slot_id").references(() => trainingSlots.id, {
+      onDelete: "set null",
+    }),
+    isCancelled: boolean("is_cancelled").notNull().default(false),
+    /** Free text after the session about how it went. */
+    noteAfter: text("note_after"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sessions_season_id_date_idx").on(t.seasonId, t.date),
+    unique("sessions_training_slot_id_date_unique").on(t.trainingSlotId, t.date),
+  ],
+);
+
+/** An ordered entry in a session's agenda. */
+export const sessionParts = pgTable(
+  "session_parts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    durationMinutes: integer("duration_minutes"),
+    disciplineId: uuid("discipline_id").references(() => disciplines.id, {
+      onDelete: "set null",
+    }),
+    isDone: boolean("is_done").notNull().default(false),
+  },
+  (t) => [
+    index("session_parts_session_id_idx").on(t.sessionId),
+    check(
+      "session_parts_duration_check",
+      sql`${t.durationMinutes} is null or ${t.durationMinutes} between 1 and 600`,
+    ),
+  ],
+);
+
+/** An ordered line under a session part. Plain text for now. */
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionPartId: uuid("session_part_id")
+      .notNull()
+      .references(() => sessionParts.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    isDone: boolean("is_done").notNull().default(false),
+  },
+  (t) => [index("activities_session_part_id_idx").on(t.sessionPartId)],
+);
+
 export const groupsRelations = relations(groups, ({ one, many }) => ({
   owner: one(users, { fields: [groups.ownerId], references: [users.id] }),
   seasons: many(seasons),
@@ -195,6 +267,7 @@ export const seasonsRelations = relations(seasons, ({ one, many }) => ({
   weeks: many(seasonWeeks),
   disciplines: many(disciplines),
   events: many(events),
+  sessions: many(sessions),
 }));
 
 export const trainingSlotsRelations = relations(trainingSlots, ({ one }) => ({
@@ -244,6 +317,31 @@ export const eventsRelations = relations(events, ({ one }) => ({
   }),
 }));
 
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
+  season: one(seasons, { fields: [sessions.seasonId], references: [seasons.id] }),
+  trainingSlot: one(trainingSlots, {
+    fields: [sessions.trainingSlotId],
+    references: [trainingSlots.id],
+  }),
+  parts: many(sessionParts),
+}));
+
+export const sessionPartsRelations = relations(sessionParts, ({ one, many }) => ({
+  session: one(sessions, { fields: [sessionParts.sessionId], references: [sessions.id] }),
+  discipline: one(disciplines, {
+    fields: [sessionParts.disciplineId],
+    references: [disciplines.id],
+  }),
+  activities: many(activities),
+}));
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  part: one(sessionParts, {
+    fields: [activities.sessionPartId],
+    references: [sessionParts.id],
+  }),
+}));
+
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
 export type Season = typeof seasons.$inferSelect;
@@ -262,3 +360,9 @@ export type FocusLevel = (typeof focusLevel.enumValues)[number];
 export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
 export type EventType = (typeof eventType.enumValues)[number];
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type SessionPart = typeof sessionParts.$inferSelect;
+export type NewSessionPart = typeof sessionParts.$inferInsert;
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;

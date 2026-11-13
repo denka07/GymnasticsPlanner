@@ -4,7 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { getDb } from "@/db";
-import { groups, seasons, type Group, type User } from "@/db/schema";
+import { groups, seasons, sessions, type Group, type User } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 
 import {
@@ -70,6 +70,30 @@ export async function getSeasonAccess(
   return null;
 }
 
+/**
+ * The user's access to a session, or null for none. A session has the access
+ * its season gives.
+ */
+export async function getSessionAccess(
+  userId: string,
+  sessionId: string,
+): Promise<AccessLevel | null> {
+  if (!isUuid(userId) || !isUuid(sessionId)) {
+    return null;
+  }
+  const [row] = await getDb()
+    .select({ seasonId: sessions.seasonId })
+    .from(sessions)
+    .where(eq(sessions.id, sessionId))
+    .limit(1);
+  if (!row) {
+    return null;
+  }
+  // TODO(shares): also look up a share on this session for userId and return
+  // the highest of that level and the season's.
+  return getSeasonAccess(userId, row.seasonId);
+}
+
 type Granted = { user: User; access: AccessLevel };
 
 /**
@@ -96,6 +120,19 @@ export async function requireSeasonAccess(
 ): Promise<Granted> {
   const user = await requireUser();
   const access = await getSeasonAccess(user.id, seasonId);
+  if (access === null || !meetsMinimum(access, minimum)) {
+    notFound();
+  }
+  return { user, access };
+}
+
+/** Like requireGroupAccess, for a session. */
+export async function requireSessionAccess(
+  sessionId: string,
+  minimum: MinimumAccess,
+): Promise<Granted> {
+  const user = await requireUser();
+  const access = await getSessionAccess(user.id, sessionId);
   if (access === null || !meetsMinimum(access, minimum)) {
     notFound();
   }

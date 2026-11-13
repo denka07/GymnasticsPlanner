@@ -15,6 +15,13 @@
       "when": 1794516273071,
       "tag": "0001_dapper_santa_claus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794587614514,
+      "tag": "0002_concerned_black_queen",
+      "breakpoints": true
     }
   ]
 }
