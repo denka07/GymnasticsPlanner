@@ -37,11 +37,13 @@ Run `npm run db:migrate` locally to apply migrations to `dev`. Production is mig
 
 | Path | Contents |
 |---|---|
-| `src/app` | Pages and layouts |
+| `src/app` | Pages and layouts; the library is under `/library` (`stations`, `exercises`, `equipment`) |
 | `src/components/ui` | shadcn/ui components |
 | `src/db` | Database schema and client |
 | `src/lib/auth` | Google sign-in through Neon Auth and the current user |
-| `src/lib/access` | Access checks for groups and seasons |
+| `src/lib/access` | Access checks for groups, seasons, sessions and library items |
+| `src/lib/data` | Data layer: reads and writes, each authorised on the server |
+| `src/lib/library.ts` | Library helpers: access rules, search, equipment lines |
 | `src/lib/weeks.ts` | Week helpers: Mondays, ISO week numbers |
 | `src/i18n` | Language configuration |
 | `messages` | Interface text, one file per language |
