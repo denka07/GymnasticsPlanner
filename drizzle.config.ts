@@ -8,6 +8,8 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    // Migrations prefer a direct connection when one is provided (Vercel sets
+    // DATABASE_URL_UNPOOLED through the Neon integration).
+    url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "",
   },
 });
