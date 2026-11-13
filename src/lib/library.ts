@@ -94,3 +94,29 @@ export function pgErrorCode(error: unknown): string | null {
 
 export const PG_UNIQUE_VIOLATION = "23505";
 export const PG_FOREIGN_KEY_VIOLATION = "23503";
+/** Raised instead of 23503 when a row referenced with ON DELETE RESTRICT is deleted. */
+export const PG_RESTRICT_VIOLATION = "23001";
+
+/** True for the errors Postgres raises when a referenced row cannot be deleted. */
+export function isStillReferenced(error: unknown): boolean {
+  const code = pgErrorCode(error);
+  return code === PG_FOREIGN_KEY_VIOLATION || code === PG_RESTRICT_VIOLATION;
+}
+
+/**
+ * The items a picker offers: those not already chosen whose name contains the
+ * search, by name, at most `limit` of them. With an empty search it offers the
+ * first `limit` items.
+ */
+export function pickerMatches<T extends { id: string; name: string }>(
+  items: readonly T[],
+  chosenIds: readonly string[],
+  search: string,
+  limit = 8,
+): T[] {
+  const chosen = new Set(chosenIds);
+  return items
+    .filter((item) => !chosen.has(item.id) && matchesSearch(item.name, search))
+    .sort(byName)
+    .slice(0, limit);
+}

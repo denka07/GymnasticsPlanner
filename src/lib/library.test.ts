@@ -4,8 +4,10 @@ import {
   byName,
   formatEquipmentLines,
   hasName,
+  isStillReferenced,
   libraryAccess,
   matchesSearch,
+  pickerMatches,
   pgErrorCode,
   searchPattern,
 } from "./library";
@@ -98,5 +100,34 @@ describe("pgErrorCode", () => {
     expect(pgErrorCode(new Error("boom"))).toBeNull();
     expect(pgErrorCode(Object.assign(new Error("x"), { code: "ECONNRESET" }))).toBeNull();
     expect(pgErrorCode(null)).toBeNull();
+  });
+});
+
+describe("pickerMatches", () => {
+  const items = [
+    { id: "3", name: "Sträckt volt" },
+    { id: "1", name: "Grupperad volt" },
+    { id: "2", name: "Pikerad volt" },
+    { id: "4", name: "Kullerbytta" },
+  ];
+
+  it("leaves out chosen items and filters by name", () => {
+    expect(pickerMatches(items, ["2"], "VOLT").map((i) => i.id)).toEqual(["1", "3"]);
+  });
+
+  it("limits the result and sorts by name", () => {
+    expect(pickerMatches(items, [], "", 2).map((i) => i.name)).toEqual([
+      "Grupperad volt",
+      "Kullerbytta",
+    ]);
+  });
+});
+
+describe("isStillReferenced", () => {
+  it("accepts restrict and foreign key violations", () => {
+    const wrap = (code: string) => new Error("Failed query", { cause: { code } });
+    expect(isStillReferenced(wrap("23001"))).toBe(true);
+    expect(isStillReferenced(wrap("23503"))).toBe(true);
+    expect(isStillReferenced(wrap("23505"))).toBe(false);
   });
 });
