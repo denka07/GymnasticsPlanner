@@ -281,9 +281,40 @@
     "saving": "Sparar …",
     "saved": "Sparat",
     "notSaved": "Inte sparat",
-    "saveFailed": "Passet kunde inte sparas. Dina ändringar finns kvar; ändra något för att försöka igen."
+    "saveFailed": "Passet kunde inte sparas. Dina ändringar finns kvar; ändra något för att försöka igen.",
+    "openSession": "Öppna pass",
+    "noteAfterLabel": "Anteckning efter passet"
   },
   "Toasts": {
     "label": "Aviseringar"
+  },
+  "SessionPage": {
+    "edit": "Redigera",
+    "previous": "Föregående",
+    "next": "Nästa",
+    "previousLabel": "Föregående pass, {date}",
+    "nextLabel": "Nästa pass, {date}",
+    "navLabel": "Andra pass i säsongen",
+    "groupLine": "{group} · {season}",
+    "cancelled": "Inställt",
+    "cancelledText": "Passet är inställt.",
+    "progress": "{done} av {total} klara",
+    "checklistLabel": "Delar och rader i passet",
+    "resetTicks": "Återställ bockar",
+    "resetTitle": "Återställa alla bockar?",
+    "resetText": "Alla bockar i passet tas bort. Delar och rader ändras inte.",
+    "resetConfirm": "Återställ",
+    "tickFailed": "Bocken kunde inte sparas.",
+    "resetFailed": "Bockarna kunde inte återställas.",
+    "noteLabel": "Anteckning efter passet",
+    "notePlaceholder": "Hur gick passet?",
+    "noteFailed": "Anteckningen kunde inte sparas.",
+    "noteLength": "{count} av {max} tecken",
+    "empty": "Inget är planerat för det här passet än.",
+    "plan": "Planera passet"
+  },
+  "Start": {
+    "nextSessions": "Nästa pass",
+    "today": "Idag"
   }
 }

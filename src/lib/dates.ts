@@ -20,3 +20,13 @@ export function weekdayOf(date: string): number {
 export function shortTime(time: string | null): string | null {
   return time ? time.slice(0, 5) : null;
 }
+
+/** Day and full month of a `YYYY-MM-DD` date, e.g. "2 september". */
+export function formatDayMonthLong(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat(defaultLocale, {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
