@@ -232,13 +232,13 @@ A reusable exercise.
 
 - Name (example: Grupperad volt till rygg, Pikerat handstående)
 - Description (optional)
-- Focus cues (example: Raka armar, Spänd bål, Raka ben)
-- Easier and harder variants (optional; example: Lyft ett ben så det pekar mot taket)
 - Discipline name (optional, as free text, since disciplines are defined per season)
 - Scope: global or personal
 - Owner (user; personal exercises only)
 
 An exercise does not list equipment. Equipment belongs to the station it is performed at.
+
+What to focus on in a given session is written in the activity's text, not on the exercise. Alternative (easier or harder) exercises are other exercises supported by the same station.
 
 ### Station
 
@@ -307,4 +307,5 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - An activity has an optional station, zero or more exercises and optional text, with at least one of exercises or text.
 - Approving a submission converts the item to global instead of creating a global copy.
 - When a station is approved, only its links to global exercises become global. Personal exercises it supports must be submitted separately.
+- An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.

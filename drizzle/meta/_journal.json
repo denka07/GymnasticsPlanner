@@ -43,6 +43,13 @@
       "when": 1794607326737,
       "tag": "0005_dusty_brood",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794609730542,
+      "tag": "0006_steep_felicia_hardy",
+      "breakpoints": true
     }
   ]
 }

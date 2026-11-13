@@ -14,32 +14,23 @@ function keyOf(schema: { safeParse: (v: unknown) => { success: boolean; error?: 
 }
 
 describe("exerciseInput", () => {
-  it("trims, drops blank cues and turns empty texts into null", () => {
+  it("trims, turns empty texts into null and drops duplicate stations", () => {
     const values = exerciseInput.parse({
       name: " Grupperad volt ",
       description: "",
-      focusCues: [" Raka armar ", "", "  ", "Spänd bål"],
-      easierVariant: " ",
-      harderVariant: "Sträckt",
       disciplineName: null,
       stationIds: [A, A.toUpperCase(), B],
     });
     expect(values).toEqual({
       name: "Grupperad volt",
       description: null,
-      focusCues: ["Raka armar", "Spänd bål"],
-      easierVariant: null,
-      harderVariant: "Sträckt",
       disciplineName: null,
       stationIds: [A, B],
     });
   });
 
-  it("rejects a missing name and too many cues", () => {
-    const base = { name: "x", focusCues: [], stationIds: [] };
-    expect(keyOf(exerciseInput, { ...base, name: " " })).toBe("nameRequired");
-    expect(keyOf(exerciseInput, { ...base, focusCues: Array(21).fill("a") })).toBe("tooManyCues");
-    expect(keyOf(exerciseInput, { ...base, focusCues: ["a".repeat(101)] })).toBe("cueTooLong");
+  it("rejects a missing name", () => {
+    expect(keyOf(exerciseInput, { name: " ", stationIds: [] })).toBe("nameRequired");
   });
 });
 

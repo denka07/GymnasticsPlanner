@@ -188,9 +188,6 @@ export async function updateExercise(exerciseId: string, input: unknown): Promis
       .set({
         name: values.name,
         description: values.description,
-        focusCues: values.focusCues,
-        easierVariant: values.easierVariant,
-        harderVariant: values.harderVariant,
         disciplineName: values.disciplineName,
       })
       .where(eq(exercises.id, exercise.id)),

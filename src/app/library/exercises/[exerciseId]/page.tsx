@@ -51,30 +51,6 @@ async function ExerciseContent({
             )}
             {exercise.description && <p className="whitespace-pre-line">{exercise.description}</p>}
             <section className="grid gap-2">
-              <h2 className="font-heading text-xl font-semibold">{t("cuesHeading")}</h2>
-              {exercise.focusCues.length === 0 ? (
-                <p>{t("cuesEmpty")}</p>
-              ) : (
-                <ol className="list-decimal pl-6">
-                  {exercise.focusCues.map((cue, i) => (
-                    <li key={i}>{cue}</li>
-                  ))}
-                </ol>
-              )}
-            </section>
-            {exercise.easierVariant && (
-              <section className="grid gap-1">
-                <h2 className="font-heading text-xl font-semibold">{t("easierLabel")}</h2>
-                <p className="whitespace-pre-line">{exercise.easierVariant}</p>
-              </section>
-            )}
-            {exercise.harderVariant && (
-              <section className="grid gap-1">
-                <h2 className="font-heading text-xl font-semibold">{t("harderLabel")}</h2>
-                <p className="whitespace-pre-line">{exercise.harderVariant}</p>
-              </section>
-            )}
-            <section className="grid gap-2">
               <h2 className="font-heading text-xl font-semibold">{t("stationsHeading")}</h2>
               {details.stations.length === 0 ? (
                 <p>{t("stationsEmpty")}</p>
@@ -110,9 +86,6 @@ async function EditableExercise({ details }: { details: ExerciseDetails }) {
         id: exercise.id,
         name: exercise.name,
         description: exercise.description,
-        focusCues: exercise.focusCues,
-        easierVariant: exercise.easierVariant,
-        harderVariant: exercise.harderVariant,
         disciplineName: exercise.disciplineName,
       }}
       initialStations={details.stations}

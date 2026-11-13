@@ -40,9 +40,6 @@ export type ViewExercise = {
   id: string;
   name: string;
   description: string | null;
-  focusCues: string[];
-  easierVariant: string | null;
-  harderVariant: string | null;
 };
 
 export type ViewActivity = {
@@ -109,9 +106,6 @@ async function loadActivityLinks(
             id: exercises.id,
             name: exercises.name,
             description: exercises.description,
-            focusCues: exercises.focusCues,
-            easierVariant: exercises.easierVariant,
-            harderVariant: exercises.harderVariant,
           })
           .from(activityExercises)
           .innerJoin(exercises, eq(exercises.id, activityExercises.exerciseId))
