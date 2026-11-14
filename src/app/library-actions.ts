@@ -192,10 +192,17 @@ export async function copyToMineAction(kind: unknown, itemId: string): Promise<A
   return result;
 }
 
-/** Submits the user's personal station or exercise for review. */
-export async function submitForReviewAction(kind: unknown, itemId: string): Promise<ActionResult> {
+/**
+ * Submits the user's personal station or exercise for review. For a station,
+ * `exerciseIds` are the user's own personal exercises it supports that go with it.
+ */
+export async function submitForReviewAction(
+  kind: unknown,
+  itemId: string,
+  exerciseIds: unknown = [],
+): Promise<ActionResult> {
   return run(async () => {
-    await submitForReview(kindInput.parse(kind), itemId);
+    await submitForReview(kindInput.parse(kind), itemId, exerciseIds);
     return {};
   });
 }
@@ -211,18 +218,31 @@ export async function withdrawSubmissionAction(
   });
 }
 
-/** Turns an administrator's own personal item global without review. */
-export async function makeGlobalAction(kind: unknown, itemId: string): Promise<ActionResult> {
+/**
+ * Turns an administrator's own personal item global without review, for a
+ * station with the ticked own personal exercises it supports.
+ */
+export async function makeGlobalAction(
+  kind: unknown,
+  itemId: string,
+  exerciseIds: unknown = [],
+): Promise<ActionResult> {
   return run(async () => {
-    await makeGlobal(kindInput.parse(kind), itemId);
+    await makeGlobal(kindInput.parse(kind), itemId, exerciseIds);
     return {};
   });
 }
 
-/** Approves a pending submission: the item becomes global. Administrators only. */
-export async function approveSubmissionAction(submissionId: string): Promise<ActionResult> {
+/**
+ * Approves a pending submission: the item becomes global, for a station with
+ * the ticked included exercises that still qualify. Administrators only.
+ */
+export async function approveSubmissionAction(
+  submissionId: string,
+  exerciseIds: unknown = [],
+): Promise<ActionResult> {
   return run(async () => {
-    await approveSubmission(submissionId);
+    await approveSubmission(submissionId, exerciseIds);
     return {};
   });
 }
