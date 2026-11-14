@@ -64,6 +64,13 @@
       "when": 1794652995156,
       "tag": "0008_young_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794656264528,
+      "tag": "0009_gigantic_marauders",
+      "breakpoints": true
     }
   ]
 }
