@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, count, eq, ilike, inArray, notExists, sql } from "drizzle-orm";
+import { and, count, eq, ilike, inArray, notExists, sql, type SQL } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 
 import { getDb } from "@/db";
@@ -12,16 +12,44 @@ import {
   stationEquipment,
   stationExercises,
   stations,
+  users,
   type LibraryScope,
   type Station,
+  type SubmissionStatus,
 } from "@/db/schema";
-import { allVisible, requireStationAccess, visibleTo } from "@/lib/access";
+import { requireStationAccess, visibleTo } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
-import { byName, searchPattern } from "@/lib/library";
+import {
+  byName,
+  canCopy,
+  canCreateWithScope,
+  canEditLink,
+  canSeeCreator,
+  isVisibleInLibrary,
+  searchPattern,
+  type ScopeFilter,
+} from "@/lib/library";
 
 import { allEquipmentExists } from "./equipment";
 import { UserError } from "./errors";
-import { name, searchInput, stationInput } from "./schemas";
+import { stationLinkStatements } from "./library-links";
+import { createLibraryItemInput, idList, searchInput, stationInput } from "./schemas";
+import { getReviewState, myNewestStatuses, type ReviewState } from "./submissions";
+
+/** SQL for the items a list shows with a filter: all visible, the user's own, or global. */
+export function scopeCondition(
+  table: typeof stations | typeof exercises,
+  filter: ScopeFilter,
+  user: { id: string },
+): SQL {
+  if (filter === "mine") {
+    return and(eq(table.scope, "personal"), eq(table.ownerId, user.id))!;
+  }
+  if (filter === "global") {
+    return eq(table.scope, "global");
+  }
+  return visibleTo(table, user);
+}
 
 export type StationListItem = {
   id: string;
@@ -31,26 +59,31 @@ export type StationListItem = {
   equipment: { name: string; quantity: number }[];
   /** Supported exercises the user may see. */
   exerciseCount: number;
+  /** The status of the user's newest submission of the station, if any. */
+  status: SubmissionStatus | null;
 };
 
-/** The stations the user may see, by name, optionally filtered by a name search. */
-export async function listStations(search?: unknown): Promise<StationListItem[]> {
+/**
+ * The stations the user may see (global and their own), by name, optionally
+ * filtered by scope and a name search.
+ */
+export async function listStations(
+  search?: unknown,
+  filter: ScopeFilter = "all",
+): Promise<StationListItem[]> {
   const user = await requireUser();
   const pattern = searchPattern(searchInput.parse(search));
   const db = getDb();
+  const condition = scopeCondition(stations, filter, user);
   const rows = await db
     .select({ id: stations.id, name: stations.name, scope: stations.scope })
     .from(stations)
-    .where(
-      pattern
-        ? and(visibleTo(stations, user), ilike(stations.name, pattern))
-        : visibleTo(stations, user),
-    );
+    .where(pattern ? and(condition, ilike(stations.name, pattern)) : condition);
   if (rows.length === 0) {
     return [];
   }
   const ids = rows.map((r) => r.id);
-  const [lines, links] = await Promise.all([
+  const [lines, links, statuses] = await Promise.all([
     db
       .select({
         stationId: stationEquipment.stationId,
@@ -65,10 +98,12 @@ export async function listStations(search?: unknown): Promise<StationListItem[]>
       .from(stationExercises)
       .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
       .where(and(inArray(stationExercises.stationId, ids), visibleTo(exercises, user))),
+    myNewestStatuses("station", user.id, ids),
   ]);
   return rows
     .map((row) => ({
       ...row,
+      status: statuses.get(row.id) ?? null,
       equipment: lines
         .filter((l) => l.stationId === row.id)
         .map(({ name, quantity }) => ({ name, quantity }))
@@ -79,20 +114,33 @@ export async function listStations(search?: unknown): Promise<StationListItem[]>
 }
 
 export type StationDetails = {
-  station: Station;
+  station: Pick<Station, "id" | "name" | "description" | "scope">;
   access: "edit" | "view";
   equipment: { equipmentId: string; name: string; quantity: number }[];
-  /** Supported exercises the user may see, by name. */
-  exercises: { id: string; name: string }[];
-  /** How many session activities use the station, in anyone's sessions. */
-  activityCount: number;
+  /** Supported exercises the user may see, by name, and whether they may unlink each. */
+  exercises: { id: string; name: string; scope: LibraryScope; editable: boolean }[];
+  /**
+   * The station owner's personal exercises it supports. They do not become
+   * global with the station and would need to be submitted separately. Shown
+   * to the owner and to an administrator reviewing it.
+   */
+  ownersPersonalExercises: { id: string; name: string }[];
+  /**
+   * How many session activities use the station, in anyone's sessions. Only
+   * for those who may edit or delete it; null otherwise.
+   */
+  activityCount: number | null;
+  /** Who created it; only administrators get it, and only for a global station. */
+  creatorName: string | null;
+  review: ReviewState;
 };
 
 /** One station with its equipment and supported exercises. notFound() without access. */
 export async function getStation(stationId: string): Promise<StationDetails> {
   const { user, station, access } = await requireStationAccess(stationId, "view");
   const db = getDb();
-  const [lines, linked, [uses]] = await Promise.all([
+  const ownerOfPersonal = station.scope === "personal" ? station.ownerId : null;
+  const [lines, linked, [uses], creatorName, review] = await Promise.all([
     db
       .select({
         equipmentId: stationEquipment.equipmentId,
@@ -102,19 +150,58 @@ export async function getStation(stationId: string): Promise<StationDetails> {
       .from(stationEquipment)
       .innerJoin(equipment, eq(equipment.id, stationEquipment.equipmentId))
       .where(eq(stationEquipment.stationId, station.id)),
+    // Every link is read here and filtered below: the viewer gets only the
+    // exercises they may see, plus (owner or reviewer) the owner's own.
     db
-      .select({ id: exercises.id, name: exercises.name })
+      .select({
+        id: exercises.id,
+        name: exercises.name,
+        scope: exercises.scope,
+        ownerId: exercises.ownerId,
+      })
       .from(stationExercises)
       .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
-      .where(and(eq(stationExercises.stationId, station.id), visibleTo(exercises, user))),
-    db.select({ n: count() }).from(activities).where(eq(activities.stationId, station.id)),
+      .where(eq(stationExercises.stationId, station.id)),
+    access === "edit"
+      ? db.select({ n: count() }).from(activities).where(eq(activities.stationId, station.id))
+      : Promise.resolve([{ n: 0 }]),
+    station.scope === "global" && canSeeCreator(user)
+      ? db
+          .select({ name: users.name })
+          .from(users)
+          .where(eq(users.id, station.createdBy))
+          .limit(1)
+          .then((rows) => rows[0]?.name ?? null)
+      : Promise.resolve(null),
+    getReviewState("station", station, user),
   ]);
   return {
-    station,
+    station: {
+      id: station.id,
+      name: station.name,
+      description: station.description,
+      scope: station.scope,
+    },
     access,
     equipment: lines.sort(byName),
-    exercises: linked.sort(byName),
-    activityCount: uses?.n ?? 0,
+    exercises: linked
+      .filter((e) => isVisibleInLibrary(e, user))
+      .map((e) => ({
+        id: e.id,
+        name: e.name,
+        scope: e.scope,
+        editable: canEditLink(station, e, user),
+      }))
+      .sort(byName),
+    ownersPersonalExercises: ownerOfPersonal
+      ? linked
+          .filter((e) => e.scope === "personal" && e.ownerId === ownerOfPersonal)
+          .map(({ id, name }) => ({ id, name }))
+          .sort(byName)
+      : [],
+    activityCount: access === "edit" ? (uses?.n ?? 0) : null,
+    creatorName,
+    review,
   };
 }
 
@@ -128,50 +215,52 @@ export async function listVisibleStationNames(): Promise<{ id: string; name: str
   return rows.sort(byName);
 }
 
-/** Creates a personal station owned by the current user and returns it. */
+/**
+ * Creates a station and returns it: personal and owned by the current user,
+ * or global when an administrator asks for that.
+ */
 export async function createStation(input: {
   name: unknown;
+  scope?: unknown;
 }): Promise<{ id: string; name: string }> {
   const user = await requireUser();
-  const value = name.parse(input.name);
+  const values = createLibraryItemInput.parse(input);
+  if (!canCreateWithScope(values.scope, user)) {
+    throw new UserError("invalid");
+  }
   const [row] = await getDb()
     .insert(stations)
-    .values({ name: value, scope: "personal", ownerId: user.id })
+    .values({
+      name: values.name,
+      scope: values.scope,
+      ownerId: values.scope === "personal" ? user.id : null,
+      createdBy: user.id,
+    })
     .returning({ id: stations.id, name: stations.name });
   return row;
 }
 
 /**
  * Saves a station's fields, equipment lines and supported exercises in one
- * transaction. Links to exercises the user cannot see are left alone.
+ * transaction. Only links the user may change are added or removed
+ * (canEditLink); links to exercises they cannot see are left alone.
  */
 export async function updateStation(stationId: string, input: unknown): Promise<void> {
   const { user, station } = await requireStationAccess(stationId, "edit");
   const values = stationInput.parse(input);
   const equipmentIds = values.equipment.map((l) => l.equipmentId);
-  const [equipmentOk, exercisesOk] = await Promise.all([
+  const [equipmentOk, links] = await Promise.all([
     allEquipmentExists(equipmentIds),
-    allVisible(exercises, user, values.exerciseIds),
+    stationLinkStatements(station, values.exerciseIds, user),
   ]);
-  if (!equipmentOk || !exercisesOk) {
+  if (!equipmentOk) {
     throw new UserError("invalid");
   }
 
   const db = getDb();
-  const visibleExerciseIds = db
-    .select({ id: exercises.id })
-    .from(exercises)
-    .where(visibleTo(exercises, user));
   const rest: BatchItem<"pg">[] = [
     db.delete(stationEquipment).where(eq(stationEquipment.stationId, station.id)),
-    db
-      .delete(stationExercises)
-      .where(
-        and(
-          eq(stationExercises.stationId, station.id),
-          inArray(stationExercises.exerciseId, visibleExerciseIds),
-        ),
-      ),
+    ...links,
   ];
   if (values.equipment.length > 0) {
     rest.push(
@@ -182,14 +271,6 @@ export async function updateStation(stationId: string, input: unknown): Promise<
           quantity: l.quantity,
         })),
       ),
-    );
-  }
-  if (values.exerciseIds.length > 0) {
-    rest.push(
-      db
-        .insert(stationExercises)
-        .values(values.exerciseIds.map((exerciseId) => ({ stationId: station.id, exerciseId })))
-        .onConflictDoNothing(),
     );
   }
   await db.batch([
@@ -228,4 +309,65 @@ export async function deleteStation(stationId: string): Promise<void> {
       ),
     db.delete(stations).where(eq(stations.id, station.id)),
   ]);
+}
+
+/**
+ * Saves which of the user's own exercises a station they can see supports,
+ * for example a coach adding their personal exercises to a global station.
+ * Only links the user may change are touched; `exerciseIds` lists the ones
+ * they want among those.
+ */
+export async function updateMyStationLinks(stationId: string, exerciseIds: unknown): Promise<void> {
+  const { user, station } = await requireStationAccess(stationId, "view");
+  const ids = idList.parse(exerciseIds);
+  const [first, ...rest] = await stationLinkStatements(station, ids, user);
+  if (first) {
+    await getDb().batch([first, ...rest]);
+  }
+}
+
+/**
+ * Copies a global station into a new personal one owned by the user, with
+ * its equipment lines and its links to the exercises the user can see
+ * (global ones and the user's own). The copy is independent of the original.
+ */
+export async function copyStation(stationId: string): Promise<{ id: string }> {
+  const { user, station } = await requireStationAccess(stationId, "view");
+  if (!canCopy(station)) {
+    throw new UserError("invalid");
+  }
+  const db = getDb();
+  const [lines, linked] = await Promise.all([
+    db
+      .select({ equipmentId: stationEquipment.equipmentId, quantity: stationEquipment.quantity })
+      .from(stationEquipment)
+      .where(eq(stationEquipment.stationId, station.id)),
+    db
+      .select({ id: exercises.id })
+      .from(stationExercises)
+      .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
+      .where(and(eq(stationExercises.stationId, station.id), visibleTo(exercises, user))),
+  ]);
+  const id = crypto.randomUUID();
+  const rest: BatchItem<"pg">[] = [];
+  if (lines.length > 0) {
+    rest.push(db.insert(stationEquipment).values(lines.map((l) => ({ ...l, stationId: id }))));
+  }
+  if (linked.length > 0) {
+    rest.push(
+      db.insert(stationExercises).values(linked.map((e) => ({ stationId: id, exerciseId: e.id }))),
+    );
+  }
+  await db.batch([
+    db.insert(stations).values({
+      id,
+      name: station.name,
+      description: station.description,
+      scope: "personal",
+      ownerId: user.id,
+      createdBy: user.id,
+    }),
+    ...rest,
+  ]);
+  return { id };
 }

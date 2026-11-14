@@ -1,17 +1,18 @@
-import { PlusIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import { createExerciseAction } from "@/app/library-actions";
+import { CreateItemDialog } from "@/components/library/create-item-dialog";
 import { LibrarySearch } from "@/components/library/library-search";
 import { LibraryTabs } from "@/components/library/library-tabs";
 import { ScopeBadge } from "@/components/library/scope-badge";
+import { ScopeFilterNav, SubmissionBadge } from "@/components/library/scope-filter";
 import { PageLoading, PageShell } from "@/components/page-shell";
-import { NameDialog } from "@/components/plan/name-dialog";
-import { Button } from "@/components/ui/button";
 import { listExercises } from "@/lib/data/exercises";
 import { searchInput } from "@/lib/data/schemas";
+import { requireUser } from "@/lib/auth";
+import { parseScopeFilter } from "@/lib/library";
 
 export default function ExercisesPage({ searchParams }: PageProps<"/library/exercises">) {
   return (
@@ -26,37 +27,41 @@ async function ExercisesContent({
 }: {
   searchParams: PageProps<"/library/exercises">["searchParams"];
 }) {
-  const search = searchInput.parse((await searchParams).q);
-  const [exercises, t, tl, tc] = await Promise.all([
-    listExercises(search),
+  const params = await searchParams;
+  const search = searchInput.parse(params.q);
+  const filter = parseScopeFilter(params.scope);
+  const [exercises, user, t, tl] = await Promise.all([
+    listExercises(search, filter),
+    requireUser(),
     getTranslations("Exercises"),
     getTranslations("Library"),
-    getTranslations("Common"),
   ]);
 
   return (
     <PageShell crumbs={[{ label: tl("heading"), href: "/library" }, { label: tl("tabs.exercises") }]}>
       <LibraryTabs current="exercises" />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <LibrarySearch action="/library/exercises" label={t("searchLabel")} search={search} />
-        <NameDialog
-          trigger={
-            <Button className="h-11 px-4">
-              <PlusIcon data-icon="inline-start" />
-              {t("new")}
-            </Button>
-          }
+        <LibrarySearch
+          action="/library/exercises"
+          label={t("searchLabel")}
+          search={search}
+          scope={filter}
+        />
+        <CreateItemDialog
+          buttonLabel={t("new")}
           title={t("createTitle")}
-          label={tl("nameLabel")}
           placeholder={t("namePlaceholder")}
-          submitLabel={tc("create")}
+          canChooseScope={user.isAdmin}
           action={createExerciseAction}
         />
       </div>
+      <ScopeFilterNav action="/library/exercises" filter={filter} search={search} />
 
       {exercises.length === 0 ? (
         search ? (
           <p className="text-muted-foreground">{tl("noResults", { search })}</p>
+        ) : filter !== "all" ? (
+          <p className="text-muted-foreground">{tl("noneInFilter")}</p>
         ) : (
           <div className="grid gap-1 rounded-xl border bg-muted/40 p-4">
             <p className="font-semibold">{t("emptyTitle")}</p>
@@ -74,6 +79,7 @@ async function ExercisesContent({
                 <span className="flex flex-wrap items-center gap-2 font-semibold">
                   {exercise.name}
                   {exercise.scope === "global" && <ScopeBadge />}
+                  <SubmissionBadge status={exercise.status} />
                 </span>
                 {exercise.disciplineName && <span>{exercise.disciplineName}</span>}
                 <span className="text-muted-foreground">

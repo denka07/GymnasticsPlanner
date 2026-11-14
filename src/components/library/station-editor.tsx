@@ -36,6 +36,7 @@ export function StationEditor({
   catalogue,
   exercises: initialAllExercises,
   activityCount,
+  isGlobal = false,
 }: {
   station: { id: string; name: string; description: string | null };
   initialEquipment: { equipmentId: string; name: string; quantity: number }[];
@@ -46,6 +47,8 @@ export function StationEditor({
   exercises: Item[];
   /** How many session activities use the station. */
   activityCount: number;
+  /** A global item: its usage counts activities of all users. */
+  isGlobal?: boolean;
 }) {
   const t = useTranslations("Stations");
   const tl = useTranslations("Library");
@@ -258,7 +261,11 @@ export function StationEditor({
             </Button>
           }
           title={t("deleteTitle")}
-          description={t("deleteText", { name: station.name, count: activityCount })}
+          description={
+            isGlobal
+              ? `${t("deleteText", { name: station.name, count: activityCount })} ${tl("deleteGlobalNote")}`
+              : t("deleteText", { name: station.name, count: activityCount })
+          }
           action={() => deleteStationAction(station.id)}
         />
       </div>

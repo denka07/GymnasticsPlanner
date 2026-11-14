@@ -39,7 +39,7 @@ import {
 } from "@/lib/access";
 import { isUuid } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
-import { byName, libraryAccess } from "@/lib/library";
+import { byName, canEditLink } from "@/lib/library";
 import type { LinkedItem, LoadedActivity, LoadedPart } from "@/lib/outline";
 import { weekSessions, type WeekEntry } from "@/lib/week-sessions";
 import { addWeeks, isMonday, mondayOf, weekdayDate } from "@/lib/weeks";
@@ -64,13 +64,20 @@ export type StoredSession = Session & { parts: LoadedPart[] };
  * see, and which exercises each station supports.
  */
 export type ActivityLibrary = {
-  stations: LinkedItem[];
-  exercises: LinkedItem[];
+  stations: LibraryPickItem[];
+  exercises: LibraryPickItem[];
   /** Station id to the ids of the visible exercises it supports. */
   supports: Record<string, string[]>;
-  /** Stations whose supported exercises the user may change. */
+  /**
+   * Stations that a new personal exercise created from the picker may be
+   * linked to (canEditLink): every station the user can see, global ones
+   * included.
+   */
   editableStationIds: string[];
 };
+
+/** A station or exercise the picker offers, marked when it is global. */
+export type LibraryPickItem = LinkedItem & { global: boolean };
 
 export type WeekFocus = {
   disciplineId: string;
@@ -358,7 +365,10 @@ async function loadActivityLibrary(): Promise<ActivityLibrary> {
       .select({ id: stations.id, name: stations.name, scope: stations.scope, ownerId: stations.ownerId })
       .from(stations)
       .where(visibleTo(stations, user)),
-    db.select({ id: exercises.id, name: exercises.name }).from(exercises).where(visibleTo(exercises, user)),
+    db
+      .select({ id: exercises.id, name: exercises.name, scope: exercises.scope })
+      .from(exercises)
+      .where(visibleTo(exercises, user)),
     db
       .select({ stationId: stationExercises.stationId, exerciseId: stationExercises.exerciseId })
       .from(stationExercises)
@@ -371,10 +381,16 @@ async function loadActivityLibrary(): Promise<ActivityLibrary> {
     (supports[r.stationId] ??= []).push(r.exerciseId);
   }
   return {
-    stations: stationRows.map(({ id, name }) => ({ id, name })).sort(byName),
-    exercises: exerciseRows.sort(byName),
+    stations: stationRows
+      .map(({ id, name, scope }) => ({ id, name, global: scope === "global" }))
+      .sort(byName),
+    exercises: exerciseRows
+      .map(({ id, name, scope }) => ({ id, name, global: scope === "global" }))
+      .sort(byName),
     supports,
-    editableStationIds: stationRows.filter((s) => libraryAccess(s, user) === "edit").map((s) => s.id),
+    editableStationIds: stationRows
+      .filter((s) => canEditLink(s, { scope: "personal", ownerId: user.id }, user))
+      .map((s) => s.id),
   };
 }
 
