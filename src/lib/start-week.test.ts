@@ -110,6 +110,18 @@ describe("weekItems", () => {
     ]);
   });
 
+  it("orders sessions on one day by start time, timeless last and stable", () => {
+    const day = "2026-11-11";
+    const s = (id: string, startTime: string | null) =>
+      stored({ id, date: day, startTime, trainingSlotId: null });
+    const items = weekItems(
+      CURRENT,
+      [season({ slots: [] })],
+      [s("c", null), s("b", "18:00"), s("z", null), s("a", "09:30")],
+    );
+    expect(items.map((i) => i.sessionId)).toEqual(["a", "b", "c", "z"]);
+  });
+
   it("ignores stored sessions of other weeks", () => {
     expect(weekItems(CURRENT, [season({ slots: [] })], [stored({ date: "2026-11-17" })])).toEqual([]);
   });
