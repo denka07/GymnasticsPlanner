@@ -6,8 +6,9 @@ import { Suspense } from "react";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { SessionChecklist } from "@/components/session/session-checklist";
 import { SessionNote } from "@/components/session/session-note";
+import { ShareDialog } from "@/components/share/share-dialog";
 import { Button } from "@/components/ui/button";
-import { canEdit } from "@/lib/access";
+import { canEdit, canParticipate, isOwner } from "@/lib/access";
 import { formatDayMonth, formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { getSessionView, type SessionNeighbour } from "@/lib/data/session-view";
 import { mondayOf } from "@/lib/weeks";
@@ -27,20 +28,25 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
   const t = await getTranslations("SessionPage");
   const tw = await getTranslations("Weekdays");
   const editable = canEdit(view.access);
+  // Everyone who can view the session may tick parts and write the note.
+  const participate = canParticipate(view.access);
 
   const weekday = tw(`d${weekdayOf(session.date)}` as "d1");
   const heading = `${weekday} ${formatDayMonthLong(session.date)}`;
   const start = shortTime(session.startTime);
   const end = shortTime(session.endTime);
   const time = start && end ? `${start}–${end}` : (start ?? end);
-  const weekHref = `/seasons/${season.id}/weeks/${mondayOf(session.date)}`;
+  // With only this session shared, edit it on its own page instead of the week page.
+  const weekHref = view.canOpenSeason
+    ? `/seasons/${season.id}/weeks/${mondayOf(session.date)}`
+    : `/sessions/${session.id}/edit`;
   const hasParts = view.parts.length > 0;
 
   return (
     <PageShell
       crumbs={[
         { label: group.name, href: `/groups/${group.id}` },
-        { label: season.name, href: `/seasons/${season.id}` },
+        { label: season.name, href: view.canOpenSeason ? `/seasons/${season.id}` : undefined },
         { label: heading },
       ]}
     >
@@ -50,16 +56,21 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
             <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
               {heading}
             </h1>
-            {editable && (
-              <Button
-                variant="outline"
-                className="h-11 px-4 text-base"
-                nativeButton={false}
-                render={<Link href={weekHref} />}
-              >
-                {t("edit")}
-              </Button>
-            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              {isOwner(view.access) && (
+                <ShareDialog kind="session" id={session.id} name={heading} />
+              )}
+              {editable && (
+                <Button
+                  variant="outline"
+                  className="h-11 px-4 text-base"
+                  nativeButton={false}
+                  render={<Link href={weekHref} />}
+                >
+                  {t("edit")}
+                </Button>
+              )}
+            </div>
           </div>
           {(time || session.location) && (
             <p className="text-lg">{[time, session.location].filter(Boolean).join(" · ")}</p>
@@ -88,7 +99,7 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
             sessionId={session.id}
             parts={view.parts}
             startTime={session.startTime}
-            editable={editable}
+            editable={participate}
           />
         ) : (
           <div className="grid justify-items-start gap-3 rounded-xl border bg-muted/40 p-4">
@@ -106,12 +117,12 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
           </div>
         )}
 
-        {(editable || session.noteAfter) && (
+        {(participate || session.noteAfter) && (
           <SessionNote
             key={`note-${session.id}`}
             sessionId={session.id}
             initial={session.noteAfter ?? ""}
-            editable={editable}
+            editable={participate}
           />
         )}
       </div>

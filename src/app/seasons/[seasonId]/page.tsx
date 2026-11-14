@@ -9,8 +9,9 @@ import { ActivitiesRows } from "@/components/plan/activities-rows";
 import { CopySeasonDialog } from "@/components/plan/copy-season-dialog";
 import { SeasonGrid, type GridWeek } from "@/components/plan/season-grid";
 import { SeasonSummary } from "@/components/plan/season-summary";
+import { ShareDialog } from "@/components/share/share-dialog";
 import { Button } from "@/components/ui/button";
-import { canEdit } from "@/lib/access";
+import { canEdit, isOwner } from "@/lib/access";
 import { listEditableGroups } from "@/lib/data/groups";
 import { getSeasonPlan } from "@/lib/data/seasons";
 import { mondayToWeekInput } from "@/lib/season-weeks";
@@ -39,7 +40,9 @@ async function SeasonContent({
   const t = await getTranslations();
   const editable = canEdit(plan.access);
   const currentWeek = await currentMonday();
-  const targetGroups = await listEditableGroups();
+  const owner = isOwner(plan.access);
+  // Only the owner copies a season.
+  const targetGroups = owner ? await listEditableGroups() : [];
   const weekRows = new Map(plan.weekRows.map((r) => [r.weekStart, r]));
   const weeks: GridWeek[] = plan.weeks.map((weekStart) => {
     const row = weekRows.get(weekStart);
@@ -71,6 +74,7 @@ async function SeasonContent({
           <SeasonSummary season={season} trainingSlots={plan.trainingSlots} />
         </div>
         <div className="flex flex-wrap gap-2">
+          {owner && <ShareDialog kind="season" id={season.id} name={season.name} />}
           {targetGroups.length > 0 && (
             <CopySeasonDialog
               trigger={
