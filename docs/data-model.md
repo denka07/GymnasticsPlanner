@@ -228,12 +228,18 @@ The library holds exercises and stations that are reused across groups and seaso
 
 Exercises and stations each have a scope:
 
-- **Global:** visible to all users. Only administrators create and edit them.
+- **Global:** visible to all users. Only administrators create, edit and delete them.
 - **Personal:** visible to their owner, who creates and edits them.
 
-A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original.
+When an administrator creates an item they choose personal (the default) or global. An administrator can also turn one of their own personal items global directly, without review. A global item cannot be made personal again.
+
+Every item remembers who created it. The creator is kept when the item becomes global, but only administrators are shown it ("Skapad av …"); other users never receive it.
+
+A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original. A copied station keeps its equipment lines and its links to the exercises the user can see (global ones and the user's own); a copied exercise keeps its links to the stations the user can see.
 
 A coach can submit a personal exercise or station for review to make it global, see [Submission](#submission).
+
+An administrator deleting a global item is told how many activities use it, across all users. As with personal items, the activities lose the link, and an activity that would be left with neither exercises nor text gets the item's name as its text.
 
 ### Exercise
 
@@ -244,6 +250,7 @@ A reusable exercise.
 - Discipline name (optional, as free text, since disciplines are defined per season)
 - Scope: global or personal
 - Owner (user; personal exercises only)
+- Created by (user; kept when it becomes global, shown to administrators only)
 
 An exercise does not list equipment. Equipment belongs to the station it is performed at.
 
@@ -259,6 +266,7 @@ A configuration of equipment that one or more exercises can be performed at.
 - Supported exercises (example: Grupperad volt till rygg, Pikerad volt till rygg, Sträckt volt till rygg, Kobett salto)
 - Scope: global or personal
 - Owner (user; personal stations only)
+- Created by (user; kept when it becomes global, shown to administrators only)
 
 Some stations support one or two exercises and some support many. An exercise can be supported by several stations.
 
@@ -266,6 +274,8 @@ Rules for which exercises a station supports:
 
 - Administrators maintain the links between global stations and global exercises.
 - A user maintains the links that involve their own personal station or personal exercise. This lets a coach add a personal exercise to a global station. That link is visible only to that coach and to those they share sessions with.
+- Every list of supported exercises (or supporting stations) shows only the items the viewer can see. Saving such a list adds or removes only the links the user may change and leaves every other link as it is.
+- When a station becomes global, its links to personal exercises stay; they are shown only to those who can see the exercises.
 
 ### Station equipment
 
@@ -293,9 +303,13 @@ A request from a coach to make a personal exercise or station global.
 
 Rules:
 
+- Only the owner of a personal item submits it. Administrators make their own items global directly instead.
+- While a submission is pending, the owner can still edit the item and can withdraw the submission, which deletes it.
+- Administrators see the pending submissions with who submitted them and when, and can open the item to review it even though it is another user's personal item.
 - On approval the item itself becomes global. It is not duplicated, so sessions that already use it keep working. The submitter can no longer edit it.
-- On rejection the item stays personal and the submitter sees the review comment. It can be changed and submitted again.
-- An item has at most one pending submission.
+- On rejection a comment is required. The item stays personal and the submitter sees the status and the comment on it. It can be changed and submitted again.
+- An item has at most one pending submission; the database enforces it. Reviewed submissions are kept, and the submitter sees the status of their newest one. Submissions are deleted with their item.
+- No email is sent; the submitter sees pending, approved or rejected on the item.
 
 ## Later: drawn plans
 
@@ -318,6 +332,10 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - There is no program entity. Recurring routines such as a strength program are referred to in an activity's text.
 - An activity has an optional station, zero or more exercises and optional text, with at least one of exercises or text.
 - Approving a submission converts the item to global instead of creating a global copy.
+- Administrators create global items directly and can make their own personal items global without review.
+- A pending submission does not lock the item: the owner can keep editing it and can withdraw it.
+- The creator of a global item is kept but shown only to administrators.
+- Links between stations and exercises are saved per link: a save only changes the links the user may change, so a coach's personal exercises on a global station survive an administrator's edit, and the other way round.
 - When a station is approved, only its links to global exercises become global. Personal exercises it supports must be submitted separately.
 - An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.
