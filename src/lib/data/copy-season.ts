@@ -10,15 +10,15 @@ import {
   seasons,
   trainingSlots,
 } from "@/db/schema";
-import { requireGroupAccess, requireSeasonAccess } from "@/lib/access";
+import { requireGroupAccess, requireSeasonOwner } from "@/lib/access";
 import { alignWeeks, planSeasonCopy } from "@/lib/copy-season";
 import { weeksBetween } from "@/lib/weeks";
 
 import { copySeasonInput } from "./schemas";
 
 /**
- * Copies a season into a group and returns the new season id. Requires view
- * access to the source season and edit access to the target group.
+ * Copies a season into a group and returns the new season id. Only the owner
+ * of the source season may copy it; the target group needs edit access.
  *
  * Copies training slots, disciplines and focus items (order and categories
  * kept). With `includeAllocations`, also the focus allocations, aligned by
@@ -30,7 +30,7 @@ export async function copySeason(
   sourceSeasonId: string,
   input: unknown,
 ): Promise<string> {
-  await requireSeasonAccess(sourceSeasonId, "view");
+  await requireSeasonOwner(sourceSeasonId);
   const values = copySeasonInput.parse(input);
   await requireGroupAccess(values.groupId, "edit");
   const db = getDb();

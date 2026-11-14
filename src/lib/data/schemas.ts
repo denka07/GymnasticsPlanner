@@ -464,3 +464,27 @@ export const stationInput = z.object(
 
 export type StationInput = z.input<typeof stationInput>;
 export type StationValues = z.output<typeof stationInput>;
+
+// --- Sharing --------------------------------------------------------------
+
+export const shareLevelInput = z.enum(["view", "edit"], { error: "invalid" });
+
+/** A Google email address, trimmed and lower-cased so it matches case-insensitively. */
+export const shareEmail = z
+  .string({ error: "emailInvalid" })
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ error: "emailInvalid" }).max(254, { error: "emailInvalid" }));
+
+/** The resource a share is about: exactly one group, season or session. */
+export const shareResourceInput = z.object({
+  kind: z.enum(["group", "season", "session"], { error: "invalid" }),
+  id,
+});
+
+export type ShareResource = z.infer<typeof shareResourceInput>;
+
+export const newShareInput = z.object({
+  email: shareEmail,
+  level: shareLevelInput,
+});

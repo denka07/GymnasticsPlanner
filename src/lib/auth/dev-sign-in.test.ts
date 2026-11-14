@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { devSignInEmail, devUserValues } from "./dev-sign-in";
+import { devSignInEmail, devSignInValues, isDevUserKey } from "./dev-sign-in";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -32,12 +32,48 @@ describe("devSignInEmail", () => {
   });
 });
 
-describe("devUserValues", () => {
-  it("prefixes the auth id so it cannot clash with a real one", () => {
-    expect(devUserValues("dev@example.test")).toEqual({
-      authId: "dev:dev@example.test",
-      email: "dev@example.test",
-      name: "Dev Coach",
+describe("devSignInValues", () => {
+  it("signs in as Dev Coach by default, with a prefixed auth id", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_SIGN_IN_EMAIL", "dev@example.test");
+    const coach = { authId: "dev:dev@example.test", email: "dev@example.test", name: "Dev Coach" };
+    expect(devSignInValues(undefined)).toEqual(coach);
+    expect(devSignInValues("coach")).toEqual(coach);
+    expect(devSignInValues("nobody")).toEqual(coach);
+  });
+
+  it("switches to the helper with the cookie", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_SIGN_IN_EMAIL", "dev@example.test");
+    expect(devSignInValues("helper")).toEqual({
+      authId: "dev:helper@example.test",
+      email: "helper@example.test",
+      name: "Dev Helper",
     });
+  });
+
+  it("never signs anyone in outside development, whatever the cookie says", () => {
+    for (const env of ["production", "test"]) {
+      vi.stubEnv("NODE_ENV", env);
+      vi.stubEnv("DEV_SIGN_IN_EMAIL", "dev@example.test");
+      expect(devSignInValues(undefined)).toBeNull();
+      expect(devSignInValues("helper")).toBeNull();
+      expect(devSignInValues("newcomer")).toBeNull();
+    }
+  });
+
+  it("is off in development without DEV_SIGN_IN_EMAIL", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_SIGN_IN_EMAIL", "");
+    expect(devSignInValues("helper")).toBeNull();
+  });
+});
+
+describe("isDevUserKey", () => {
+  it("accepts only known keys", () => {
+    expect(isDevUserKey("helper")).toBe(true);
+    expect(isDevUserKey("coach")).toBe(true);
+    expect(isDevUserKey("admin")).toBe(false);
+    expect(isDevUserKey(undefined)).toBe(false);
   });
 });

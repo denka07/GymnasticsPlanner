@@ -13,7 +13,8 @@ export type LibraryAccess = "edit" | "view" | null;
  *
  * - The owner of a personal item may view and edit it.
  * - A global item is visible to everyone and editable only by administrators.
- * - Nobody else may see a personal item.
+ * - Nobody else may open a personal item in the library; a session that
+ * links one shows it to everyone who can view that session.
  */
 export function libraryAccess(
   item: { scope: LibraryScope; ownerId: string | null },
@@ -25,8 +26,8 @@ export function libraryAccess(
   if (item.ownerId !== null && item.ownerId === user.id) {
     return "edit";
   }
-  // TODO(shares): a personal item used in a session shared with the user is
-  // readable through that share (step 5).
+  // A personal item a shared session uses is shown with that session
+  // (src/lib/data/session-view.ts), not through the library.
   return null;
 }
 
