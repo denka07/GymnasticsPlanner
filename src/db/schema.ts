@@ -316,6 +316,13 @@ export const exercises = pgTable(
     disciplineName: text("discipline_name"),
     scope: libraryScope("scope").notNull(),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "restrict" }),
+    /**
+     * Who created the item. Kept when it becomes global (where the owner is
+     * cleared); only administrators are shown it.
+     */
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -338,6 +345,10 @@ export const stations = pgTable(
     description: text("description"),
     scope: libraryScope("scope").notNull(),
     ownerId: uuid("owner_id").references(() => users.id, { onDelete: "restrict" }),
+    /** Who created the item; see exercises.createdBy. */
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -384,6 +395,53 @@ export const stationExercises = pgTable(
   (t) => [
     primaryKey({ columns: [t.stationId, t.exerciseId] }),
     index("station_exercises_exercise_id_idx").on(t.exerciseId),
+  ],
+);
+
+export const submissionStatus = pgEnum("submission_status", ["pending", "approved", "rejected"]);
+
+/**
+ * A request to make a personal exercise or station global. It points at
+ * exactly one item and is deleted with it. An item has at most one pending
+ * submission; reviewed ones stay as its history, the newest giving the status
+ * the submitter sees. A withdrawn submission is deleted.
+ */
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    exerciseId: uuid("exercise_id").references(() => exercises.id, { onDelete: "cascade" }),
+    stationId: uuid("station_id").references(() => stations.id, { onDelete: "cascade" }),
+    submittedBy: uuid("submitted_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    status: submissionStatus("status").notNull().default("pending"),
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewComment: text("review_comment"),
+  },
+  (t) => [
+    index("submissions_exercise_id_idx").on(t.exerciseId),
+    index("submissions_station_id_idx").on(t.stationId),
+    index("submissions_submitted_by_idx").on(t.submittedBy),
+    uniqueIndex("submissions_pending_exercise_unique")
+      .on(t.exerciseId)
+      .where(sql`${t.status} = 'pending'`),
+    uniqueIndex("submissions_pending_station_unique")
+      .on(t.stationId)
+      .where(sql`${t.status} = 'pending'`),
+    check("submissions_one_item_check", sql`num_nonnulls(${t.exerciseId}, ${t.stationId}) = 1`),
+    check(
+      "submissions_reviewed_check",
+      sql`(${t.status} = 'pending') = (${t.reviewedAt} is null)`,
+    ),
+    check(
+      "submissions_reject_comment_check",
+      sql`${t.status} <> 'rejected' or length(trim(coalesce(${t.reviewComment}, ''))) > 0`,
+    ),
   ],
 );
 
@@ -550,6 +608,8 @@ export type Station = typeof stations.$inferSelect;
 export type NewStation = typeof stations.$inferInsert;
 export type StationEquipment = typeof stationEquipment.$inferSelect;
 export type StationExercise = typeof stationExercises.$inferSelect;
+export type Submission = typeof submissions.$inferSelect;
+export type SubmissionStatus = (typeof submissionStatus.enumValues)[number];
 export type Share = typeof shares.$inferSelect;
 export type NewShare = typeof shares.$inferInsert;
 export type ShareLevel = (typeof shareLevel.enumValues)[number];
