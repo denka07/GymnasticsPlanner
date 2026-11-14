@@ -61,6 +61,9 @@ export function SessionColumn({
   weekEnd,
   editable,
   copySources,
+  canDelete = true,
+  canCopy = true,
+  showOpenLink = true,
 }: {
   data: SessionColumnData;
   seasonId: string;
@@ -68,6 +71,12 @@ export function SessionColumn({
   weekEnd: string;
   editable: boolean;
   copySources: CopySourceOption[];
+  /** False on the single-session editor, which would have nothing left to show. */
+  canDelete?: boolean;
+  /** False where no other sessions can be shown to copy from. */
+  canCopy?: boolean;
+  /** False where the session page is linked already. */
+  showOpenLink?: boolean;
 }) {
   const t = useTranslations("Session");
   const tw = useTranslations("Weekdays");
@@ -141,12 +150,14 @@ export function SessionColumn({
             />
             <DropdownMenuContent align="end" className="w-auto min-w-56">
               <DropdownMenuItem onClick={() => setDetailsOpen(true)}>{t("editDetails")}</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setCopyOpen(true)}>{t("copyFrom")}</DropdownMenuItem>
+              {canCopy && (
+                <DropdownMenuItem onClick={() => setCopyOpen(true)}>{t("copyFrom")}</DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={toggleCancelled}>
                 {data.isCancelled ? t("restore") : t("cancel")}
               </DropdownMenuItem>
-              {data.trainingSlotId === null && sessionId && (
+              {canDelete && data.trainingSlotId === null && sessionId && (
                 <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                   {t("delete")}
                 </DropdownMenuItem>
@@ -187,7 +198,7 @@ export function SessionColumn({
         </div>
       )}
 
-      {sessionId && (
+      {showOpenLink && sessionId && (
         <Button variant="outline" nativeButton={false} render={<Link href={`/sessions/${sessionId}`} />}>
           {t("openSession")}
         </Button>

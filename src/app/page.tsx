@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
-import { listMyGroups } from "@/lib/data/groups";
+import { listMyGroups, type GroupWithSeasons } from "@/lib/data/groups";
 import { listNextSessions } from "@/lib/data/session-view";
 import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
 
@@ -40,7 +40,9 @@ async function StartPage() {
 
 async function GroupsOverview() {
   const t = await getTranslations();
-  const [groups, upcoming] = await Promise.all([listMyGroups(), listNextSessions()]);
+  const [all, upcoming] = await Promise.all([listMyGroups(), listNextSessions()]);
+  const groups = all.filter((g) => g.isMine);
+  const shared = all.filter((g) => !g.isMine);
 
   return (
     <PageShell crumbs={[]}>
@@ -101,40 +103,78 @@ async function GroupsOverview() {
         </Card>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {groups.map(({ group, seasons }) => (
-            <li key={group.id}>
-              <Card className="h-full">
-                <CardHeader>
-                  <CardTitle>
-                    <Link href={`/groups/${group.id}`} className="hover:underline">
-                      {group.name}
-                    </Link>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {seasons.length === 0 ? (
-                    <p className="text-muted-foreground">{t("Groups.noSeasons")}</p>
-                  ) : (
-                    <ul className="grid gap-1">
-                      {seasons.map((season) => (
-                        <li key={season.id}>
-                          <Link
-                            href={`/seasons/${season.id}`}
-                            className="text-primary underline-offset-4 hover:underline"
-                          >
-                            {season.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </li>
+          {groups.map((entry) => (
+            <GroupCard key={entry.group.id} entry={entry} />
           ))}
         </ul>
       )}
+
+      {shared.length > 0 && (
+        <section aria-labelledby="shared-heading" className="grid gap-3">
+          <h2 id="shared-heading" className="font-heading text-xl font-semibold">
+            {t("Start.sharedWithMe")}
+          </h2>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {shared.map((entry) => (
+              <GroupCard key={entry.group.id} entry={entry} />
+            ))}
+          </ul>
+        </section>
+      )}
     </PageShell>
+  );
+}
+
+/** A group with the seasons, and sessions shared on their own, the user can open. */
+async function GroupCard({ entry }: { entry: GroupWithSeasons }) {
+  const t = await getTranslations();
+  const { group, seasons, sharedSessions } = entry;
+  return (
+    <li>
+      <Card className="h-full">
+        <CardHeader>
+          <CardTitle>
+            <Link href={`/groups/${group.id}`} className="hover:underline">
+              {group.name}
+            </Link>
+          </CardTitle>
+          {!entry.isMine && (
+            <CardDescription>{t("Start.sharedBy", { name: entry.ownerName })}</CardDescription>
+          )}
+        </CardHeader>
+        <CardContent>
+          {seasons.length === 0 && sharedSessions.length === 0 ? (
+            <p className="text-muted-foreground">{t("Groups.noSeasons")}</p>
+          ) : (
+            <ul className="grid gap-1">
+              {seasons.map((season) => (
+                <li key={season.id}>
+                  <Link
+                    href={`/seasons/${season.id}`}
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    {season.name}
+                  </Link>
+                </li>
+              ))}
+              {sharedSessions.map((session) => (
+                <li key={session.id}>
+                  <Link
+                    href={`/sessions/${session.id}`}
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    {t("Start.sessionLine", {
+                      date: `${t(`Weekdays.d${weekdayOf(session.date)}` as "Weekdays.d1")} ${formatDayMonth(session.date)}`,
+                      season: session.seasonName,
+                    })}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </li>
   );
 }
 
