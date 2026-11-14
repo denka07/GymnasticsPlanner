@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { hasName, pickerMatches } from "@/lib/library";
+import type { LibraryPickItem } from "@/lib/data/sessions";
+import { hasName, pickerMatches, type ScopeFilter } from "@/lib/library";
+import { cn } from "@/lib/utils";
 import { exerciseOptions, MAX_EXERCISES_PER_ACTIVITY, type LinkedItem } from "@/lib/outline";
 
 import { useActivityLibrary } from "./activity-library";
@@ -52,19 +54,24 @@ export function ActivityLinkDialog({
   const [stationSearch, setStationSearch] = useState("");
   const [exerciseSearch, setExerciseSearch] = useState("");
   const [pending, startTransition] = useTransition();
+  const [filter, setFilter] = useState<ScopeFilter>("all");
 
   if (!library) {
     return null;
   }
   const { station, exercises } = links;
+  const inFilter = (item: LibraryPickItem) =>
+    filter === "all" || (filter === "global") === item.global;
+  const shownStations = library.stations.filter(inFilter);
+  const shownExercises = library.exercises.filter(inFilter);
   const stationTrimmed = stationSearch.trim();
   const exerciseTrimmed = exerciseSearch.trim();
-  const stationMatches = station ? [] : pickerMatches(library.stations, [], stationSearch);
+  const stationMatches = station ? [] : pickerMatches(shownStations, [], stationSearch);
   const canCreateStation =
     stationTrimmed !== "" && !hasName(library.stations.map((s) => s.name), stationTrimmed);
   const supported = new Set(station ? (library.supports[station.id] ?? []) : []);
   const exerciseMatches = exerciseOptions(
-    library.exercises,
+    shownExercises,
     supported,
     exercises.map((e) => e.id),
     exerciseSearch,
@@ -75,14 +82,14 @@ export function ActivityLinkDialog({
   const stationEditable = station !== null && library.editableStationIds.includes(station.id);
 
   function chooseStation(item: LinkedItem) {
-    onChange({ station: item, exercises });
+    onChange({ station: { id: item.id, name: item.name }, exercises });
     setStationSearch("");
     // Next step: the exercises, with the station's own listed first.
     requestAnimationFrame(() => document.getElementById(exerciseInputId)?.focus());
   }
 
   function addExercise(item: LinkedItem) {
-    onChange({ station, exercises: [...exercises, item] });
+    onChange({ station, exercises: [...exercises, { id: item.id, name: item.name }] });
     setExerciseSearch("");
     document.getElementById(exerciseInputId)?.focus();
   }
@@ -136,6 +143,29 @@ export function ActivityLinkDialog({
           <DialogDescription>{t("linkIntro")}</DialogDescription>
         </DialogHeader>
 
+        <div role="group" aria-label={t("filterLabel")} className="inline-flex w-fit rounded-lg border p-0.5">
+          {([
+            ["all", t("filterAll")],
+            ["mine", t("filterMine")],
+            ["global", t("filterGlobal")],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={filter === value}
+              onClick={() => setFilter(value)}
+              className={cn(
+                "min-h-10 rounded-md px-3 font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                filter === value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <section className="grid gap-2">
           {station ? (
             <>
@@ -186,6 +216,11 @@ export function ActivityLinkDialog({
                       onClick={() => chooseStation(item)}
                     >
                       {item.name}
+                      {item.global && (
+                        <Badge variant="secondary" className="ml-1">
+                          {t("global")}
+                        </Badge>
+                      )}
                     </Button>
                   </li>
                 ))}
@@ -279,6 +314,11 @@ export function ActivityLinkDialog({
                     >
                       <PlusIcon data-icon="inline-start" />
                       {item.name}
+                      {item.global && (
+                        <Badge variant="secondary" className="ml-1">
+                          {t("global")}
+                        </Badge>
+                      )}
                       {supported && (
                         <Badge variant="secondary" className="ml-1">
                           {t("supported")}

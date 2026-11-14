@@ -36,14 +36,15 @@ export function ActivityLibraryProvider({
     addStation: (station) =>
       setState((s) => s && {
         ...s,
-        stations: [...s.stations, station].sort(byName),
+        // Created from the picker, so personal.
+        stations: [...s.stations, { ...station, global: false }].sort(byName),
         // A station the user creates is personal, so they may edit it.
         editableStationIds: [...s.editableStationIds, station.id],
       }),
     addExercise: (exercise, supportedBy) =>
       setState((s) => s && {
         ...s,
-        exercises: [...s.exercises, exercise].sort(byName),
+        exercises: [...s.exercises, { ...exercise, global: false }].sort(byName),
         supports: supportedBy
           ? { ...s.supports, [supportedBy]: [...(s.supports[supportedBy] ?? []), exercise.id] }
           : s.supports,

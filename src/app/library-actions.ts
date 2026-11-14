@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 
 import type { ActionResult } from "@/lib/action-result";
 import {
@@ -12,12 +12,27 @@ import {
 } from "@/lib/data/equipment";
 import { UserError } from "@/lib/data/errors";
 import {
+  copyExercise,
   createExercise,
   deleteExercise,
   updateExercise,
 } from "@/lib/data/exercises";
 import { errorKey } from "@/lib/data/schemas";
-import { createStation, deleteStation, updateStation } from "@/lib/data/stations";
+import {
+  copyStation,
+  createStation,
+  deleteStation,
+  updateMyStationLinks,
+  updateStation,
+} from "@/lib/data/stations";
+import {
+  approveSubmission,
+  makeGlobal,
+  rejectSubmission,
+  submitForReview,
+  withdrawSubmission,
+  type LibraryKind,
+} from "@/lib/data/submissions";
 
 /*
  * Thin wrappers around the library data layer, like plan-actions.ts. Every
@@ -52,10 +67,14 @@ async function run<T extends object>(
 
 // --- Stations -------------------------------------------------------------------
 
-export async function createStationAction(name: string): Promise<ActionResult> {
+/** Creates a station; `scope` "global" is refused for non-administrators. */
+export async function createStationAction(
+  name: string,
+  scope: unknown = "personal",
+): Promise<ActionResult> {
   let stationId: string | undefined;
   const result = await run(async () => {
-    stationId = (await createStation({ name })).id;
+    stationId = (await createStation({ name, scope })).id;
     return {};
   });
   if (stationId) {
@@ -81,10 +100,14 @@ export async function deleteStationAction(stationId: string): Promise<void> {
 
 // --- Exercises ------------------------------------------------------------------
 
-export async function createExerciseAction(name: string): Promise<ActionResult> {
+/** Creates an exercise; `scope` "global" is refused for non-administrators. */
+export async function createExerciseAction(
+  name: string,
+  scope: unknown = "personal",
+): Promise<ActionResult> {
   let exerciseId: string | undefined;
   const result = await run(async () => {
-    exerciseId = (await createExercise({ name })).id;
+    exerciseId = (await createExercise({ name, scope })).id;
     return {};
   });
   if (exerciseId) {
@@ -130,6 +153,89 @@ export async function updateExerciseAction(
 export async function deleteExerciseAction(exerciseId: string): Promise<void> {
   await deleteExercise(exerciseId);
   redirect("/library/exercises");
+}
+
+// --- Global items and review ------------------------------------------------------
+
+const kindInput = z.enum(["station", "exercise"], { error: "invalid" });
+
+function itemPath(kind: LibraryKind, itemId: string): string {
+  return kind === "station" ? `/library/stations/${itemId}` : `/library/exercises/${itemId}`;
+}
+
+/**
+ * Saves which of the user's own exercises a station supports, for a coach
+ * adding their personal exercises to a global station. Other links stay.
+ */
+export async function updateMyStationLinksAction(
+  stationId: string,
+  exerciseIds: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    await updateMyStationLinks(stationId, exerciseIds);
+    return {};
+  });
+}
+
+/** Copies a global station or exercise into a personal one and opens the copy. */
+export async function copyToMineAction(kind: unknown, itemId: string): Promise<ActionResult> {
+  let path: string | undefined;
+  const result = await run(async () => {
+    const k = kindInput.parse(kind);
+    const { id } = k === "station" ? await copyStation(itemId) : await copyExercise(itemId);
+    path = itemPath(k, id);
+    return {};
+  });
+  if (path) {
+    redirect(path);
+  }
+  return result;
+}
+
+/** Submits the user's personal station or exercise for review. */
+export async function submitForReviewAction(kind: unknown, itemId: string): Promise<ActionResult> {
+  return run(async () => {
+    await submitForReview(kindInput.parse(kind), itemId);
+    return {};
+  });
+}
+
+/** Withdraws the user's pending submission of a station or exercise. */
+export async function withdrawSubmissionAction(
+  kind: unknown,
+  itemId: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    await withdrawSubmission(kindInput.parse(kind), itemId);
+    return {};
+  });
+}
+
+/** Turns an administrator's own personal item global without review. */
+export async function makeGlobalAction(kind: unknown, itemId: string): Promise<ActionResult> {
+  return run(async () => {
+    await makeGlobal(kindInput.parse(kind), itemId);
+    return {};
+  });
+}
+
+/** Approves a pending submission: the item becomes global. Administrators only. */
+export async function approveSubmissionAction(submissionId: string): Promise<ActionResult> {
+  return run(async () => {
+    await approveSubmission(submissionId);
+    return {};
+  });
+}
+
+/** Rejects a pending submission with a required comment. Administrators only. */
+export async function rejectSubmissionAction(
+  submissionId: string,
+  comment: string,
+): Promise<ActionResult> {
+  return run(async () => {
+    await rejectSubmission(submissionId, comment);
+    return {};
+  });
 }
 
 // --- Equipment ------------------------------------------------------------------

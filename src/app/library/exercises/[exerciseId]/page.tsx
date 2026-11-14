@@ -4,6 +4,8 @@ import { Suspense } from "react";
 
 import { ExerciseEditor } from "@/components/library/exercise-editor";
 import { ReadOnlyNotice } from "@/components/library/read-only-notice";
+import { ReviewPanel } from "@/components/library/review-panel";
+import { toPanelState } from "@/components/library/review-state";
 import { ScopeBadge } from "@/components/library/scope-badge";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { getExercise, type ExerciseDetails } from "@/lib/data/exercises";
@@ -26,6 +28,7 @@ async function ExerciseContent({
   const details = await getExercise(exerciseId);
   const { exercise } = details;
   const [tl, t] = await Promise.all([getTranslations("Library"), getTranslations("Exercises")]);
+  const isGlobal = exercise.scope === "global";
 
   return (
     <PageShell
@@ -38,14 +41,25 @@ async function ExerciseContent({
       <div className="mx-auto grid w-full max-w-3xl gap-6">
         <h1 className="flex flex-wrap items-center gap-3 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
           {exercise.name}
-          {exercise.scope === "global" && <ScopeBadge />}
+          {isGlobal && <ScopeBadge />}
         </h1>
-        <p className="-mt-4 text-muted-foreground">{t("usage", { count: details.activityCount })}</p>
+        {(details.creatorName !== null || details.activityCount !== null) && (
+          <div className="-mt-4 grid gap-0.5 text-muted-foreground">
+            {details.creatorName !== null && <p>{tl("createdBy", { name: details.creatorName })}</p>}
+            {details.activityCount !== null && <p>{t("usage", { count: details.activityCount })}</p>}
+          </div>
+        )}
+        <ReviewPanel
+          kind="exercise"
+          itemId={exercise.id}
+          itemName={exercise.name}
+          state={toPanelState(details.review)}
+        />
         {details.access === "edit" ? (
           <EditableExercise details={details} />
         ) : (
           <div className="grid gap-6">
-            <ReadOnlyNotice />
+            {isGlobal && <ReadOnlyNotice />}
             {exercise.disciplineName && (
               <p className="text-muted-foreground">{exercise.disciplineName}</p>
             )}
@@ -88,9 +102,12 @@ async function EditableExercise({ details }: { details: ExerciseDetails }) {
         description: exercise.description,
         disciplineName: exercise.disciplineName,
       }}
-      initialStations={details.stations}
+      initialStations={details.stations
+        .filter((s) => s.editable)
+        .map(({ id, name }) => ({ id, name }))}
       stations={stations}
-      activityCount={details.activityCount}
+      activityCount={details.activityCount ?? 0}
+      isGlobal={exercise.scope === "global"}
     />
   );
 }

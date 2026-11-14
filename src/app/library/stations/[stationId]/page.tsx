@@ -2,12 +2,15 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { MyStationExercises } from "@/components/library/my-station-exercises";
 import { ReadOnlyNotice } from "@/components/library/read-only-notice";
+import { ReviewPanel } from "@/components/library/review-panel";
+import { toPanelState } from "@/components/library/review-state";
 import { ScopeBadge } from "@/components/library/scope-badge";
 import { StationEditor } from "@/components/library/station-editor";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { listEquipment } from "@/lib/data/equipment";
-import { listVisibleExerciseNames } from "@/lib/data/exercises";
+import { listOwnExerciseNames, listVisibleExerciseNames } from "@/lib/data/exercises";
 import { getStation, type StationDetails } from "@/lib/data/stations";
 import { formatEquipmentLines } from "@/lib/library";
 
@@ -28,6 +31,7 @@ async function StationContent({
   const details = await getStation(stationId);
   const { station } = details;
   const [tl, t] = await Promise.all([getTranslations("Library"), getTranslations("Stations")]);
+  const isGlobal = station.scope === "global";
 
   return (
     <PageShell
@@ -40,14 +44,26 @@ async function StationContent({
       <div className="mx-auto grid w-full max-w-3xl gap-6">
         <h1 className="flex flex-wrap items-center gap-3 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
           {station.name}
-          {station.scope === "global" && <ScopeBadge />}
+          {isGlobal && <ScopeBadge />}
         </h1>
-        <p className="-mt-4 text-muted-foreground">{t("usage", { count: details.activityCount })}</p>
+        {(details.creatorName !== null || details.activityCount !== null) && (
+          <div className="-mt-4 grid gap-0.5 text-muted-foreground">
+            {details.creatorName !== null && <p>{tl("createdBy", { name: details.creatorName })}</p>}
+            {details.activityCount !== null && <p>{t("usage", { count: details.activityCount })}</p>}
+          </div>
+        )}
+        <ReviewPanel
+          kind="station"
+          itemId={station.id}
+          itemName={station.name}
+          state={toPanelState(details.review)}
+          personalExercises={details.ownersPersonalExercises}
+        />
         {details.access === "edit" ? (
           <EditableStation details={details} />
         ) : (
           <div className="grid gap-6">
-            <ReadOnlyNotice />
+            {isGlobal && <ReadOnlyNotice />}
             {station.description && <p className="whitespace-pre-line">{station.description}</p>}
             <section className="grid gap-2">
               <h2 className="font-heading text-xl font-semibold">{t("equipmentHeading")}</h2>
@@ -57,29 +73,50 @@ async function StationContent({
                   : t("equipmentEmpty")}
               </p>
             </section>
-            <section className="grid gap-2">
-              <h2 className="font-heading text-xl font-semibold">{t("exercisesHeading")}</h2>
-              {details.exercises.length === 0 ? (
-                <p>{t("exercisesEmpty")}</p>
-              ) : (
-                <ul className="grid gap-1">
-                  {details.exercises.map((e) => (
-                    <li key={e.id}>
-                      <Link
-                        href={`/library/exercises/${e.id}`}
-                        className="text-primary underline-offset-4 hover:underline"
-                      >
-                        {e.name}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            <ReadOnlyExercises details={details} />
+            {isGlobal && <MyExercisesSection details={details} />}
           </div>
         )}
       </div>
     </PageShell>
+  );
+}
+
+/** The supported exercises the user sees but may not unlink. */
+async function ReadOnlyExercises({ details }: { details: StationDetails }) {
+  const t = await getTranslations("Stations");
+  const locked = details.exercises.filter((e) => !e.editable);
+  return (
+    <section className="grid gap-2">
+      <h2 className="font-heading text-xl font-semibold">{t("exercisesHeading")}</h2>
+      {locked.length === 0 ? (
+        <p>{t("exercisesEmpty")}</p>
+      ) : (
+        <ul className="grid gap-1">
+          {locked.map((e) => (
+            <li key={e.id}>
+              <Link
+                href={`/library/exercises/${e.id}`}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {e.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+async function MyExercisesSection({ details }: { details: StationDetails }) {
+  const own = await listOwnExerciseNames();
+  return (
+    <MyStationExercises
+      stationId={details.station.id}
+      initial={details.exercises.filter((e) => e.editable).map(({ id, name }) => ({ id, name }))}
+      ownExercises={own}
+    />
   );
 }
 
@@ -91,10 +128,13 @@ async function EditableStation({ details }: { details: StationDetails }) {
       key={station.id}
       station={{ id: station.id, name: station.name, description: station.description }}
       initialEquipment={details.equipment}
-      initialExercises={details.exercises}
+      initialExercises={details.exercises
+        .filter((e) => e.editable)
+        .map(({ id, name }) => ({ id, name }))}
       catalogue={catalogue.map(({ id, name }) => ({ id, name }))}
       exercises={exercises}
-      activityCount={details.activityCount}
+      activityCount={details.activityCount ?? 0}
+      isGlobal={station.scope === "global"}
     />
   );
 }

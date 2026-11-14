@@ -13,6 +13,7 @@ import {
   sessions,
   shares,
   stations,
+  submissions,
   users,
   type Exercise,
   type Group,
@@ -295,6 +296,27 @@ export function visibleTo(table: LibraryTable, user: { id: string }): SQL {
 }
 
 /**
+ * True when an administrator looks at another user's personal item that has
+ * a pending submission, which they may then read in order to review it.
+ * Queries only in that case.
+ */
+async function awaitsReview(
+  user: User,
+  item: { scope: "global" | "personal"; ownerId: string | null },
+  itemCondition: SQL,
+): Promise<boolean> {
+  if (!user.isAdmin || item.scope !== "personal" || item.ownerId === user.id) {
+    return false;
+  }
+  const [row] = await getDb()
+    .select({ id: submissions.id })
+    .from(submissions)
+    .where(and(itemCondition, eq(submissions.status, "pending")))
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
  * Signs the person in if needed and returns the exercise with their access.
  * Calls notFound() when access is missing or too low.
  */
@@ -311,7 +333,11 @@ export async function requireExerciseAccess(
     .from(exercises)
     .where(eq(exercises.id, exerciseId))
     .limit(1);
-  const access = exercise ? libraryAccess(exercise, user) : null;
+  const access = exercise
+    ? libraryAccess(exercise, user, {
+        underReview: await awaitsReview(user, exercise, eq(submissions.exerciseId, exercise.id)),
+      })
+    : null;
   if (access === null || (minimum === "edit" && access !== "edit")) {
     notFound();
   }
@@ -332,7 +358,11 @@ export async function requireStationAccess(
     .from(stations)
     .where(eq(stations.id, stationId))
     .limit(1);
-  const access = station ? libraryAccess(station, user) : null;
+  const access = station
+    ? libraryAccess(station, user, {
+        underReview: await awaitsReview(user, station, eq(submissions.stationId, station.id)),
+      })
+    : null;
   if (access === null || (minimum === "edit" && access !== "edit")) {
     notFound();
   }
