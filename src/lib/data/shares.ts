@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, or, type SQL } from "drizzle-orm";
+import { asc, eq, or, sql, type SQL } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ZodError } from "zod";
 
@@ -128,7 +128,7 @@ export async function addShare(resourceInput: unknown, input: unknown): Promise<
   const [existingUser] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, values.email))
+    .where(eq(sql`lower(${users.email})`, values.email))
     .limit(1);
   const column = columnOf(resource.kind);
   await db
