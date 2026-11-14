@@ -69,16 +69,25 @@ A person who signs in: a coach or a help coach.
 
 Gives another user access to a group, a season or a session.
 
-- The user who receives access
+- The invited email address (the person's Google address, matched without regard to case)
+- The user who receives access, once known
 - The shared resource: exactly one group, season or session
 - Access level: view or edit
+- Created by (user) and when
+
+A person has at most one share per resource; sharing again changes its level.
+
+The owner shares by typing the email address. The person need not have signed in yet: the share then waits, without a user, and starts working the first time someone signs in with that address. No email is sent.
 
 Rules:
 
 - Every group has one owner, the user who created it. Seasons and sessions belong to the group and so have the same owner.
-- Only the owner can share and delete.
-- Access is inherited downwards. Sharing a group gives access to all its seasons and sessions. Sharing a season gives access to all its sessions. Sharing a session gives access to that session only.
-- Someone with access to a session can read the personal exercises and stations it links to, even though they belong to another user. They cannot edit them. Global library content is readable by everyone.
+- Only the owner can share, change or remove shares, delete groups, seasons and the shares on them, and copy seasons.
+- Access is inherited downwards. Sharing a group gives access to all its seasons and sessions. Sharing a season gives access to all its sessions. Sharing a session gives access to that session only. When several shares apply, the highest level wins.
+- Someone with only some seasons of a group, or only some sessions of a season, sees the group with just those seasons or sessions in it and can open nothing else in it.
+- View access is read-only, with one exception: on the session page anyone who can view the session can tick parts off, reset the ticks and write the note after the session. Everything else (the season plan, its structure, sessions, their outlines and times, cancelling, copying) needs edit access.
+- Someone with edit access to a session can link their own personal exercises and stations into it. Links to items the editor cannot see in the library stay when they edit the session.
+- Someone with access to a session can read the personal exercises and stations it links to, even though they belong to another user. They cannot edit them or open them in the library. Global library content is readable by everyone.
 
 ## Season level
 
@@ -299,7 +308,10 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 ## Decisions
 
 - Only a session part has a done flag. All activities of a part happen at the same time (a circuit of stations), so activities are not ticked off one by one.
-- Shares have two access levels, view and edit. Only the owner can share and delete.
+- Shares have two access levels, view and edit. Only the owner can share, delete and copy.
+- A share is made out to an email address and may wait until that person first signs in. Nothing is sent to them.
+- Viewers may tick parts off and write the note after a session. These are what a help coach in the hall needs; everything else stays with edit access.
+- A help coach with access to only one session edits it on its own page, without the season plan.
 - The focus level scale is fixed, not configurable per season.
 - Exercises and stations are global or personal. Administrators maintain the global ones, and coaches can submit personal ones for review.
 - Training slots belong to the season and are copied when a season is copied.
