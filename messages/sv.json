@@ -361,8 +361,17 @@
     "stationLabel": "Station"
   },
   "Start": {
-    "nextSessions": "Nästa pass",
+    "weekHeading": "Vecka {week}",
+    "weekRange": "{from} – {to}",
+    "weekNav": "Byt vecka",
+    "previousWeek": "Föregående vecka",
+    "nextWeek": "Nästa vecka",
+    "thisWeek": "Denna vecka",
     "today": "Idag",
+    "weekEmpty": "Inga pass den här veckan.",
+    "stateUnplanned": "Inte planerat än",
+    "statePlanned": "Planerat",
+    "stateCancelled": "Inställt",
     "sharedWithMe": "Delat med mig",
     "sharedBy": "Delad av {name}",
     "sharedSessions": "Delade pass",
