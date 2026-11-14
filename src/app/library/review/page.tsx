@@ -54,6 +54,11 @@ async function ReviewContent() {
                     date: formatSubmissionDate(s.submittedAt),
                   })}
                 </span>
+                {s.includedCount > 0 && (
+                  <span className="text-muted-foreground">
+                    {tl("reviewIncludedCount", { count: s.includedCount })}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

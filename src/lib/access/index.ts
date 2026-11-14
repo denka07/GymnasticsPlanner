@@ -13,6 +13,7 @@ import {
   sessions,
   shares,
   stations,
+  submissionExercises,
   submissions,
   users,
   type Exercise,
@@ -317,6 +318,38 @@ async function awaitsReview(
 }
 
 /**
+ * True when an administrator looks at another user's personal exercise that
+ * that user included in a pending station submission, which they may then
+ * read in order to review it with the station. Queries only in that case.
+ */
+async function includedInPendingStation(
+  user: User,
+  exercise: { id: string; scope: "global" | "personal"; ownerId: string | null },
+): Promise<boolean> {
+  if (
+    !user.isAdmin ||
+    exercise.scope !== "personal" ||
+    exercise.ownerId === null ||
+    exercise.ownerId === user.id
+  ) {
+    return false;
+  }
+  const [row] = await getDb()
+    .select({ id: submissions.id })
+    .from(submissionExercises)
+    .innerJoin(submissions, eq(submissions.id, submissionExercises.submissionId))
+    .where(
+      and(
+        eq(submissionExercises.exerciseId, exercise.id),
+        eq(submissions.status, "pending"),
+        eq(submissions.submittedBy, exercise.ownerId),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
+/**
  * Signs the person in if needed and returns the exercise with their access.
  * Calls notFound() when access is missing or too low.
  */
@@ -335,7 +368,9 @@ export async function requireExerciseAccess(
     .limit(1);
   const access = exercise
     ? libraryAccess(exercise, user, {
-        underReview: await awaitsReview(user, exercise, eq(submissions.exerciseId, exercise.id)),
+        underReview:
+          (await awaitsReview(user, exercise, eq(submissions.exerciseId, exercise.id))) ||
+          (await includedInPendingStation(user, exercise)),
       })
     : null;
   if (access === null || (minimum === "edit" && access !== "edit")) {

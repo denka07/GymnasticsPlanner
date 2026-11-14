@@ -293,13 +293,14 @@ A type of equipment found in a hall. A single catalogue that all users can read 
 
 ### Submission
 
-A request from a coach to make a personal exercise or station global.
+A request from a coach to make a personal exercise or station global. A station submission can include personal exercises it supports, so they become global with it.
 
 - The submitted item: exactly one exercise or station
 - Submitted by (user) and when
 - Status: pending, approved or rejected
 - Reviewed by (administrator) and when
 - Review comment (optional; example: the reason for a rejection)
+- Included exercises (station submissions only): personal exercises of the submitter that the station supports, chosen by the submitter to go global with it
 
 Rules:
 
@@ -310,6 +311,10 @@ Rules:
 - On rejection a comment is required. The item stays personal and the submitter sees the status and the comment on it. It can be changed and submitted again.
 - An item has at most one pending submission; the database enforces it. Reviewed submissions are kept, and the submitter sees the status of their newest one. Submissions are deleted with their item.
 - No email is sent; the submitter sees pending, approved or rejected on the item.
+- When submitting a station that supports personal exercises of their own, the submitter ticks which of them to include (all at first). Only personal exercises they own that the station supports can be included.
+- While a station submission is pending, administrators can also read its included exercises (and no other personal items), and the submitter sees on each that it is under review with the station; it cannot be submitted on its own meanwhile. Withdrawing the station submission removes the inclusion.
+- On approval of a station the administrator ticks which included exercises become global with it (all at first). The station and the ticked exercises become global in one transaction; each exercise is checked again (still personal, still the submitter's, still supported by the station). An exercise that becomes global this way keeps its creator, and a pending submission of its own is marked approved. Included exercises that were not ticked stay personal, and the submitter is told which became global and which stayed personal. A rejection rejects the whole submission and nothing becomes global.
+- An administrator making their own station global ticks which of their own personal exercises it supports become global with it (all at first).
 
 ## Later: drawn plans
 
@@ -336,6 +341,6 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - A pending submission does not lock the item: the owner can keep editing it and can withdraw it.
 - The creator of a global item is kept but shown only to administrators.
 - Links between stations and exercises are saved per link: a save only changes the links the user may change, so a coach's personal exercises on a global station survive an administrator's edit, and the other way round.
-- When a station is approved, only its links to global exercises become global. Personal exercises it supports must be submitted separately.
+- A station submission can include the submitter's personal exercises that the station supports, and the administrator chooses which of them become global with the station. Personal exercises that are not included, or not chosen, stay personal; their links to the now global station stay and are visible only to those who can see the exercise.
 - An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.

@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -39,13 +40,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActionResult } from "@/lib/action-result";
 import { MAX_REVIEW_COMMENT_LENGTH } from "@/lib/data/schemas";
+import { splitIncludedOutcome } from "@/lib/library";
 
 type Kind = "station" | "exercise";
+type Named = { id: string; name: string };
 
 /** What the server lets the user see and do about review, with dates already formatted. */
 export type ReviewPanelState = {
   mine: { status: "pending" | "approved" | "rejected"; date: string; reviewComment: string | null } | null;
   pending: { id: string; date: string; submitterName: string } | null;
+  /** For a station: the exercises included in the submission shown. */
+  included: (Named & { scope: "global" | "personal"; qualifies: boolean })[];
+  /** For an exercise: the stations whose pending submission includes it. */
+  goesWithStations: Named[];
   canSubmit: boolean;
   canWithdraw: boolean;
   canReview: boolean;
@@ -69,8 +76,11 @@ export function ReviewPanel({
   itemId: string;
   itemName: string;
   state: ReviewPanelState;
-  /** For a station: the owner's personal exercises, which do not follow along. */
-  personalExercises?: { id: string; name: string }[];
+  /**
+   * For the owner's personal station: their own personal exercises it
+   * supports, which may go global with it.
+   */
+  personalExercises?: Named[];
 }) {
   const t = useTranslations("Library");
   const errorMessage = useErrorMessage();
@@ -97,13 +107,17 @@ export function ReviewPanel({
 
   const { mine } = state;
   const ownerSection = state.canSubmit || state.canWithdraw || mine !== null;
-  const showPersonalNote =
-    kind === "station" && personalExercises.length > 0 && (state.canSubmit || state.canWithdraw);
+  const choosesExercises = kind === "station" && personalExercises.length > 0;
   const nothing =
-    !ownerSection && !state.canReview && !state.canMakeGlobal && !state.canCopy;
+    !ownerSection &&
+    !state.canReview &&
+    !state.canMakeGlobal &&
+    !state.canCopy &&
+    state.goesWithStations.length === 0;
   if (nothing) {
     return null;
   }
+  const outcome = splitIncludedOutcome(state.included);
 
   return (
     <div className="grid gap-4">
@@ -123,19 +137,43 @@ export function ReviewPanel({
         </div>
       )}
 
-      {state.canMakeGlobal && (
-        <Confirm
-          trigger={
-            <Button type="button" variant="outline" className="h-11 w-fit px-4" disabled={pending}>
-              <GlobeIcon data-icon="inline-start" />
-              {t("makeGlobal")}
-            </Button>
-          }
-          title={t("makeGlobalTitle")}
-          description={t("makeGlobalText", { name: itemName })}
-          confirmLabel={t("makeGlobal")}
-          action={() => makeGlobalAction(kind, itemId)}
-        />
+      {state.canMakeGlobal &&
+        (choosesExercises ? (
+          <PickExercisesDialog
+            trigger={
+              <Button type="button" variant="outline" className="h-11 w-fit px-4" disabled={pending}>
+                <GlobeIcon data-icon="inline-start" />
+                {t("makeGlobal")}
+              </Button>
+            }
+            title={t("makeGlobalTitle")}
+            description={t("makeGlobalText", { name: itemName })}
+            legend={t("makeGlobalExercisesLegend")}
+            hint={t("exercisesNotTickedHint")}
+            items={personalExercises}
+            confirmLabel={t("makeGlobal")}
+            action={(ids) => makeGlobalAction(kind, itemId, ids)}
+          />
+        ) : (
+          <Confirm
+            trigger={
+              <Button type="button" variant="outline" className="h-11 w-fit px-4" disabled={pending}>
+                <GlobeIcon data-icon="inline-start" />
+                {t("makeGlobal")}
+              </Button>
+            }
+            title={t("makeGlobalTitle")}
+            description={t("makeGlobalText", { name: itemName })}
+            confirmLabel={t("makeGlobal")}
+            action={() => makeGlobalAction(kind, itemId)}
+          />
+        ))}
+
+      {state.goesWithStations.length > 0 && (
+        <section className="grid gap-1 rounded-xl border p-4" role="status">
+          <p>{t("goesWithStation", { count: state.goesWithStations.length })}</p>
+          <ItemLinks items={state.goesWithStations} kind="station" />
+        </section>
       )}
 
       {ownerSection && (
@@ -144,7 +182,25 @@ export function ReviewPanel({
             {t("reviewHeading")}
           </h2>
           {mine?.status === "pending" && <p role="status">{t("pendingText", { date: mine.date })}</p>}
+          {mine?.status === "pending" && state.included.length > 0 && (
+            <div className="grid gap-1">
+              <p>{t("includedPending", { count: state.included.length })}</p>
+              <ItemLinks items={state.included} kind="exercise" />
+            </div>
+          )}
           {mine?.status === "approved" && <p role="status">{t("approvedText", { date: mine.date })}</p>}
+          {mine?.status === "approved" && outcome.global.length > 0 && (
+            <div className="grid gap-1">
+              <p>{t("includedApproved", { count: outcome.global.length })}</p>
+              <ItemLinks items={outcome.global} kind="exercise" />
+            </div>
+          )}
+          {mine?.status === "approved" && outcome.personal.length > 0 && (
+            <div className="grid gap-1">
+              <p>{t("includedStayedPersonal", { count: outcome.personal.length })}</p>
+              <ItemLinks items={outcome.personal} kind="exercise" />
+            </div>
+          )}
           {mine?.status === "rejected" && state.canSubmit && (
             <div className="grid gap-2" role="status">
               <p>{t("rejectedText", { date: mine.date })}</p>
@@ -155,24 +211,36 @@ export function ReviewPanel({
             </div>
           )}
           {state.canSubmit && mine?.status !== "rejected" && <p>{t("submitIntro")}</p>}
-          {showPersonalNote && (
-            <div className="grid gap-1">
-              <p>{t("personalExercisesNote", { count: personalExercises.length })}</p>
-              <ExerciseLinks items={personalExercises} />
-            </div>
-          )}
+          {state.canSubmit && choosesExercises && <p>{t("submitExercisesIntro")}</p>}
           <div className="flex flex-wrap gap-2">
-            {state.canSubmit && (
-              <Button
-                type="button"
-                className="h-11 px-4"
-                disabled={pending}
-                onClick={() => run(() => submitForReviewAction(kind, itemId))}
-              >
-                <SendIcon data-icon="inline-start" />
-                {mine?.status === "rejected" ? t("submitAgain") : t("submit")}
-              </Button>
-            )}
+            {state.canSubmit &&
+              (choosesExercises ? (
+                <PickExercisesDialog
+                  trigger={
+                    <Button type="button" className="h-11 px-4" disabled={pending}>
+                      <SendIcon data-icon="inline-start" />
+                      {mine?.status === "rejected" ? t("submitAgain") : t("submit")}
+                    </Button>
+                  }
+                  title={t("submitTitle")}
+                  description={t("submitIntro")}
+                  legend={t("submitExercisesLegend")}
+                  hint={t("exercisesNotTickedHint")}
+                  items={personalExercises}
+                  confirmLabel={t("submit")}
+                  action={(ids) => submitForReviewAction(kind, itemId, ids)}
+                />
+              ) : (
+                <Button
+                  type="button"
+                  className="h-11 px-4"
+                  disabled={pending}
+                  onClick={() => run(() => submitForReviewAction(kind, itemId))}
+                >
+                  <SendIcon data-icon="inline-start" />
+                  {mine?.status === "rejected" ? t("submitAgain") : t("submit")}
+                </Button>
+              ))}
             {state.canWithdraw && (
               <Confirm
                 trigger={
@@ -193,11 +261,10 @@ export function ReviewPanel({
 
       {state.canReview && state.pending && (
         <ReviewerSection
-          kind={kind}
           itemId={itemId}
           itemName={itemName}
           submission={state.pending}
-          personalExercises={personalExercises}
+          included={state.included}
         />
       )}
     </div>
@@ -205,19 +272,19 @@ export function ReviewPanel({
 }
 
 function ReviewerSection({
-  kind,
   itemId,
   itemName,
   submission,
-  personalExercises,
+  included,
 }: {
-  kind: Kind;
   itemId: string;
   itemName: string;
   submission: { id: string; date: string; submitterName: string };
-  personalExercises: { id: string; name: string }[];
+  included: ReviewPanelState["included"];
 }) {
   const t = useTranslations("Library");
+  const qualifying = included.filter((e) => e.qualifies);
+  const lapsed = included.filter((e) => !e.qualifies);
   return (
     <section
       className="grid gap-3 rounded-xl border border-primary/40 bg-muted/30 p-4"
@@ -227,41 +294,64 @@ function ReviewerSection({
         {t("reviewHeading")}
       </h2>
       <p>{t("reviewerText", { name: submission.submitterName, date: submission.date })}</p>
-      {kind === "station" && personalExercises.length > 0 && (
+      {qualifying.length > 0 && (
         <div className="grid gap-1">
-          <p>{t("reviewerPersonalExercises", { count: personalExercises.length })}</p>
+          <p>{t("reviewerIncluded", { count: qualifying.length })}</p>
+          <ItemLinks items={qualifying} kind="exercise" />
+        </div>
+      )}
+      {lapsed.length > 0 && (
+        <div className="grid gap-1 text-muted-foreground">
+          <p>{t("reviewerIncludedLapsed", { count: lapsed.length })}</p>
           <ul className="list-disc pl-5">
-            {personalExercises.map((e) => (
+            {lapsed.map((e) => (
               <li key={e.id}>{e.name}</li>
             ))}
           </ul>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <Confirm
-          trigger={
-            <Button type="button" className="h-11 px-4">
-              {t("approve")}
-            </Button>
-          }
-          title={t("approveTitle")}
-          description={t("approveText", { name: itemName })}
-          confirmLabel={t("approve")}
-          action={() => approveSubmissionAction(submission.id)}
-        />
+        {qualifying.length > 0 ? (
+          <PickExercisesDialog
+            trigger={
+              <Button type="button" className="h-11 px-4">
+                {t("approve")}
+              </Button>
+            }
+            title={t("approveTitle")}
+            description={t("approveText", { name: itemName })}
+            legend={t("approveExercisesLegend")}
+            hint={t("approveNotTickedHint")}
+            items={qualifying}
+            confirmLabel={t("approve")}
+            action={(ids) => approveSubmissionAction(submission.id, ids)}
+          />
+        ) : (
+          <Confirm
+            trigger={
+              <Button type="button" className="h-11 px-4">
+                {t("approve")}
+              </Button>
+            }
+            title={t("approveTitle")}
+            description={t("approveText", { name: itemName })}
+            confirmLabel={t("approve")}
+            action={() => approveSubmissionAction(submission.id)}
+          />
+        )}
         <RejectDialog submissionId={submission.id} submitterName={submission.submitterName} />
       </div>
     </section>
   );
 }
 
-function ExerciseLinks({ items }: { items: { id: string; name: string }[] }) {
+function ItemLinks({ items, kind }: { items: Named[]; kind: Kind }) {
   return (
     <ul className="list-disc pl-5">
       {items.map((e) => (
         <li key={e.id}>
           <Link
-            href={`/library/exercises/${e.id}`}
+            href={kind === "station" ? `/library/stations/${e.id}` : `/library/exercises/${e.id}`}
             className="text-primary underline-offset-4 hover:underline"
           >
             {e.name}
@@ -269,6 +359,111 @@ function ExerciseLinks({ items }: { items: { id: string; name: string }[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Asks before an action that takes a chosen set of exercises along (all
+ * ticked at first); shows its error in the dialog.
+ */
+function PickExercisesDialog({
+  trigger,
+  title,
+  description,
+  legend,
+  hint,
+  items,
+  confirmLabel,
+  action,
+}: {
+  trigger: ReactElement;
+  title: string;
+  description: string;
+  legend: string;
+  hint: string;
+  items: Named[];
+  confirmLabel: string;
+  action: (exerciseIds: string[]) => Promise<ActionResult>;
+}) {
+  const tc = useTranslations("Common");
+  const errorMessage = useErrorMessage();
+  const id = useId();
+  const [open, setOpen] = useState(false);
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set(items.map((e) => e.id)));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function confirm() {
+    startTransition(async () => {
+      const result = await action(items.filter((e) => ticked.has(e.id)).map((e) => e.id));
+      if (result.ok) {
+        setOpen(false);
+      } else {
+        setError(errorMessage(result.error));
+      }
+    });
+  }
+
+  function toggle(exerciseId: string, on: boolean) {
+    setTicked((current) => {
+      const next = new Set(current);
+      if (on) {
+        next.add(exerciseId);
+      } else {
+        next.delete(exerciseId);
+      }
+      return next;
+    });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) {
+          setTicked(new Set(items.map((e) => e.id)));
+          setError(null);
+        }
+      }}
+    >
+      <DialogTrigger render={trigger} />
+      <DialogContent showCloseButton={false}>
+        <div className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+          <fieldset className="grid gap-2">
+            <legend className="mb-2 font-medium">{legend}</legend>
+            {items.map((e) => (
+              <Label key={e.id} htmlFor={`${id}-${e.id}`} className="min-h-8 font-normal">
+                <Checkbox
+                  id={`${id}-${e.id}`}
+                  checked={ticked.has(e.id)}
+                  onCheckedChange={(checked) => toggle(e.id, checked === true)}
+                />
+                {e.name}
+              </Label>
+            ))}
+            <p className="text-sm text-muted-foreground">{hint}</p>
+          </fieldset>
+          {error && (
+            <p role="alert" className="text-destructive">
+              {error}
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              {tc("cancel")}
+            </Button>
+            <Button type="button" onClick={confirm} disabled={pending}>
+              {pending ? tc("saving") : confirmLabel}
+            </Button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

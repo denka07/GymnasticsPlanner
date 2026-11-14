@@ -21,6 +21,8 @@ export function toPanelState(review: ReviewState): ReviewPanelState {
       date: formatSubmissionDate(pending.submittedAt),
       submitterName: pending.submitterName,
     },
+    included: review.included,
+    goesWithStations: review.goesWithStations,
     canSubmit: review.canSubmit,
     canWithdraw: review.canWithdraw,
     canReview: review.canReview,

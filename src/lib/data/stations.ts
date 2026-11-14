@@ -120,9 +120,9 @@ export type StationDetails = {
   /** Supported exercises the user may see, by name, and whether they may unlink each. */
   exercises: { id: string; name: string; scope: LibraryScope; editable: boolean }[];
   /**
-   * The station owner's personal exercises it supports. They do not become
-   * global with the station and would need to be submitted separately. Shown
-   * to the owner and to an administrator reviewing it.
+   * The user's own personal exercises the station supports, when the station
+   * is their personal one: those they may include when submitting it, or make
+   * global with it. Empty for everyone else.
    */
   ownersPersonalExercises: { id: string; name: string }[];
   /**
@@ -139,7 +139,8 @@ export type StationDetails = {
 export async function getStation(stationId: string): Promise<StationDetails> {
   const { user, station, access } = await requireStationAccess(stationId, "view");
   const db = getDb();
-  const ownerOfPersonal = station.scope === "personal" ? station.ownerId : null;
+  const ownerOfPersonal =
+    station.scope === "personal" && station.ownerId === user.id ? station.ownerId : null;
   const [lines, linked, [uses], creatorName, review] = await Promise.all([
     db
       .select({
@@ -151,7 +152,8 @@ export async function getStation(stationId: string): Promise<StationDetails> {
       .innerJoin(equipment, eq(equipment.id, stationEquipment.equipmentId))
       .where(eq(stationEquipment.stationId, station.id)),
     // Every link is read here and filtered below: the viewer gets only the
-    // exercises they may see, plus (owner or reviewer) the owner's own.
+    // exercises they may see (a reviewer gets the included ones through the
+    // review state, not here).
     db
       .select({
         id: exercises.id,
