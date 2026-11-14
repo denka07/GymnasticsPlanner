@@ -465,6 +465,26 @@ export const stationInput = z.object(
 export type StationInput = z.input<typeof stationInput>;
 export type StationValues = z.output<typeof stationInput>;
 
+/** Personal or global; a missing scope means personal. */
+export const libraryScopeInput = z
+  .enum(["personal", "global"], { error: "invalid" })
+  .default("personal");
+
+/** A new exercise or station: a name and, for administrators, a scope. */
+export const createLibraryItemInput = z.object(
+  { name, scope: libraryScopeInput },
+  { error: "invalid" },
+);
+
+export const MAX_REVIEW_COMMENT_LENGTH = 2000;
+
+/** Why an administrator rejects a submission; required. */
+export const reviewCommentInput = z
+  .string({ error: "commentRequired" })
+  .trim()
+  .min(1, { error: "commentRequired" })
+  .max(MAX_REVIEW_COMMENT_LENGTH, { error: "textTooLong" });
+
 // --- Sharing --------------------------------------------------------------
 
 export const shareLevelInput = z.enum(["view", "edit"], { error: "invalid" });

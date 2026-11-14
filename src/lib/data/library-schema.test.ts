@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { errorKey, exerciseInput, idList, searchInput, stationInput } from "./schemas";
+import {
+  createLibraryItemInput,
+  errorKey,
+  exerciseInput,
+  idList,
+  reviewCommentInput,
+  searchInput,
+  stationInput,
+} from "./schemas";
 
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
@@ -77,5 +85,31 @@ describe("idList and searchInput", () => {
   it("turns non-strings into an empty search", () => {
     expect(searchInput.parse(["a"])).toBe("");
     expect(searchInput.parse("  kil ")).toBe("kil");
+  });
+});
+
+describe("createLibraryItemInput", () => {
+  it("defaults to personal", () => {
+    expect(createLibraryItemInput.parse({ name: " Plint " })).toEqual({
+      name: "Plint",
+      scope: "personal",
+    });
+  });
+
+  it("accepts global and rejects other scopes", () => {
+    expect(createLibraryItemInput.parse({ name: "A", scope: "global" }).scope).toBe("global");
+    expect(keyOf(createLibraryItemInput, { name: "A", scope: "shared" })).toBe("invalid");
+  });
+});
+
+describe("reviewCommentInput", () => {
+  it("trims and requires a comment", () => {
+    expect(reviewCommentInput.parse("  Lägg till redskap  ")).toBe("Lägg till redskap");
+    expect(keyOf(reviewCommentInput, "   ")).toBe("commentRequired");
+    expect(keyOf(reviewCommentInput, undefined)).toBe("commentRequired");
+  });
+
+  it("limits the length", () => {
+    expect(keyOf(reviewCommentInput, "x".repeat(2001))).toBe("textTooLong");
   });
 });
