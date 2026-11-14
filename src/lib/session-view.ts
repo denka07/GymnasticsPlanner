@@ -1,7 +1,6 @@
 /**
- * Pure logic for the single-session page and the start page's "Nästa pass":
- * progress counting, neighbouring sessions and picking the next session of a
- * group. Kept free of React and the database so it can be unit-tested.
+ * Pure logic for the single-session page:
+ * progress counting and neighbouring sessions. Kept free of React and the database so it can be unit-tested.
  */
 
 export type TickPart = { isDone: boolean };
@@ -35,34 +34,6 @@ export function neighbours<S extends Dated>(
     return { previous: null, next: null };
   }
   return { previous: sorted[index - 1] ?? null, next: sorted[index + 1] ?? null };
-}
-
-export type NextCandidate = Dated & {
-  groupId: string;
-  isCancelled: boolean;
-  partCount: number;
-};
-
-/**
- * For each group id, in the given order, its next session: not cancelled, with
- * at least one part, dated `today` or later. Groups without one are left out.
- * `today` is a `YYYY-MM-DD` date.
- */
-export function nextSessions<S extends NextCandidate>(
-  candidates: readonly S[],
-  groupIds: readonly string[],
-  today: string,
-): S[] {
-  const result: S[] = [];
-  for (const groupId of groupIds) {
-    const next = candidates
-      .filter((c) => c.groupId === groupId && !c.isCancelled && c.partCount > 0 && c.date >= today)
-      .sort(compareSessions)[0];
-    if (next) {
-      result.push(next);
-    }
-  }
-  return result;
 }
 
 /** The current date in Sweden as `YYYY-MM-DD`. */

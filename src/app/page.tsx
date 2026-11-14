@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { createGroupAction } from "@/app/plan-actions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { PageShell } from "@/components/page-shell";
+import { WeekView } from "@/components/start/week-view";
 import { NameDialog } from "@/components/plan/name-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,35 +18,42 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { listMyGroups, type GroupWithSeasons } from "@/lib/data/groups";
-import { listNextSessions } from "@/lib/data/session-view";
-import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
+import { getStartWeek } from "@/lib/data/start-week";
+import { formatDayMonth, weekdayOf } from "@/lib/dates";
 
-export default function HomePage() {
+export default function HomePage({ searchParams }: PageProps<"/">) {
   // The session is request-time data, so the page streams in behind Suspense.
   return (
     <Suspense fallback={<Loading />}>
-      <StartPage />
+      <StartPage searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function StartPage() {
+async function StartPage({
+  searchParams,
+}: {
+  searchParams: PageProps<"/">["searchParams"];
+}) {
   const user = await getCurrentUser();
   if (!user) {
     return <SignedOut />;
   }
 
-  return <GroupsOverview />;
+  const { week } = await searchParams;
+  return <GroupsOverview weekParam={week} />;
 }
 
-async function GroupsOverview() {
+async function GroupsOverview({ weekParam }: { weekParam: string | string[] | undefined }) {
   const t = await getTranslations();
-  const [all, upcoming] = await Promise.all([listMyGroups(), listNextSessions()]);
+  const [all, week] = await Promise.all([listMyGroups(), getStartWeek(weekParam)]);
   const groups = all.filter((g) => g.isMine);
   const shared = all.filter((g) => !g.isMine);
 
   return (
     <PageShell crumbs={[]}>
+      <WeekView data={week} />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
           {t("Groups.heading")}
@@ -64,35 +72,6 @@ async function GroupsOverview() {
           action={createGroupAction}
         />
       </div>
-
-      {upcoming.length > 0 && (
-        <section aria-labelledby="next-sessions-heading" className="grid gap-3">
-          <h2 id="next-sessions-heading" className="font-heading text-xl font-semibold">
-            {t("Start.nextSessions")}
-          </h2>
-          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {upcoming.map((n) => {
-              const when = n.isToday
-                ? t("Start.today")
-                : `${t(`Weekdays.d${weekdayOf(n.date)}` as "Weekdays.d1")} ${formatDayMonth(n.date)}`;
-              const time = shortTime(n.startTime);
-              return (
-                <li key={n.id}>
-                  <Link
-                    href={`/sessions/${n.id}`}
-                    className="grid min-h-11 gap-0.5 rounded-xl border bg-card px-4 py-3 hover:bg-muted/50"
-                  >
-                    <span className="font-semibold">{n.groupName}</span>
-                    <span className="text-muted-foreground">
-                      {time ? `${when} · ${time}` : when}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
 
       {groups.length === 0 ? (
         <Card>

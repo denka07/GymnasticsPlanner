@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { ZodError } from "zod";
 
 import { getDb } from "@/db";
@@ -18,15 +18,13 @@ import {
   type Session,
 } from "@/db/schema";
 import {
-  getAccessibleGroups,
   getGroupScope,
   requireSessionAccess,
   type AccessLevel,
 } from "@/lib/access";
-import { canOpenSeason, canOpenSession, isUuid } from "@/lib/access/levels";
-import { requireUser } from "@/lib/auth";
+import { canOpenSeason, canOpenSession } from "@/lib/access/levels";
 import { byName } from "@/lib/library";
-import { neighbours, nextSessions, todayInStockholm, type Dated } from "@/lib/session-view";
+import { neighbours, type Dated } from "@/lib/session-view";
 
 import { noteAfterInput, tickInput } from "./schemas";
 
@@ -246,56 +244,4 @@ export async function setNoteAfter(sessionId: string, note: unknown): Promise<vo
   const value = noteAfterInput.parse(note);
   await requireSessionAccess(sessionId, "participate");
   await getDb().update(sessions).set({ noteAfter: value }).where(eq(sessions.id, sessionId));
-}
-
-export type NextSession = {
-  id: string;
-  groupId: string;
-  groupName: string;
-  date: string;
-  startTime: string | null;
-  isToday: boolean;
-};
-
-/**
- * Per group the user can see, its next stored, non-cancelled session with at
- * least one part, dated today (in Sweden) or later.
- */
-export async function listNextSessions(): Promise<NextSession[]> {
-  const user = await requireUser();
-  // The clock is read only after the request-bound lookup above.
-  const today = todayInStockholm(new Date());
-  const accessible = await getAccessibleGroups(user.id);
-  const groupIds = accessible.map((a) => a.group.id).filter(isUuid);
-  if (groupIds.length === 0) {
-    return [];
-  }
-  const rows = await getDb()
-    .select({
-      id: sessions.id,
-      groupId: seasons.groupId,
-      seasonId: sessions.seasonId,
-      date: sessions.date,
-      startTime: sessions.startTime,
-      isCancelled: sessions.isCancelled,
-      partCount: sql<number>`(select count(*)::int from ${sessionParts} where ${sessionParts.sessionId} = ${sessions.id})`,
-    })
-    .from(sessions)
-    .innerJoin(seasons, eq(seasons.id, sessions.seasonId))
-    .where(and(inArray(seasons.groupId, groupIds), gte(sessions.date, today)));
-  const scopes = new Map(accessible.map((a) => [a.group.id, a.scope]));
-  // Only sessions the user can open: a group shared in part shows only those.
-  const open = rows.filter((r) => {
-    const scope = scopes.get(r.groupId);
-    return scope !== undefined && canOpenSession(scope, r.seasonId, r.id);
-  });
-  const names = new Map(accessible.map((a) => [a.group.id, a.group.name]));
-  return nextSessions(open, groupIds, today).map((r) => ({
-    id: r.id,
-    groupId: r.groupId,
-    groupName: names.get(r.groupId) ?? "",
-    date: r.date,
-    startTime: r.startTime,
-    isToday: r.date === today,
-  }));
 }

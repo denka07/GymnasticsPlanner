@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { neighbours, nextSessions, progress, todayInStockholm, type NextCandidate } from "./session-view";
+import { neighbours, progress, todayInStockholm } from "./session-view";
 
 describe("progress", () => {
   it("counts ticked parts out of all parts", () => {
@@ -25,42 +25,6 @@ describe("neighbours", () => {
   });
   it("gives nothing for an unknown session", () => {
     expect(neighbours(all, "x")).toEqual({ previous: null, next: null });
-  });
-});
-
-describe("nextSessions", () => {
-  const c = (over: Partial<NextCandidate> & { id: string }): NextCandidate => ({
-    groupId: "g1",
-    date: "2026-11-20",
-    startTime: "17:00",
-    isCancelled: false,
-    partCount: 1,
-    ...over,
-  });
-  it("picks the earliest upcoming session per group, today included", () => {
-    const list = [
-      c({ id: "late", date: "2026-11-25" }),
-      c({ id: "today", date: "2026-11-13", startTime: "18:00" }),
-      c({ id: "early-today", date: "2026-11-13", startTime: "16:00" }),
-      c({ id: "other", groupId: "g2", date: "2026-11-14" }),
-    ];
-    expect(nextSessions(list, ["g1", "g2"], "2026-11-13").map((s) => s.id)).toEqual([
-      "early-today",
-      "other",
-    ]);
-  });
-  it("skips past, cancelled and empty sessions, and groups without any", () => {
-    const list = [
-      c({ id: "past", date: "2026-11-12" }),
-      c({ id: "cancelled", isCancelled: true }),
-      c({ id: "empty", partCount: 0 }),
-      c({ id: "ok", date: "2026-12-01", groupId: "g3" }),
-    ];
-    expect(nextSessions(list, ["g1", "g2", "g3"], "2026-11-13").map((s) => s.id)).toEqual(["ok"]);
-  });
-  it("follows the order of the given groups", () => {
-    const list = [c({ id: "x", groupId: "g1" }), c({ id: "y", groupId: "g2", date: "2026-11-14" })];
-    expect(nextSessions(list, ["g2", "g1"], "2026-11-13").map((s) => s.id)).toEqual(["y", "x"]);
   });
 });
 
