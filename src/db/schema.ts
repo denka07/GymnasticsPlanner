@@ -387,7 +387,51 @@ export const stationExercises = pgTable(
   ],
 );
 
-export const groupsRelations =relations(groups, ({ one, many }) => ({
+// --- Sharing -------------------------------------------------------------------
+
+export const shareLevel = pgEnum("share_level", ["view", "edit"]);
+
+/**
+ * Gives one person access to exactly one group, season or session.
+ *
+ * The share is made out to an email address (stored lower-case). Until that
+ * person signs in for the first time `userId` is null and the share waits;
+ * it is attached to the user when their row is created, or at once when the
+ * address already belongs to a user.
+ */
+export const shares = pgTable(
+  "shares",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    groupId: uuid("group_id").references(() => groups.id, { onDelete: "cascade" }),
+    seasonId: uuid("season_id").references(() => seasons.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id").references(() => sessions.id, { onDelete: "cascade" }),
+    level: shareLevel("level").notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("shares_user_id_idx").on(t.userId),
+    index("shares_email_idx").on(t.email),
+    // NULLs are distinct, so each constraint only applies to its own kind.
+    unique("shares_email_group_id_unique").on(t.email, t.groupId),
+    unique("shares_email_season_id_unique").on(t.email, t.seasonId),
+    unique("shares_email_session_id_unique").on(t.email, t.sessionId),
+    check(
+      "shares_one_resource_check",
+      sql`num_nonnulls(${t.groupId}, ${t.seasonId}, ${t.sessionId}) = 1`,
+    ),
+    check("shares_email_lower_check", sql`${t.email} = lower(${t.email})`),
+  ],
+);
+
+export const groupsRelations = relations(groups, ({ one, many }) => ({
   owner: one(users, { fields: [groups.ownerId], references: [users.id] }),
   seasons: many(seasons),
 }));
@@ -506,3 +550,6 @@ export type Station = typeof stations.$inferSelect;
 export type NewStation = typeof stations.$inferInsert;
 export type StationEquipment = typeof stationEquipment.$inferSelect;
 export type StationExercise = typeof stationExercises.$inferSelect;
+export type Share = typeof shares.$inferSelect;
+export type NewShare = typeof shares.$inferInsert;
+export type ShareLevel = (typeof shareLevel.enumValues)[number];

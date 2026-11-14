@@ -31,6 +31,7 @@ import {
 import {
   allVisible,
   canEdit,
+  getSeasonAccess,
   requireSeasonAccess,
   requireSessionAccess,
   visibleTo,
@@ -299,6 +300,51 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
     trainingSlots: slots,
     sessions: weekSessions(slots, weekStart, isBreak, stored),
     copySources: sourceRows,
+    library,
+  };
+}
+
+/** One session for editing on its own, for whoever has edit access to just it. */
+export type SessionEditor = {
+  access: AccessLevel;
+  group: Pick<Group, "id" | "name">;
+  season: Pick<Season, "id" | "name">;
+  /** True when the user can also open the season (and so its week page). */
+  canOpenSeason: boolean;
+  session: StoredSession;
+  weekStart: string;
+  library: ActivityLibrary;
+};
+
+/**
+ * Loads one stored session for the single-session editor. Calls notFound()
+ * without edit access to the session.
+ */
+export async function getSessionEditor(sessionId: string): Promise<SessionEditor> {
+  const { user, access } = await requireSessionAccess(sessionId, "edit");
+  const [row] = await getDb()
+    .select({
+      session: sessions,
+      season: { id: seasons.id, name: seasons.name },
+      group: { id: groups.id, name: groups.name },
+    })
+    .from(sessions)
+    .innerJoin(seasons, eq(seasons.id, sessions.seasonId))
+    .innerJoin(groups, eq(groups.id, seasons.groupId))
+    .where(eq(sessions.id, sessionId))
+    .limit(1);
+  const [outlines, library, seasonAccess] = await Promise.all([
+    loadOutlines([sessionId]),
+    loadActivityLibrary(),
+    getSeasonAccess(user.id, row.season.id),
+  ]);
+  return {
+    access,
+    group: row.group,
+    season: row.season,
+    canOpenSeason: seasonAccess !== null,
+    session: { ...row.session, parts: outlines.get(sessionId) ?? [] },
+    weekStart: mondayOf(row.session.date),
     library,
   };
 }

@@ -17,8 +17,13 @@ import {
   stations,
   type Session,
 } from "@/db/schema";
-import { getAccessibleGroups, requireSessionAccess, type AccessLevel } from "@/lib/access";
-import { isUuid } from "@/lib/access/levels";
+import {
+  getAccessibleGroups,
+  getGroupScope,
+  requireSessionAccess,
+  type AccessLevel,
+} from "@/lib/access";
+import { canOpenSeason, canOpenSession, isUuid } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
 import { byName } from "@/lib/library";
 import { neighbours, nextSessions, todayInStockholm, type Dated } from "@/lib/session-view";
@@ -60,6 +65,8 @@ export type SessionNeighbour = Dated & { isCancelled: boolean };
 
 export type SessionView = {
   access: AccessLevel;
+  /** False when only this session (not its season) is shared with the user. */
+  canOpenSeason: boolean;
   session: Session;
   group: { id: string; name: string };
   season: { id: string; name: string };
@@ -133,7 +140,7 @@ async function loadActivityLinks(
 
 /** One session with its ticks, for the session page. Calls notFound() without view access. */
 export async function getSessionView(sessionId: string): Promise<SessionView> {
-  const { access } = await requireSessionAccess(sessionId, "view");
+  const { user, access } = await requireSessionAccess(sessionId, "view");
   const db = getDb();
   const [[row], partRows, activityRows] = await Promise.all([
     db
@@ -160,7 +167,9 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
       .orderBy(asc(activities.sortOrder)),
   ]);
 
-  const siblings = await db
+  const scope = await getGroupScope(user.id, row.group.id);
+  const seasonOpen = scope !== null && canOpenSeason(scope, row.season.id);
+  const allSiblings = await db
     .select({
       id: sessions.id,
       date: sessions.date,
@@ -169,6 +178,10 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     })
     .from(sessions)
     .where(eq(sessions.seasonId, row.session.seasonId));
+  // Without access to the season, step only between the sessions shared alone.
+  const siblings = seasonOpen
+    ? allSiblings
+    : allSiblings.filter((s) => scope !== null && canOpenSession(scope, row.season.id, s.id));
   const { previous, next } = neighbours(siblings, sessionId);
   const links = await loadActivityLinks(activityRows.map((r) => r.activity));
 
@@ -185,6 +198,7 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
   }
   return {
     access,
+    canOpenSeason: seasonOpen,
     session: row.session,
     group: row.group,
     season: row.season,
@@ -201,13 +215,13 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
 }
 
 /**
- * Ticks or unticks one part. Needs edit access to the session and checks in the
- * database that the part belongs to it. Activities have no done state: all
+ * Ticks or unticks one part. Anyone who can view the session may ("participate");
+ * checks in the database that the part belongs to it. Activities have no done state: all
  * activities of a part happen at the same time.
  */
 export async function setPartDone(input: unknown): Promise<void> {
   const { sessionId, partId, done } = tickInput.parse(input);
-  await requireSessionAccess(sessionId, "edit");
+  await requireSessionAccess(sessionId, "participate");
   const updated = await getDb()
     .update(sessionParts)
     .set({ isDone: done })
@@ -218,19 +232,19 @@ export async function setPartDone(input: unknown): Promise<void> {
   }
 }
 
-/** Clears every tick of a session. Needs edit access. */
+/** Clears every tick of a session. Anyone who can view the session may. */
 export async function resetTicks(sessionId: string): Promise<void> {
-  await requireSessionAccess(sessionId, "edit");
+  await requireSessionAccess(sessionId, "participate");
   await getDb()
     .update(sessionParts)
     .set({ isDone: false })
     .where(eq(sessionParts.sessionId, sessionId));
 }
 
-/** Saves the note after a session (empty clears it). Needs edit access. */
+/** Saves the note after a session (empty clears it). Anyone who can view the session may. */
 export async function setNoteAfter(sessionId: string, note: unknown): Promise<void> {
   const value = noteAfterInput.parse(note);
-  await requireSessionAccess(sessionId, "edit");
+  await requireSessionAccess(sessionId, "participate");
   await getDb().update(sessions).set({ noteAfter: value }).where(eq(sessions.id, sessionId));
 }
 
@@ -260,6 +274,7 @@ export async function listNextSessions(): Promise<NextSession[]> {
     .select({
       id: sessions.id,
       groupId: seasons.groupId,
+      seasonId: sessions.seasonId,
       date: sessions.date,
       startTime: sessions.startTime,
       isCancelled: sessions.isCancelled,
@@ -268,8 +283,14 @@ export async function listNextSessions(): Promise<NextSession[]> {
     .from(sessions)
     .innerJoin(seasons, eq(seasons.id, sessions.seasonId))
     .where(and(inArray(seasons.groupId, groupIds), gte(sessions.date, today)));
+  const scopes = new Map(accessible.map((a) => [a.group.id, a.scope]));
+  // Only sessions the user can open: a group shared in part shows only those.
+  const open = rows.filter((r) => {
+    const scope = scopes.get(r.groupId);
+    return scope !== undefined && canOpenSession(scope, r.seasonId, r.id);
+  });
   const names = new Map(accessible.map((a) => [a.group.id, a.group.name]));
-  return nextSessions(rows, groupIds, today).map((r) => ({
+  return nextSessions(open, groupIds, today).map((r) => ({
     id: r.id,
     groupId: r.groupId,
     groupName: names.get(r.groupId) ?? "",
