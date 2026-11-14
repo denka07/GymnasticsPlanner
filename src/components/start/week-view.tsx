@@ -60,18 +60,26 @@ export async function WeekView({ data }: { data: StartWeek }) {
       {days.length === 0 ? (
         <p className="text-muted-foreground">{t("Start.weekEmpty")}</p>
       ) : (
-        <div className="grid gap-4">
+        <div className="flex flex-wrap items-start justify-start gap-4">
           {days.map((day) => (
-            <div key={day.date} className="grid gap-2">
-              <h3 className="text-base font-semibold">
-                {t(`Weekdays.d${weekdayOf(day.date)}` as "Weekdays.d1")} {formatDayMonth(day.date)}
+            <div
+              key={day.date}
+              className={
+                "grid min-w-0 max-w-80 flex-[1_1_10.5rem] content-start gap-2 rounded-xl p-2 " +
+                (day.date === today ? "bg-muted/60 ring-1 ring-primary/40" : "")
+              }
+            >
+              <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
+                <span>
+                  {t(`Weekdays.d${weekdayOf(day.date)}` as "Weekdays.d1")} {formatDayMonth(day.date)}
+                </span>
                 {day.date === today && (
-                  <span className="ml-2 rounded-md bg-primary px-2 py-0.5 text-sm font-medium text-primary-foreground">
+                  <span className="rounded-md bg-primary px-2 py-0.5 text-sm font-medium text-primary-foreground">
                     {t("Start.today")}
                   </span>
                 )}
               </h3>
-              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid gap-2">
                 {day.items.map((item) => {
                   const time = shortTime(item.startTime);
                   const href = item.sessionId
@@ -87,22 +95,38 @@ export async function WeekView({ data }: { data: StartWeek }) {
                   return (
                     <li key={item.key}>
                       <Link href={href} className={rowClass}>
-                        <span className="flex flex-wrap items-baseline justify-between gap-x-3">
-                          <span className="font-semibold">
-                            {time ? `${time} · ${item.groupName}` : item.groupName}
-                          </span>
+                        {time && (
                           <span
                             className={
-                              item.state === "cancelled"
-                                ? "font-medium text-destructive"
-                                : "text-muted-foreground"
+                              "text-lg font-semibold tabular-nums " +
+                              (item.state === "cancelled" ? "line-through" : "")
                             }
                           >
-                            {state}
+                            {time}
                           </span>
+                        )}
+                        <span
+                          className={
+                            "break-words font-medium " +
+                            (item.state === "cancelled" ? "text-muted-foreground line-through" : "")
+                          }
+                        >
+                          {item.groupName}
+                        </span>
+                        <span
+                          className={
+                            "text-sm " +
+                            (item.state === "cancelled"
+                              ? "font-semibold text-destructive"
+                              : item.state === "planned"
+                                ? "font-medium"
+                                : "text-muted-foreground italic")
+                          }
+                        >
+                          {state}
                         </span>
                         {item.location && (
-                          <span className="text-muted-foreground">{item.location}</span>
+                          <span className="break-words text-muted-foreground">{item.location}</span>
                         )}
                       </Link>
                     </li>
