@@ -445,6 +445,28 @@ export const submissions = pgTable(
   ],
 );
 
+/**
+ * A personal exercise included in a station submission, so that it can become
+ * global together with the station. Only the submitter's own personal
+ * exercises that the station supports are included. Removed with either the
+ * submission or the exercise.
+ */
+export const submissionExercises = pgTable(
+  "submission_exercises",
+  {
+    submissionId: uuid("submission_id")
+      .notNull()
+      .references(() => submissions.id, { onDelete: "cascade" }),
+    exerciseId: uuid("exercise_id")
+      .notNull()
+      .references(() => exercises.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.submissionId, t.exerciseId] }),
+    index("submission_exercises_exercise_id_idx").on(t.exerciseId),
+  ],
+);
+
 // --- Sharing -------------------------------------------------------------------
 
 export const shareLevel = pgEnum("share_level", ["view", "edit"]);
@@ -609,6 +631,7 @@ export type NewStation = typeof stations.$inferInsert;
 export type StationEquipment = typeof stationEquipment.$inferSelect;
 export type StationExercise = typeof stationExercises.$inferSelect;
 export type Submission = typeof submissions.$inferSelect;
+export type SubmissionExercise = typeof submissionExercises.$inferSelect;
 export type SubmissionStatus = (typeof submissionStatus.enumValues)[number];
 export type Share = typeof shares.$inferSelect;
 export type NewShare = typeof shares.$inferInsert;

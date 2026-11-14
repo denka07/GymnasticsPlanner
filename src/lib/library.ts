@@ -148,6 +148,97 @@ export function canReview(
   return user.isAdmin && submission.status === "pending" && item.scope === "personal";
 }
 
+// --- Exercises that go global with a station -----------------------------------
+
+/** An exercise considered for going global together with a station. */
+export type StationExerciseCandidate = LibraryItemRef & {
+  id: string;
+  /** True when the station supports the exercise. */
+  supported: boolean;
+};
+
+/**
+ * Whether an exercise may go global together with a station submitted (or
+ * made global) by `ownerId`: it must be personal, owned by that user and
+ * supported by the station.
+ */
+export function canGoWithStation(exercise: StationExerciseCandidate, ownerId: string): boolean {
+  return exercise.supported && ownsPersonal(exercise, { id: ownerId });
+}
+
+/**
+ * The exercises a submitter includes in a station submission, from the ids
+ * they ticked. Returns null when a ticked id is not one of the exercises they
+ * may include (the submission is then refused). Duplicates are dropped.
+ */
+export function planIncludedExercises(
+  candidates: readonly StationExerciseCandidate[],
+  chosen: readonly string[],
+  submitterId: string,
+): string[] | null {
+  const allowed = new Set(candidates.filter((c) => canGoWithStation(c, submitterId)).map((c) => c.id));
+  const unique = [...new Set(chosen)];
+  return unique.every((id) => allowed.has(id)) ? unique : null;
+}
+
+/**
+ * The exercises that become global when a station submission is approved:
+ * those the administrator ticked that the submitter included and that still
+ * qualify (personal, the submitter's own, supported by the station). Anything
+ * else is ignored, so nothing the submitter did not include becomes global.
+ */
+export function exercisesToApprove(
+  included: readonly StationExerciseCandidate[],
+  ticked: readonly string[],
+  submitterId: string,
+): string[] {
+  const wanted = new Set(ticked);
+  return included.filter((e) => wanted.has(e.id) && canGoWithStation(e, submitterId)).map((e) => e.id);
+}
+
+/**
+ * The exercises that become global when an administrator makes their own
+ * station global: those ticked that are their own personal exercises the
+ * station supports. Others are ignored.
+ */
+export function exercisesToMakeGlobal(
+  supported: readonly StationExerciseCandidate[],
+  ticked: readonly string[],
+  user: LibraryUser,
+): string[] {
+  if (!user.isAdmin) {
+    return [];
+  }
+  return exercisesToApprove(supported, ticked, user.id);
+}
+
+/**
+ * Whether a coach may submit an exercise on its own: as canSubmit, and not
+ * while it is included in a pending station submission.
+ */
+export function canSubmitExercise(
+  exercise: LibraryItemRef,
+  user: LibraryUser,
+  hasPendingSubmission: boolean,
+  includedInPendingStation: boolean,
+): boolean {
+  return !includedInPendingStation && canSubmit(exercise, user, hasPendingSubmission);
+}
+
+/**
+ * Splits the exercises included in an approved station submission into those
+ * that are now global and those that stayed personal, for telling the
+ * submitter.
+ */
+export function splitIncludedOutcome<T extends { scope: LibraryScope }>(
+  included: readonly T[],
+): { global: T[]; personal: T[] } {
+  return {
+    global: included.filter((e) => e.scope === "global"),
+    personal: included.filter((e) => e.scope === "personal"),
+  };
+}
+
 /** Only administrators are told who created a global item. */
 export function canSeeCreator(user: LibraryUser): boolean {
   return user.isAdmin;
