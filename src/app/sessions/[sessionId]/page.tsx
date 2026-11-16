@@ -1,13 +1,12 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { SessionChecklist } from "@/components/session/session-checklist";
 import { SessionNote } from "@/components/session/session-note";
 import { ShareDialog } from "@/components/share/share-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { canEdit, canParticipate, isOwner } from "@/lib/access";
 import { formatDayMonth, formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { getSessionView, type SessionNeighbour } from "@/lib/data/session-view";
@@ -61,14 +60,13 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
                 <ShareDialog kind="session" id={session.id} name={heading} />
               )}
               {editable && (
-                <Button
+                <ButtonLink
                   variant="outline"
                   className="h-11 px-4 text-base"
-                  nativeButton={false}
-                  render={<Link href={weekHref} />}
+                  href={weekHref}
                 >
                   {t("edit")}
-                </Button>
+                </ButtonLink>
               )}
             </div>
           </div>
@@ -105,14 +103,13 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
           <div className="grid justify-items-start gap-3 rounded-xl border bg-muted/40 p-4">
             <p className="text-lg">{t("empty")}</p>
             {editable && (
-              <Button
+              <ButtonLink
                 variant="outline"
                 className="h-11 px-4 text-base"
-                nativeButton={false}
-                render={<Link href={weekHref} />}
+                href={weekHref}
               >
                 {t("plan")}
-              </Button>
+              </ButtonLink>
             )}
           </div>
         )}
@@ -155,16 +152,15 @@ async function NeighbourLink({
   }
   const date = `${tw(`d${weekdayOf(target.date)}` as "d1")} ${formatDayMonth(target.date)}`;
   return (
-    <Button
+    <ButtonLink
       variant="outline"
       className={className}
       aria-label={isPrevious ? t("previousLabel", { date }) : t("nextLabel", { date })}
-      nativeButton={false}
-      render={<Link href={`/sessions/${target.id}`} />}
+      href={`/sessions/${target.id}`}
     >
       {isPrevious && icon}
       {label}
       {!isPrevious && icon}
-    </Button>
+    </ButtonLink>
   );
 }

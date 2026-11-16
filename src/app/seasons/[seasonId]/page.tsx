@@ -1,7 +1,6 @@
 import { CopyIcon, SettingsIcon } from "lucide-react";
 import { io } from "next/cache";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
@@ -10,7 +9,7 @@ import { CopySeasonDialog } from "@/components/plan/copy-season-dialog";
 import { SeasonGrid, type GridWeek } from "@/components/plan/season-grid";
 import { SeasonSummary } from "@/components/plan/season-summary";
 import { ShareDialog } from "@/components/share/share-dialog";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { canEdit, isOwner } from "@/lib/access";
 import { listEditableGroups } from "@/lib/data/groups";
 import { getSeasonPlan } from "@/lib/data/seasons";
@@ -92,14 +91,13 @@ async function SeasonContent({
             />
           )}
           {editable && (
-            <Button
+            <ButtonLink
               variant="outline"
-              nativeButton={false}
-              render={<Link href={`/seasons/${season.id}/setup`} />}
+              href={`/seasons/${season.id}/setup`}
             >
               <SettingsIcon data-icon="inline-start" />
               {t("Seasons.setupLink")}
-            </Button>
+            </ButtonLink>
           )}
         </div>
       </header>
@@ -115,14 +113,13 @@ async function SeasonContent({
               {editable ? t("Plan.emptyText") : t("Plan.emptyTextView")}
             </p>
             {editable && (
-              <Button
+              <ButtonLink
                 variant="outline"
                 size="sm"
-                nativeButton={false}
-                render={<Link href={`/seasons/${season.id}/setup`} />}
+                href={`/seasons/${season.id}/setup`}
               >
                 {t("Plan.emptyLink")}
-              </Button>
+              </ButtonLink>
             )}
           </div>
         ) : (

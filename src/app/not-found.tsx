@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -27,9 +26,9 @@ export default async function NotFound() {
           <CardDescription>{t("text")}</CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button nativeButton={false} render={<Link href="/" />}>
+          <ButtonLink href="/">
             {t("back")}
-          </Button>
+          </ButtonLink>
         </CardFooter>
       </Card>
     </main>
