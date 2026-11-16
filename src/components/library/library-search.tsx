@@ -1,9 +1,8 @@
 import { SearchIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Form from "next/form";
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ScopeFilter } from "@/lib/library";
 
@@ -41,9 +40,9 @@ export async function LibrarySearch({
         <span className="max-sm:sr-only">{t("search")}</span>
       </Button>
       {search && (
-        <Button variant="ghost" className="h-11 px-3" nativeButton={false} render={<Link href={showAll} />}>
+        <ButtonLink variant="ghost" className="h-11 px-3" href={showAll}>
           {t("showAll")}
-        </Button>
+        </ButtonLink>
       )}
     </Form>
   );

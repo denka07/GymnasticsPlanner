@@ -1,12 +1,11 @@
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { ActivityLibraryProvider } from "@/components/session/activity-library";
 import { SessionColumn } from "@/components/session/session-column";
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { formatDayMonthLong, weekdayOf } from "@/lib/dates";
 import { getSessionEditor } from "@/lib/data/sessions";
 import { weekdayDate } from "@/lib/weeks";
@@ -52,9 +51,9 @@ async function SessionEditContent({
           <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
             {heading}
           </h1>
-          <Button variant="outline" nativeButton={false} render={<Link href={`/sessions/${session.id}`} />}>
+          <ButtonLink variant="outline" href={`/sessions/${session.id}`}>
             {t("Session.openSession")}
-          </Button>
+          </ButtonLink>
         </div>
         <p className="text-sm text-muted-foreground">{t("Session.hint")}</p>
         <ActivityLibraryProvider library={editor.library}>

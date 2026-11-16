@@ -2,7 +2,6 @@
 
 import { EllipsisVerticalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -23,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -199,9 +198,9 @@ export function SessionColumn({
       )}
 
       {showOpenLink && sessionId && (
-        <Button variant="outline" nativeButton={false} render={<Link href={`/sessions/${sessionId}`} />}>
+        <ButtonLink variant="outline" href={`/sessions/${sessionId}`}>
           {t("openSession")}
-        </Button>
+        </ButtonLink>
       )}
 
       {editable && (

@@ -1,6 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon, TableIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
@@ -9,7 +8,7 @@ import type { CopySourceOption } from "@/components/session/copy-session-dialog"
 import { SessionColumn, type SessionColumnData } from "@/components/session/session-column";
 import { AddSessionButton, EditWeekButton } from "@/components/session/week-actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { canEdit } from "@/lib/access";
 import { formatDayMonth } from "@/lib/dates";
 import { getWeekPlan, type WeekFocus, type WeekPlan } from "@/lib/data/sessions";
@@ -111,10 +110,10 @@ async function WeekContent({
           </WeekArrow>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" nativeButton={false} render={<Link href={base} />}>
+          <ButtonLink variant="outline" href={base}>
             <TableIcon data-icon="inline-start" />
             {t("seasonPlan")}
-          </Button>
+          </ButtonLink>
           {editable && (
             <EditWeekButton
               seasonId={season.id}
@@ -188,15 +187,14 @@ function WeekArrow({
     );
   }
   return (
-    <Button
+    <ButtonLink
       variant="outline"
       size="icon"
       aria-label={label}
-      nativeButton={false}
-      render={<Link href={href} />}
+      href={href}
     >
       {children}
-    </Button>
+    </ButtonLink>
   );
 }
 

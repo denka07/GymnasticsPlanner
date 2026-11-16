@@ -1,7 +1,6 @@
 import { getTranslations } from "next-intl/server";
-import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -23,9 +22,9 @@ export default async function AuthErrorPage() {
           <CardDescription>{t("errorText")}</CardDescription>
         </CardHeader>
         <CardFooter>
-          <Button nativeButton={false} render={<Link href={SIGN_IN_PATH} />}>
+          <ButtonLink href={SIGN_IN_PATH}>
             {t("backToStart")}
-          </Button>
+          </ButtonLink>
         </CardFooter>
       </Card>
     </main>
