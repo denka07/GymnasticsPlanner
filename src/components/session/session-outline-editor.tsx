@@ -252,11 +252,12 @@ export function SessionOutlineEditor({
                 min={1}
                 max={MAX_DURATION}
                 value={line.duration ?? ""}
+                placeholder="–"
                 aria-label={t("durationLabel", { part: line.text || t("partLabel", { number: part.number }) })}
                 onChange={(e) => setDuration(index, e.target.value)}
-                className="h-8 w-14 shrink-0 border-transparent bg-transparent px-1 text-right tabular-nums shadow-none hover:border-input focus-visible:border-ring dark:bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="h-11 w-12 shrink-0 border-input bg-transparent px-1.5 text-right tabular-nums shadow-none placeholder:text-muted-foreground sm:h-8 dark:bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <span aria-hidden className="w-7 shrink-0 pt-1.5 text-sm text-muted-foreground">
+              <span aria-hidden className="w-7 shrink-0 pt-3 text-sm text-muted-foreground sm:pt-1.5">
                 {t("minutes")}
               </span>
             </div>
@@ -267,10 +268,16 @@ export function SessionOutlineEditor({
         const linkLabel = t("linkButton", { line: line.text.trim() || line.exercises[0]?.name || lineLabel });
         return (
           <div key={line.id} className="flex items-start gap-1.5 pl-12">
-            <span aria-hidden className="w-3 shrink-0 pt-1 text-center text-muted-foreground">
+            <span aria-hidden className={cn("w-3 shrink-0 text-center text-muted-foreground", linked ? "pt-2" : "pt-1")}>
               •
             </span>
-            <div className="grid min-w-0 flex-1">
+            <div
+              className={cn(
+                "grid min-w-0 flex-1",
+                linked &&
+                  "rounded-lg border border-input bg-muted/40 py-0.5 transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+              )}
+            >
               {linked && (
                 <button
                   type="button"
@@ -300,11 +307,11 @@ export function SessionOutlineEditor({
                 value={line.text}
                 maxLength={MAX_ACTIVITY_LENGTH}
                 aria-label={lineLabel}
-                placeholder={isBlank(line) ? t("activityPlaceholder") : undefined}
+                placeholder={linked ? t("activityNotePlaceholder") : isBlank(line) ? t("activityPlaceholder") : undefined}
                 onChange={(e) => setText(index, e.target.value)}
                 onKeyDown={(e) => onKeyDown(e, index)}
                 onPaste={(e) => onPaste(e, index)}
-                className={LINE_CLASS}
+                className={cn(LINE_CLASS, linked && "hover:border-transparent focus-visible:border-transparent focus-visible:ring-0")}
               />
               {line.station && !isSavableActivity(line) && (
                 <p className="px-1.5 text-sm text-destructive">{t("stationOnly")}</p>
