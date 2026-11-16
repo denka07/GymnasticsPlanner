@@ -25,3 +25,4 @@ Web app for a gymnastics coach to plan seasons and training sessions.
 - `npm test` — run the Vitest unit tests once
 - `npm run db:generate` — generate a Drizzle migration from the schema
 - `npm run db:migrate` — apply migrations to `DATABASE_URL` (the `dev` branch locally)
+- `npm run test:e2e` — Playwright browser tests of the main flows (`e2e/`); `npm run test:e2e:ui` opens UI mode, `npm run test:e2e:clean` removes left-over `E2E …` data. Run them when a change touches a covered flow; they need `next dev` with the development sign-in and the `dev` database, and are not part of the required pre-commit checks. See "Browser tests" in `README.md`.
