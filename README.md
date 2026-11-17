@@ -71,9 +71,21 @@ How data is cleaned up: the tests run against the `dev` database next to real ex
 
 Set-up that is not the subject of a test (a season with sessions, library items) is written straight to the database by `e2e/support/seed.ts`. The browser tests are not part of the required checks before committing; run them when a change touches a covered flow.
 
+### On pull requests
+
+The workflow `.github/workflows/e2e.yml` runs the browser tests on every pull request (and by hand from the Actions tab). Each run creates its own Neon branch from `dev`, so the test users exist and Dev Coach is already an administrator; applies pending migrations to it; runs the tests against `next dev`; and deletes the branch when it ends, whatever the outcome. A run takes about five minutes. On failure the Playwright report and traces are kept as the artifact `playwright-report` for 14 days. A newer push to the same pull request cancels the run in progress.
+
+It needs the repository variables `NEON_PROJECT_ID` and `NEON_AUTH_BASE_URL` and the secret `NEON_API_KEY` (shared with `cleanup-preview-branch.yml`). The cookie secret is generated for each run, since the development sign-in never uses it.
+
+A test that needs new data in the test users (for example a new administrator) must create it itself or be added to `dev`, since each run starts from a copy of `dev`.
+
+## Neon branches
+
+Besides `main` (production) and `dev`, the Vercel integration creates a branch `preview/<git-branch>` for each pull request's preview deployment, and `cleanup-preview-branch.yml` deletes it when the pull request is merged or closed. The browser test workflow's `ci/e2e-…` branches live only while a run lasts. The plan allows 10 branches; if a preview or test run fails with "Resource provisioning failed", look for left-over branches.
+
 ## Databases
 
-The Neon project has two branches. Production deployments on Vercel use the default branch. Local development uses the branch `dev`, set as `DATABASE_URL` in `.env.local`.
+The Neon project has two long-lived branches (see "Neon branches" above for the others). Production deployments on Vercel use the default branch. Local development uses the branch `dev`, set as `DATABASE_URL` in `.env.local`.
 
 Run `npm run db:migrate` locally to apply migrations to `dev`. Production is migrated automatically: Vercel runs the `vercel-build` script, which applies pending migrations before building a production deployment. Preview deployments are never migrated.
 
