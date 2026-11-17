@@ -1,10 +1,11 @@
 import { createNeonAuth } from "@neon/auth/next/server";
 
+import { authBaseUrl } from "./base-url";
+
 function createAuth() {
-  // NEON_AUTH_BASE_URL is set by hand for production and locally. Preview
-  // deployments get their own database branch with its own Neon Auth, whose
-  // address the Vercel integration provides as DATABASE_NEON_AUTH_BASE_URL.
-  const baseUrl = process.env.NEON_AUTH_BASE_URL ?? process.env.DATABASE_NEON_AUTH_BASE_URL;
+  // NEON_AUTH_BASE_URL in production and locally; on a preview, the Neon Auth
+  // of the preview's own database branch (see base-url.ts).
+  const baseUrl = authBaseUrl(process.env);
   const secret = process.env.NEON_AUTH_COOKIE_SECRET;
   if (!baseUrl || !secret) {
     throw new Error(
