@@ -13,8 +13,15 @@ import { defineConfig, devices } from "@playwright/test";
 // One id per run, shared with the worker processes through the environment.
 process.env.E2E_RUN_ID ??= randomBytes(2).toString("hex");
 
-const PORT = 3000;
+// E2E_PORT runs the tests against a dev server on another port (default 3000).
+const PORT = Number(process.env.E2E_PORT || 3000);
 const baseURL = `http://localhost:${PORT}`;
+
+// Files the tests attach go to this folder of the Blob store, so a run's
+// clean-up never touches another run's or real files. A dev server that the
+// tests reuse instead of starting needs the same ATTACHMENTS_PATH_ENV (and
+// E2E_RUN_ID) to store its files there; see "Browser tests" in README.md.
+process.env.ATTACHMENTS_PATH_ENV ??= `e2e/${process.env.E2E_RUN_ID}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -54,8 +61,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: `npm run dev -- --port ${PORT}`,
     url: baseURL,
+    env: { ATTACHMENTS_PATH_ENV: process.env.ATTACHMENTS_PATH_ENV },
     reuseExistingServer: true,
     timeout: 180_000,
     stdout: "ignore",
