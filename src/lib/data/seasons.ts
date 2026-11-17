@@ -30,6 +30,7 @@ import {
 
 import { weeksBetween } from "@/lib/weeks";
 
+import { pathnamesOfSeason, releaseBlobs } from "./attachment-files";
 import { seasonInput, type SeasonValues } from "./schemas";
 
 export type DisciplineWithItems = Discipline & { focusItems: FocusItem[] };
@@ -230,9 +231,12 @@ export async function updateSeason(
 /** Deletes the season and, by cascade, everything in it. Owner only. Returns its group id. */
 export async function deleteSeason(seasonId: string): Promise<string> {
   await requireSeasonOwner(seasonId);
+  const files = await pathnamesOfSeason(seasonId);
   const [row] = await getDb()
     .delete(seasons)
     .where(eq(seasons.id, seasonId))
     .returning({ groupId: seasons.groupId });
+  // Attachments went by cascade; delete the stored files nothing refers to now.
+  await releaseBlobs(files);
   return row.groupId;
 }

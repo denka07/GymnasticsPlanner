@@ -16,6 +16,7 @@ import {
 import { canOpenSeason } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
 
+import { pathnamesOfGroup, releaseBlobs } from "./attachment-files";
 import { name } from "./schemas";
 
 /** A session shared on its own, without access to its season. */
@@ -140,7 +141,10 @@ export async function renameGroup(
 /** Deletes the group and, by cascade, everything in it and its shares. Owner only. */
 export async function deleteGroup(groupId: string): Promise<void> {
   await requireGroupOwner(groupId);
+  const files = await pathnamesOfGroup(groupId);
   await getDb().delete(groups).where(eq(groups.id, groupId));
+  // Attachments went by cascade; delete the stored files nothing refers to now.
+  await releaseBlobs(files);
 }
 
 /** The groups the current user may add seasons to (edit access to the whole group), oldest first. */

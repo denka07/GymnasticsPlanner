@@ -45,6 +45,13 @@ import { weekSessions, type WeekEntry } from "@/lib/week-sessions";
 import { addWeeks, isMonday, mondayOf, weekdayDate } from "@/lib/weeks";
 
 import {
+  copyAttachmentsStatements,
+  loadAttachments,
+  pathnamesOfSession,
+  releaseBlobs,
+  type AttachmentItem,
+} from "./attachment-files";
+import {
   outlineInput,
   sessionDetailsInput,
   sessionTargetInput,
@@ -57,7 +64,7 @@ function invalid(message = "invalid"): ZodError {
 
 // --- Reading ------------------------------------------------------------------
 
-export type StoredSession = Session & { parts: LoadedPart[] };
+export type StoredSession = Session & { parts: LoadedPart[]; attachments: AttachmentItem[] };
 
 /**
  * What the activity picker offers: the stations and exercises the user may
@@ -273,11 +280,17 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
       .orderBy(desc(sessions.date), desc(sessions.startTime)),
   ]);
 
-  const [outlines, library] = await Promise.all([
-    loadOutlines(sessionRows.map((s) => s.id)),
+  const sessionIds = sessionRows.map((s) => s.id);
+  const [outlines, files, library] = await Promise.all([
+    loadOutlines(sessionIds),
+    loadAttachments(sessionIds),
     canEdit(access) ? loadActivityLibrary() : null,
   ]);
-  const stored: StoredSession[] = sessionRows.map((s) => ({ ...s, parts: outlines.get(s.id) ?? [] }));
+  const stored: StoredSession[] = sessionRows.map((s) => ({
+    ...s,
+    parts: outlines.get(s.id) ?? [],
+    attachments: files.get(s.id) ?? [],
+  }));
   const week = weekRows[0];
   const isBreak = week?.isBreak ?? false;
 
@@ -340,8 +353,9 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
     .innerJoin(groups, eq(groups.id, seasons.groupId))
     .where(eq(sessions.id, sessionId))
     .limit(1);
-  const [outlines, library, seasonAccess] = await Promise.all([
+  const [outlines, files, library, seasonAccess] = await Promise.all([
     loadOutlines([sessionId]),
+    loadAttachments([sessionId]),
     loadActivityLibrary(),
     getSeasonAccess(user.id, row.season.id),
   ]);
@@ -350,7 +364,11 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
     group: row.group,
     season: row.season,
     canOpenSeason: seasonAccess !== null,
-    session: { ...row.session, parts: outlines.get(sessionId) ?? [] },
+    session: {
+      ...row.session,
+      parts: outlines.get(sessionId) ?? [],
+      attachments: files.get(sessionId) ?? [],
+    },
     weekStart: mondayOf(row.session.date),
     library,
   };
@@ -396,14 +414,14 @@ async function loadActivityLibrary(): Promise<ActivityLibrary> {
 
 // --- Resolving a target ---------------------------------------------------------
 
-type Resolved = { sessionId: string; seasonId: string; date: string };
+export type Resolved = { sessionId: string; seasonId: string; date: string };
 
 /**
  * The session an edit goes to, with edit access checked. A placeholder is
  * stored first, copying its slot's date, times and location; if the slot
  * already has a session that week, that one is used.
  */
-async function resolveForEdit(input: unknown): Promise<Resolved> {
+export async function resolveForEdit(input: unknown): Promise<Resolved> {
   const target = sessionTargetInput.parse(input);
   const db = getDb();
   if ("sessionId" in target) {
@@ -538,7 +556,10 @@ export async function deleteSession(sessionId: string): Promise<void> {
   if (row.trainingSlotId !== null) {
     throw invalid("slotSession");
   }
+  const files = await pathnamesOfSession(sessionId);
   await db.delete(sessions).where(eq(sessions.id, sessionId));
+  // Its attachments went by cascade; delete the files no copy refers to.
+  await releaseBlobs(files);
 }
 
 /**
@@ -739,6 +760,8 @@ export async function saveSessionOutline(target: unknown, input: unknown): Promi
 /**
  * Replaces the target's parts and activities with copies of the source's,
  * durations included; done flags start cleared and the note is not copied.
+ * The source's attachments are added to the target's own, pointing at the
+ * same stored files.
  * Needs view access to the source and edit access to the target. Returns the
  * target session id and its new outline.
  */
@@ -751,6 +774,7 @@ export async function copySessionContent(
   }
   await requireSessionAccess(sourceSessionId, "view");
   const resolved = await resolveForEdit(target);
+  const user = await requireUser();
   if (resolved.sessionId === sourceSessionId) {
     throw invalid();
   }
@@ -799,6 +823,7 @@ export async function copySessionContent(
       inserts.push(db.insert(activityExercises).values(exerciseRows));
     }
   }
-  await db.batch([clear, ...inserts]);
+  const copyFiles = await copyAttachmentsStatements(sourceSessionId, resolved.sessionId, user.id);
+  await db.batch([clear, ...inserts, ...copyFiles]);
   return { sessionId: resolved.sessionId, parts };
 }

@@ -3,6 +3,12 @@
 import { refresh } from "next/cache";
 import { ZodError } from "zod";
 
+import type { AttachmentItem } from "@/lib/data/attachment-files";
+import {
+  deleteAttachment,
+  prepareAttachmentUpload,
+  registerAttachment,
+} from "@/lib/data/attachments";
 import { errorKey } from "@/lib/data/schemas";
 import {
   copySessionContent,
@@ -144,4 +150,35 @@ export async function setNoteAfterAction(
     },
     { refreshPage: false },
   );
+}
+
+// --- Attachments ------------------------------------------------------------------
+// See src/lib/data/attachments.ts for the three upload steps.
+
+/**
+ * Step 1 of an upload: checks the file's type, size and edit access, stores a
+ * placeholder session if needed and returns the path to upload to.
+ */
+export async function prepareAttachmentUploadAction(
+  target: unknown,
+  file: { name: string; type: string; size: number },
+): Promise<SessionActionResult<{ pathname: string }>> {
+  return run(() => prepareAttachmentUpload(target, file), { refreshPage: false });
+}
+
+/** Step 3 of an upload: checks the stored file and adds it to the session. */
+export async function registerAttachmentAction(
+  sessionId: string,
+  input: { pathname: string; fileName: string },
+): Promise<SessionActionResult<{ attachment: AttachmentItem }>> {
+  return run(
+    async () => ({ sessionId, attachment: await registerAttachment(sessionId, input) }),
+    { refreshPage: true },
+  );
+}
+
+export async function deleteAttachmentAction(attachmentId: string): Promise<SessionActionResult> {
+  return run(async () => ({ sessionId: await deleteAttachment(attachmentId) }), {
+    refreshPage: true,
+  });
 }

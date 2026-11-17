@@ -26,6 +26,7 @@ import { canOpenSeason, canOpenSession } from "@/lib/access/levels";
 import { byName } from "@/lib/library";
 import { neighbours, type Dated } from "@/lib/session-view";
 
+import { loadAttachments, type AttachmentItem } from "./attachment-files";
 import { noteAfterInput, tickInput } from "./schemas";
 
 function invalid(message = "invalid"): ZodError {
@@ -71,6 +72,7 @@ export type SessionView = {
   parts: ViewPart[];
   previous: SessionNeighbour | null;
   next: SessionNeighbour | null;
+  attachments: AttachmentItem[];
 };
 
 /**
@@ -181,7 +183,10 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     ? allSiblings
     : allSiblings.filter((s) => scope !== null && canOpenSession(scope, row.season.id, s.id));
   const { previous, next } = neighbours(siblings, sessionId);
-  const links = await loadActivityLinks(activityRows.map((r) => r.activity));
+  const [links, files] = await Promise.all([
+    loadActivityLinks(activityRows.map((r) => r.activity)),
+    loadAttachments([sessionId]),
+  ]);
 
   const byPart = new Map<string, ViewActivity[]>();
   for (const { activity } of activityRows) {
@@ -209,6 +214,7 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     })),
     previous,
     next,
+    attachments: files.get(sessionId) ?? [],
   };
 }
 
