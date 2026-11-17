@@ -27,18 +27,19 @@ export function neonAuthUrlFor(databaseUrl: string | undefined): string | null {
 /**
  * Where the app's Neon Auth lives.
  *
- * - NEON_AUTH_BASE_URL when set (production and local development).
- * - On a Vercel preview, the Neon Auth of the preview's own database branch,
- *   derived from DATABASE_URL. That branch's Neon Auth already trusts the
- *   preview's addresses; the integration's DATABASE_NEON_AUTH_BASE_URL points
- *   at production's Neon Auth, which does not.
+ * - On a Vercel preview: the Neon Auth of the preview's own database branch,
+ *   derived from DATABASE_URL, whatever NEON_AUTH_BASE_URL says. That branch's
+ *   Neon Auth already trusts the preview's addresses; production's Neon Auth
+ *   (which NEON_AUTH_BASE_URL and the integration's DATABASE_NEON_AUTH_BASE_URL
+ *   point at) does not, so sign-in could not start.
+ * - Otherwise NEON_AUTH_BASE_URL (production and local development).
  */
 export function authBaseUrl(env: Record<string, string | undefined>): string | null {
-  if (env.NEON_AUTH_BASE_URL) {
-    return env.NEON_AUTH_BASE_URL;
-  }
   if (env.VERCEL_ENV === "preview") {
-    return neonAuthUrlFor(env.DATABASE_URL_UNPOOLED || env.DATABASE_URL);
+    const derived = neonAuthUrlFor(env.DATABASE_URL_UNPOOLED || env.DATABASE_URL);
+    if (derived) {
+      return derived;
+    }
   }
-  return null;
+  return env.NEON_AUTH_BASE_URL || null;
 }
