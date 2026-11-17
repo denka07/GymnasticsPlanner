@@ -6,7 +6,9 @@
 # first, and it is deleted when the run ends. Production is never touched.
 #
 # Needs the repository variables NEON_PROJECT_ID and NEON_AUTH_BASE_URL and the
-# secret NEON_API_KEY.
+# secrets NEON_API_KEY and BLOB_READ_WRITE_TOKEN (the private Blob store for
+# attachments; without it e2e/attachments.spec.ts is skipped). Test files go
+# under "e2e/<run id>/" in the store and are deleted when the run ends.
 name: Browser tests
 
 on:
@@ -65,6 +67,7 @@ jobs:
           DATABASE_URL: ${{ steps.db.outputs.db_url_pooled }}
           DEV_SIGN_IN_EMAIL: dev@example.test
           NEON_AUTH_BASE_URL: ${{ vars.NEON_AUTH_BASE_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
 
       - name: Keep the test report
         if: failure()
