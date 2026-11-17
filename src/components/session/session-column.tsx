@@ -30,12 +30,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { AttachmentItem } from "@/lib/data/attachment-files";
 import type { SessionTarget } from "@/lib/data/schemas";
 import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
 import { fromLoadedParts, hasLinks, type LoadedPart } from "@/lib/outline";
 import { cn } from "@/lib/utils";
 
 import { CopySessionDialog, type CopySourceOption } from "./copy-session-dialog";
+import { SessionAttachments } from "./session-attachments";
 import { SessionDetailsDialog } from "./session-details-dialog";
 import { SessionOutlineEditor, SessionOutlineView } from "./session-outline-editor";
 import { useSessionOutline } from "./use-session-outline";
@@ -51,6 +53,7 @@ export type SessionColumnData = {
   isCancelled: boolean;
   noteAfter: string | null;
   parts: LoadedPart[];
+  attachments: AttachmentItem[];
 };
 
 export function SessionColumn({
@@ -189,6 +192,17 @@ export function SessionColumn({
       ) : (
         <SessionOutlineView lines={lines} startTime={data.startTime} name={name} />
       )}
+
+      <SessionAttachments
+        initial={data.attachments}
+        editable={editable}
+        target={() => store.currentTarget}
+        onStored={(id) => {
+          store.adopt(id);
+          setStoredId(id);
+        }}
+        className="border-t pt-2"
+      />
 
       {data.noteAfter && (
         <div className="grid gap-0.5 border-t pt-2">

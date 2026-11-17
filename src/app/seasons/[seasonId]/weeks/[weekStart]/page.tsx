@@ -51,6 +51,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
       isCancelled: s.isCancelled,
       noteAfter: s.noteAfter,
       parts: s.parts,
+      attachments: s.attachments,
     };
   }
   const p = entry.placeholder;
@@ -64,6 +65,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
     isCancelled: false,
     noteAfter: null,
     parts: [],
+    attachments: [],
   };
 }
 

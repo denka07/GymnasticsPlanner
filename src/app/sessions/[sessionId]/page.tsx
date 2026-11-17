@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
+import { AttachmentList } from "@/components/session/session-attachments";
 import { SessionChecklist } from "@/components/session/session-checklist";
 import { SessionNote } from "@/components/session/session-note";
 import { ShareDialog } from "@/components/share/share-dialog";
@@ -25,6 +26,7 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
   const view = await getSessionView(sessionId);
   const { session, group, season } = view;
   const t = await getTranslations("SessionPage");
+  const ta = await getTranslations("Attachments");
   const tw = await getTranslations("Weekdays");
   const editable = canEdit(view.access);
   // Everyone who can view the session may tick parts and write the note.
@@ -123,6 +125,17 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
             initial={session.noteAfter ?? ""}
             editable={participate}
           />
+        )}
+
+        {view.attachments.length > 0 && (
+          <section aria-labelledby="attachments-heading" className="grid gap-2">
+            <h2 id="attachments-heading" className="font-heading text-xl font-semibold">
+              {ta("heading")}
+            </h2>
+            <div className="text-base">
+              <AttachmentList items={view.attachments} />
+            </div>
+          </section>
         )}
       </div>
     </PageShell>
