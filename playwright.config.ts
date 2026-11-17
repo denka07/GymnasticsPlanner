@@ -44,13 +44,13 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-      testIgnore: "**/session-page.spec.ts",
+      testIgnore: ["**/session-page.spec.ts", "**/session-timer.spec.ts"],
     },
     {
       // The session page is made for a phone in the gym.
       name: "phone",
       use: { ...devices["Pixel 7"] },
-      testMatch: "**/session-page.spec.ts",
+      testMatch: ["**/session-page.spec.ts", "**/session-timer.spec.ts"],
     },
   ],
   webServer: {

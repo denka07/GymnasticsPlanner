@@ -49,7 +49,8 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
         { label: heading },
       ]}
     >
-      <div className="mx-auto grid w-full max-w-2xl gap-5">
+      {/* The part timer's bar sets --part-timer-space while it shows. */}
+      <div className="mx-auto grid w-full max-w-2xl gap-5 pb-(--part-timer-space,0px)">
         <header className="grid gap-2">
           <div className="flex items-start justify-between gap-3">
             <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
@@ -96,6 +97,7 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
             key={`checklist-${session.id}`}
             sessionId={session.id}
             parts={view.parts}
+            date={session.date}
             startTime={session.startTime}
             editable={participate}
           />

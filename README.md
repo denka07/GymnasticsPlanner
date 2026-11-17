@@ -47,6 +47,7 @@ The main flows have Playwright tests in `e2e/`, one spec file per flow:
 | `season-plan.spec.ts` | Creating a group and a season with a training day, disciplines and focus items; painting the grid by click, drag and keyboard; a break week clearing its column; kept after a reload |
 | `session-planning.spec.ts` | Typing parts and activities in the week page's outline editor, durations and clock times; copying another session's content |
 | `session-page.spec.ts` | The session page at phone size: ticks and progress, resetting ticks, the note after the session, expanding a linked activity |
+| `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the alert and "Bocka av"; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
 | `library.spec.ts` | Equipment, a station with equipment and exercises; linking a station and exercises from an activity (creating an exercise by name); deleting an exercise an activity uses |
 | `sharing.spec.ts` | The Dela dialog: view and edit access, removing a share, a share waiting for someone who has not signed in |
 | `review.spec.ts` | Submitting a station with some of its exercises, withdrawing, rejecting with a comment, approving; what other users see; "Gör global" and "Kopiera till mina" |
@@ -65,7 +66,7 @@ What they need:
 
 - `.env.local` with `DATABASE_URL` (the `dev` branch) and `DEV_SIGN_IN_EMAIL`. The tests sign in through the development sign-in, choosing Dev Coach, Dev Helper or Dev Newcomer with the `dev_user` cookie, so they only work against `next dev`. The configuration starts `npm run dev` itself, or uses a dev server already running on port 3000.
 - Dev Coach must be an administrator in that database (equipment and review flows).
-- Chromium only. Most tests run at desktop size; `session-page.spec.ts` runs in a phone-sized project with touch. Tests run one at a time, since they share the test users and the database.
+- Chromium only. Most tests run at desktop size; `session-page.spec.ts` and `session-timer.spec.ts` run in a phone-sized project with touch. Tests run one at a time, since they share the test users and the database.
 
 How data is cleaned up: the tests run against the `dev` database next to real example data, so they never read or change data they did not create. Each test names everything it creates `E2E <run id> <test id> …` and removes all of it when it ends, whether it passed or not; the run starts and ends by removing anything named `E2E …` that is left, and `npm run test:e2e:clean` does the same by hand (`e2e/support/clean.mjs`; it refuses any prefix other than `E2E `). One exception: the sharing test deletes the Dev Newcomer user row, which owns nothing, so that a share can wait for a first sign-in; the row comes back the next time Dev Newcomer opens a page.
 

@@ -24,5 +24,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // sw.js is the part timer's service worker; the browser fetches it on its own.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sw.js).*)"],
 };
