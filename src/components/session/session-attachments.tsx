@@ -62,6 +62,7 @@ export function AttachmentList({
               href={attachmentUrl(item.id)}
               target="_blank"
               rel="noopener"
+              title={item.fileName}
               className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg px-2 hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
@@ -123,7 +124,9 @@ export function SessionAttachments({
     setItems(initial);
   }
   const [uploading, setUploading] = useState<Upload | null>(null);
+  // The file the delete dialog asks about; kept while the dialog closes.
   const [toDelete, setToDelete] = useState<AttachmentItem | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
 
   if (!editable && items.length === 0) {
@@ -200,7 +203,7 @@ export function SessionAttachments({
       }));
       if (result.ok) {
         setItems((list) => list.filter((i) => i.id !== item.id));
-        setToDelete(null);
+        setConfirmOpen(false);
       } else {
         toast.error(errorMessage(result.error));
       }
@@ -215,7 +218,14 @@ export function SessionAttachments({
       {items.length > 0 ? (
         <AttachmentList
           items={items}
-          onDelete={editable ? setToDelete : undefined}
+          onDelete={
+            editable
+              ? (item) => {
+                  setToDelete(item);
+                  setConfirmOpen(true);
+                }
+              : undefined
+          }
           disabled={deleting || uploading !== null}
         />
       ) : (
@@ -268,7 +278,7 @@ export function SessionAttachments({
             {uploading ? t("busy") : t("add")}
           </Button>
           <p className="text-xs text-muted-foreground">{t("hint")}</p>
-          <AlertDialog open={toDelete !== null} onOpenChange={(open) => !open && setToDelete(null)}>
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
