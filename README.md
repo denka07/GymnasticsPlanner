@@ -87,7 +87,9 @@ Besides `main` (production) and `dev`, the Vercel integration creates a branch `
 
 The Neon project has two long-lived branches (see "Neon branches" above for the others). Production deployments on Vercel use the default branch. Local development uses the branch `dev`, set as `DATABASE_URL` in `.env.local`.
 
-Run `npm run db:migrate` locally to apply migrations to `dev`. Production is migrated automatically: Vercel runs the `vercel-build` script, which applies pending migrations before building a production deployment. Preview deployments are never migrated.
+Run `npm run db:migrate` locally to apply migrations to `dev`. Production is migrated automatically: Vercel runs the `vercel-build` script, which applies pending migrations before building a production deployment.
+
+Preview deployments work the same way on their own database: the Vercel integration gives each one a Neon branch `preview/<git-branch>` copied from production, and `vercel-build` applies the pending migrations to that copy (the script stops the build if a preview's database is ever the production endpoint). Each preview branch has its own Neon Auth, which already trusts the preview's addresses; the app reads its address from `DATABASE_NEON_AUTH_BASE_URL` when `NEON_AUTH_BASE_URL` is not set. `NEON_AUTH_COOKIE_SECRET` must be set for the Preview environment too.
 
 ## Layout
 
