@@ -43,6 +43,7 @@ erDiagram
     SEASON_WEEK ||--o{ FOCUS_ALLOCATION : has
 
     SESSION ||--o{ SESSION_PART : has
+    SESSION ||--o{ ATTACHMENT : has
     SESSION_PART ||--o{ ACTIVITY : has
     SESSION_PART }o--o| DISCIPLINE : "relates to"
     ACTIVITY }o--o| STATION : "takes place at"
@@ -223,6 +224,21 @@ When a station is chosen, the exercises it supports are offered first. Other exe
 
 A station or exercise used by activities can still be deleted. The activities lose the link and keep everything else; an activity that would be left with neither exercises nor text gets the deleted item's name as its text. Whoever can view a session sees the stations and exercises its activities use, with their details, even when they are another user's personal items.
 
+### Attachment
+
+A file attached to a whole session, such as a photo of a station layout or a PDF with a strength program.
+
+- Session
+- Stored file (its path in the private file store)
+- Original file name
+- Content type: JPEG, PNG, WebP or HEIC photo, or PDF
+- Size in bytes, at most 10 MB
+- Uploaded by (user) and when
+
+Attachments are listed oldest first. Anyone who can view the session can open its attachments; uploading and deleting need edit access. Uploading to a slot's placeholder stores the session first, like any other first edit.
+
+Copying another session's content into a session also adds the source's attachments to the ones the session already has. The copies point at the same stored files; nothing is uploaded again. A stored file is deleted only when no attachment refers to it any more: when its last attachment is deleted, or its last session, season or group.
+
 ## Library
 
 The library holds exercises and stations that are reused across groups and seasons.
@@ -347,3 +363,5 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - A station submission can include the submitter's personal exercises that the station supports, and the administrator chooses which of them become global with the station. Personal exercises that are not included, or not chosen, stay personal; their links to the now global station stay and are visible only to those who can see the exercise.
 - An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.
+- Attachments belong to a whole session, not to a part or an activity. Only photos and PDFs up to 10 MB are accepted; no video. The type is checked against the file's first bytes, not its name.
+- Copying a session's content adds its attachments to the target's own instead of replacing them, so files uploaded to the target are never lost by a copy.

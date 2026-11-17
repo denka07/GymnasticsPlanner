@@ -48,6 +48,7 @@ The main flows have Playwright tests in `e2e/`, one spec file per flow:
 | `session-planning.spec.ts` | Typing parts and activities in the week page's outline editor, durations and clock times; copying another session's content |
 | `session-page.spec.ts` | The session page at phone size: ticks and progress, resetting ticks, the note after the session, expanding a linked activity |
 | `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the alert and "Bocka av"; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
+| `attachments.spec.ts` | Uploading a photo and a PDF to a session card, a fake photo refused, opening them from the session page and their headers, 404 for someone without access, deleting one and its stored file. Skipped without `BLOB_READ_WRITE_TOKEN` |
 | `library.spec.ts` | Equipment, a station with equipment and exercises; linking a station and exercises from an activity (creating an exercise by name); deleting an exercise an activity uses |
 | `sharing.spec.ts` | The Dela dialog: view and edit access, removing a share, a share waiting for someone who has not signed in |
 | `review.spec.ts` | Submitting a station with some of its exercises, withdrawing, rejecting with a comment, approving; what other users see; "Gör global" and "Kopiera till mina" |
@@ -64,11 +65,12 @@ npm run test:e2e
 
 What they need:
 
-- `.env.local` with `DATABASE_URL` (the `dev` branch) and `DEV_SIGN_IN_EMAIL`. The tests sign in through the development sign-in, choosing Dev Coach, Dev Helper or Dev Newcomer with the `dev_user` cookie, so they only work against `next dev`. The configuration starts `npm run dev` itself, or uses a dev server already running on port 3000.
+- `.env.local` with `DATABASE_URL` (the `dev` branch) and `DEV_SIGN_IN_EMAIL`. The tests sign in through the development sign-in, choosing Dev Coach, Dev Helper or Dev Newcomer with the `dev_user` cookie, so they only work against `next dev`. The configuration starts `npm run dev` itself, or uses a dev server already running on port 3000 (set `E2E_PORT` to use another port, for example `E2E_PORT=3001 npx playwright test e2e/attachments.spec.ts`).
+- For `attachments.spec.ts`, `BLOB_READ_WRITE_TOKEN` in `.env.local` (see "File storage" below). The tests store their files under `e2e/<run id>/` in the Blob store: the configuration sets `ATTACHMENTS_PATH_ENV=e2e/<run id>` for the dev server it starts. A dev server you started yourself stores them under `development/` unless you start it with the same `ATTACHMENTS_PATH_ENV` and `E2E_RUN_ID`; either way the clean-up below removes them.
 - Dev Coach must be an administrator in that database (equipment and review flows).
 - Chromium only. Most tests run at desktop size; `session-page.spec.ts` and `session-timer.spec.ts` run in a phone-sized project with touch. Tests run one at a time, since they share the test users and the database.
 
-How data is cleaned up: the tests run against the `dev` database next to real example data, so they never read or change data they did not create. Each test names everything it creates `E2E <run id> <test id> …` and removes all of it when it ends, whether it passed or not; the run starts and ends by removing anything named `E2E …` that is left, and `npm run test:e2e:clean` does the same by hand (`e2e/support/clean.mjs`; it refuses any prefix other than `E2E `). One exception: the sharing test deletes the Dev Newcomer user row, which owns nothing, so that a share can wait for a first sign-in; the row comes back the next time Dev Newcomer opens a page.
+How data is cleaned up: the tests run against the `dev` database next to real example data, so they never read or change data they did not create. Each test names everything it creates `E2E <run id> <test id> …` and removes all of it when it ends, whether it passed or not; the run starts and ends by removing anything named `E2E …` that is left, and `npm run test:e2e:clean` does the same by hand (`e2e/support/clean.mjs`; it refuses any prefix other than `E2E `). Files attached to the removed sessions are deleted from the Blob store too when nothing else refers to them; the run ends by deleting everything under its `e2e/<run id>/` folder, and `npm run test:e2e:clean` also deletes files under `e2e/` older than a day. One exception: the sharing test deletes the Dev Newcomer user row, which owns nothing, so that a share can wait for a first sign-in; the row comes back the next time Dev Newcomer opens a page.
 
 Set-up that is not the subject of a test (a season with sessions, library items) is written straight to the database by `e2e/support/seed.ts`. The browser tests are not part of the required checks before committing; run them when a change touches a covered flow.
 
@@ -76,9 +78,18 @@ Set-up that is not the subject of a test (a season with sessions, library items)
 
 The workflow `.github/workflows/e2e.yml` runs the browser tests on every pull request (and by hand from the Actions tab). Each run creates its own Neon branch from `dev`, so the test users exist and Dev Coach is already an administrator; applies pending migrations to it; runs the tests against `next dev`; and deletes the branch when it ends, whatever the outcome. A run takes about five minutes. On failure the Playwright report and traces are kept as the artifact `playwright-report` for 14 days. A newer push to the same pull request cancels the run in progress.
 
-It needs the repository variables `NEON_PROJECT_ID` and `NEON_AUTH_BASE_URL` and the secret `NEON_API_KEY` (shared with `cleanup-preview-branch.yml`). The cookie secret is generated for each run, since the development sign-in never uses it.
+It needs the repository variables `NEON_PROJECT_ID` and `NEON_AUTH_BASE_URL` and the secrets `NEON_API_KEY` (shared with `cleanup-preview-branch.yml`) and `BLOB_READ_WRITE_TOKEN` (the Blob store's token; without it `attachments.spec.ts` is skipped). The cookie secret is generated for each run, since the development sign-in never uses it.
 
 A test that needs new data in the test users (for example a new administrator) must create it itself or be added to `dev`, since each run starts from a copy of `dev`.
+
+## File storage
+
+Session attachments (photos and PDFs, at most 10 MB) are kept in a private Vercel Blob store connected to the Vercel project for all environments, which gives the project `BLOB_READ_WRITE_TOKEN`. Locally, put the same token in `.env.local` (Vercel dashboard: Storage, the store, `.env.local` tab, or `vercel env pull`); without it the app works but uploading says attachments are unavailable. The token stays on the server: the browser never gets it or a store URL.
+
+- Paths keep environments and sessions apart: `<env>/sessions/<session id>/<random>-<safe file name>`, where `<env>` is `VERCEL_ENV` (`production`, `preview`), `development` locally, or `ATTACHMENTS_PATH_ENV` when set (the browser tests use `e2e/<run id>`). Previews share the store with production but write under `preview/`.
+- Uploading: a file goes straight from the browser to the store, because Vercel functions accept request bodies of at most 4.5 MB (server actions 1 MB by default). A server action first checks edit access and picks the path; `POST /api/attachments/upload` then issues a short-lived client token only for that path, the accepted types and 10 MB; and a second server action reads the stored file's size and first bytes, deletes it if it is not a photo or PDF, and adds the attachment row (`src/lib/data/attachments.ts`). The store's upload-completed callback is not used, since it cannot reach a local dev server.
+- Opening: `GET /api/attachments/<id>` checks view access and streams the file with its type, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff` and `Cache-Control: private`; anyone else gets 404.
+- Deleting an attachment, an extra session, a season or a group deletes the stored files no attachment refers to any more, after the database delete. Failures are logged and do not stop the delete; a file left behind only costs storage. A file uploaded but never registered (the browser closed between the two steps) is left behind the same way.
 
 ## Neon branches
 
