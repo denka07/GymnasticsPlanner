@@ -3,16 +3,24 @@ import "server-only";
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { seasons, seasonWeeks, sessionParts, sessions, trainingSlots } from "@/db/schema";
+import {
+  events,
+  seasons,
+  seasonWeeks,
+  sessionParts,
+  sessions,
+  trainingSlots,
+} from "@/db/schema";
 import { getAccessibleGroups } from "@/lib/access";
 import { canOpenSeason, canOpenSession, isUuid } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
 import { todayInStockholm } from "@/lib/session-view";
 import {
-  groupByDay,
   parseWeekParam,
+  weekDays,
   weekEnd,
   weekItems,
+  type WeekEventInput,
   type WeekItem,
   type WeekSeasonInput,
   type WeekStoredInput,
@@ -24,15 +32,21 @@ export type StartWeek = {
   weekEnd: string;
   currentWeek: string;
   today: string;
-  days: { date: string; items: (WeekItem & { canOpenSeason: boolean })[] }[];
+  days: {
+    date: string;
+    events: WeekEventInput[];
+    items: (WeekItem & { canOpenSeason: boolean })[];
+  }[];
 };
 
 /**
- * The sessions of one week across every group the user can open, for the
+ * The sessions and events of one week across every group the user can open, for the
  * start page. A fixed number of queries whatever the number of groups. Only
  * seasons and sessions the user may open are included.
  */
-export async function getStartWeek(weekParam: string | string[] | undefined): Promise<StartWeek> {
+export async function getStartWeek(
+  weekParam: string | string[] | undefined,
+): Promise<StartWeek> {
   const user = await requireUser();
   // The clock is read only after the request-bound lookup above.
   const today = todayInStockholm(new Date());
@@ -83,16 +97,42 @@ export async function getStartWeek(weekParam: string | string[] | undefined): Pr
   const inRange = (s: { firstWeek: string; lastWeek: string }) =>
     weekStart >= s.firstWeek && weekStart <= s.lastWeek;
   const rangeIds = openSeasons.filter(inRange).map((s) => s.id);
-  const [slotRows, weekRows] =
+  const openIdList = openSeasons.map((s) => s.id);
+  const [eventRows, [slotRows, weekRows]] = await Promise.all([
+    // Events are shown only for seasons the user may open, not for single shared sessions.
+    openIdList.length === 0
+      ? Promise.resolve([])
+      : db
+          .select()
+          .from(events)
+          .where(
+            and(
+              inArray(events.seasonId, openIdList),
+              lte(events.startDate, sunday),
+              gte(events.endDate, weekStart),
+            ),
+          ),
     rangeIds.length === 0
-      ? [[], []]
-      : await Promise.all([
-          db.select().from(trainingSlots).where(inArray(trainingSlots.seasonId, rangeIds)),
+      ? Promise.resolve([[], []] as [
+          (typeof trainingSlots.$inferSelect)[],
+          (typeof seasonWeeks.$inferSelect)[],
+        ])
+      : Promise.all([
+          db
+            .select()
+            .from(trainingSlots)
+            .where(inArray(trainingSlots.seasonId, rangeIds)),
           db
             .select()
             .from(seasonWeeks)
-            .where(and(inArray(seasonWeeks.seasonId, rangeIds), eq(seasonWeeks.weekStart, weekStart))),
-        ]);
+            .where(
+              and(
+                inArray(seasonWeeks.seasonId, rangeIds),
+                eq(seasonWeeks.weekStart, weekStart),
+              ),
+            ),
+        ]),
+  ]);
 
   const stored: WeekStoredInput[] = sessionRows.filter((r) => {
     const scope = scopes.get(r.groupId);
@@ -121,5 +161,22 @@ export async function getStartWeek(weekParam: string | string[] | undefined): Pr
     ...item,
     canOpenSeason: openIds.has(item.seasonId),
   }));
-  return { ...base, days: groupByDay(items) };
+  const weekEvents: WeekEventInput[] = eventRows.flatMap((e) => {
+    const season = seasonById.get(e.seasonId);
+    if (!season) return [];
+    return [
+      {
+        id: e.id,
+        seasonId: e.seasonId,
+        groupId: season.groupId,
+        groupName: names.get(season.groupId) ?? "",
+        name: e.name,
+        type: e.type,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        description: e.description,
+      },
+    ];
+  });
+  return { ...base, days: weekDays(weekStart, items, weekEvents) };
 }

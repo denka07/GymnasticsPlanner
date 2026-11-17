@@ -2,12 +2,17 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 
+import { EVENT_ACCENT } from "@/components/event/event-style";
+import { ExpandableText } from "@/components/event/expandable-text";
 import { buttonVariants } from "@/components/ui/button";
 import type { StartWeek } from "@/lib/data/start-week";
 import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
+import type { WeekEventInput } from "@/lib/start-week";
+import { cn } from "@/lib/utils";
 import { addWeeks, isoWeek } from "@/lib/weeks";
 
-const navClass = buttonVariants({ variant: "outline" }) + " h-11 px-3 text-base";
+const navClass =
+  buttonVariants({ variant: "outline" }) + " h-11 px-3 text-base";
 const rowClass =
   "grid min-h-11 gap-0.5 rounded-xl border bg-card px-4 py-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
@@ -29,10 +34,16 @@ export async function WeekView({ data }: { data: StartWeek }) {
             {t("Start.weekHeading", { week })}
           </h2>
           <p className="text-muted-foreground">
-            {t("Start.weekRange", { from: formatDayMonth(weekStart), to: formatDayMonth(weekEnd) })}
+            {t("Start.weekRange", {
+              from: formatDayMonth(weekStart),
+              to: formatDayMonth(weekEnd),
+            })}
           </p>
         </div>
-        <nav aria-label={t("Start.weekNav")} className="flex flex-wrap items-center gap-2">
+        <nav
+          aria-label={t("Start.weekNav")}
+          className="flex flex-wrap items-center gap-2"
+        >
           <Link
             href={weekHref(addWeeks(weekStart, -1), currentWeek)}
             className={navClass}
@@ -71,7 +82,8 @@ export async function WeekView({ data }: { data: StartWeek }) {
             >
               <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
                 <span>
-                  {t(`Weekdays.d${weekdayOf(day.date)}` as "Weekdays.d1")} {formatDayMonth(day.date)}
+                  {t(`Weekdays.d${weekdayOf(day.date)}` as "Weekdays.d1")}{" "}
+                  {formatDayMonth(day.date)}
                 </span>
                 {day.date === today && (
                   <span className="rounded-md bg-primary px-2 py-0.5 text-sm font-medium text-primary-foreground">
@@ -80,6 +92,11 @@ export async function WeekView({ data }: { data: StartWeek }) {
                 )}
               </h3>
               <ul className="grid gap-2">
+                {day.events.map((event) => (
+                  <li key={`event:${event.id}`}>
+                    <EventCard event={event} weekStart={weekStart} />
+                  </li>
+                ))}
                 {day.items.map((item) => {
                   const time = shortTime(item.startTime);
                   const href = item.sessionId
@@ -108,7 +125,9 @@ export async function WeekView({ data }: { data: StartWeek }) {
                         <span
                           className={
                             "break-words font-medium " +
-                            (item.state === "cancelled" ? "text-muted-foreground line-through" : "")
+                            (item.state === "cancelled"
+                              ? "text-muted-foreground line-through"
+                              : "")
                           }
                         >
                           {item.groupName}
@@ -126,7 +145,9 @@ export async function WeekView({ data }: { data: StartWeek }) {
                           {state}
                         </span>
                         {item.location && (
-                          <span className="break-words text-muted-foreground">{item.location}</span>
+                          <span className="break-words text-muted-foreground">
+                            {item.location}
+                          </span>
                         )}
                       </Link>
                     </li>
@@ -138,5 +159,56 @@ export async function WeekView({ data }: { data: StartWeek }) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * An event card: clearly unlike a session card, with the type's colour as a
+ * left bar and the type name as text. The whole card links to the week page
+ * (a stretched link, so the "Visa mer" button can sit inside the card).
+ */
+async function EventCard({
+  event,
+  weekStart,
+}: {
+  event: WeekEventInput;
+  weekStart: string;
+}) {
+  const t = await getTranslations();
+  const multiDay = event.startDate !== event.endDate;
+  return (
+    <div
+      className={cn(
+        "relative grid gap-1 rounded-xl border border-l-8 bg-card px-4 py-3 hover:bg-muted/50 has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-ring",
+        EVENT_ACCENT[event.type].bar,
+      )}
+    >
+      <span
+        className={cn(
+          "justify-self-start rounded-md px-2 py-0.5 text-sm font-medium",
+          EVENT_ACCENT[event.type].chip,
+        )}
+      >
+        {t(`Events.types.${event.type}`)}
+      </span>
+      <h4 className="font-heading text-lg font-semibold break-words">
+        <Link
+          href={`/seasons/${event.seasonId}/weeks/${weekStart}`}
+          className="outline-none after:absolute after:inset-0 after:content-['']"
+        >
+          {event.name}
+        </Link>
+      </h4>
+      <span className="break-words font-medium">{event.groupName}</span>
+      {multiDay && (
+        <span className="text-muted-foreground">
+          {t("Events.dates", {
+            start: formatDayMonth(event.startDate),
+            end: formatDayMonth(event.endDate),
+          })}
+        </span>
+      )}
+      {event.description && <ExpandableText text={event.description} />}
+    </div>
   );
 }

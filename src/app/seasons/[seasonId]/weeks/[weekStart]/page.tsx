@@ -1,21 +1,36 @@
 import { ChevronLeftIcon, ChevronRightIcon, TableIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import Link from "next/link";
 import { Suspense } from "react";
 
+import { EventDescription } from "@/components/event/event-description";
+import { EVENT_ACCENT } from "@/components/event/event-style";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { ActivityLibraryProvider } from "@/components/session/activity-library";
 import type { CopySourceOption } from "@/components/session/copy-session-dialog";
-import { SessionColumn, type SessionColumnData } from "@/components/session/session-column";
-import { AddSessionButton, EditWeekButton } from "@/components/session/week-actions";
+import {
+  SessionColumn,
+  type SessionColumnData,
+} from "@/components/session/session-column";
+import {
+  AddSessionButton,
+  EditWeekButton,
+} from "@/components/session/week-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { canEdit } from "@/lib/access";
 import { formatDayMonth } from "@/lib/dates";
-import { getWeekPlan, type WeekFocus, type WeekPlan } from "@/lib/data/sessions";
+import {
+  getWeekPlan,
+  type WeekFocus,
+  type WeekPlan,
+} from "@/lib/data/sessions";
 import { cn } from "@/lib/utils";
 import { isoWeek, weekdayDate } from "@/lib/weeks";
 
-export default function WeekPage({ params }: PageProps<"/seasons/[seasonId]/weeks/[weekStart]">) {
+export default function WeekPage({
+  params,
+}: PageProps<"/seasons/[seasonId]/weeks/[weekStart]">) {
   return (
     <Suspense fallback={<PageLoading />}>
       <WeekContent params={params} />
@@ -60,7 +75,9 @@ function columnKey(entry: WeekPlan["sessions"][number]): string {
   if (entry.kind === "placeholder") {
     return `slot:${entry.placeholder.trainingSlotId}`;
   }
-  return entry.session.trainingSlotId ? `slot:${entry.session.trainingSlotId}` : `session:${entry.session.id}`;
+  return entry.session.trainingSlotId
+    ? `slot:${entry.session.trainingSlotId}`
+    : `session:${entry.session.id}`;
 }
 
 async function WeekContent({
@@ -93,7 +110,10 @@ async function WeekContent({
     >
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex min-w-0 items-center gap-2">
-          <WeekArrow href={plan.previousWeek && `${base}/weeks/${plan.previousWeek}`} label={t("previous")}>
+          <WeekArrow
+            href={plan.previousWeek && `${base}/weeks/${plan.previousWeek}`}
+            label={t("previous")}
+          >
             <ChevronLeftIcon />
           </WeekArrow>
           <div className="grid min-w-0 gap-0.5">
@@ -101,11 +121,17 @@ async function WeekContent({
               {title}
             </h1>
             <p className="text-muted-foreground">
-              {t("dateRange", { start: formatDayMonth(weekStart), end: formatDayMonth(weekEnd) })}{" "}
+              {t("dateRange", {
+                start: formatDayMonth(weekStart),
+                end: formatDayMonth(weekEnd),
+              })}{" "}
               {week.year}
             </p>
           </div>
-          <WeekArrow href={plan.nextWeek && `${base}/weeks/${plan.nextWeek}`} label={t("next")}>
+          <WeekArrow
+            href={plan.nextWeek && `${base}/weeks/${plan.nextWeek}`}
+            label={t("next")}
+          >
             <ChevronRightIcon />
           </WeekArrow>
         </div>
@@ -124,11 +150,17 @@ async function WeekContent({
               paintedCount={paintedCount}
             />
           )}
-          {editable && <AddSessionButton seasonId={season.id} weekStart={weekStart} weekEnd={weekEnd} />}
+          {editable && (
+            <AddSessionButton
+              seasonId={season.id}
+              weekStart={weekStart}
+              weekEnd={weekEnd}
+            />
+          )}
         </div>
       </header>
 
-      {(plan.isBreak || plan.note || plan.events.length > 0) && (
+      {(plan.isBreak || plan.note) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {plan.isBreak && (
             <p className="flex items-center gap-2">
@@ -137,8 +169,15 @@ async function WeekContent({
             </p>
           )}
           {plan.note && <p className="break-words">{plan.note}</p>}
-          {plan.events.length > 0 && <WeekEvents events={plan.events} />}
         </div>
+      )}
+
+      {plan.events.length > 0 && (
+        <WeekEvents
+          events={plan.events}
+          editable={editable}
+          seasonHref={base}
+        />
       )}
 
       {editable && plan.sessions.length > 0 && (
@@ -187,33 +226,85 @@ function WeekArrow({
     );
   }
   return (
-    <ButtonLink
-      variant="outline"
-      size="icon"
-      aria-label={label}
-      href={href}
-    >
+    <ButtonLink variant="outline" size="icon" aria-label={label} href={href}>
       {children}
     </ButtonLink>
   );
 }
 
-async function WeekEvents({ events }: { events: WeekPlan["events"] }) {
+/** The events overlapping the week, with their descriptions (editable with edit access). */
+async function WeekEvents({
+  events,
+  editable,
+  seasonHref,
+}: {
+  events: WeekPlan["events"];
+  editable: boolean;
+  seasonHref: string;
+}) {
   const t = await getTranslations("Week");
   const te = await getTranslations("Events");
   return (
-    <ul aria-label={t("events")} className="flex flex-wrap gap-2">
-      {events.map((e) => (
-        <li key={e.id}>
-          <Badge variant="outline" className="h-auto py-0.5 text-sm">
-            {e.name} · {te(`types.${e.type}`)} ·{" "}
-            {e.startDate === e.endDate
-              ? formatDayMonth(e.startDate)
-              : t("dateRange", { start: formatDayMonth(e.startDate), end: formatDayMonth(e.endDate) })}
-          </Badge>
-        </li>
-      ))}
-    </ul>
+    <section aria-labelledby="week-events-heading" className="grid gap-3">
+      <h2
+        id="week-events-heading"
+        className="font-heading text-xl font-semibold"
+      >
+        {t("events")}
+      </h2>
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {events.map((e) => (
+          <li
+            key={e.id}
+            className={cn(
+              "grid content-start gap-2 rounded-xl border border-l-8 bg-card p-4",
+              EVENT_ACCENT[e.type].bar,
+            )}
+          >
+            <div className="grid gap-1">
+              <h3 className="font-heading text-lg font-semibold break-words">
+                {e.name}
+              </h3>
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span
+                  className={cn(
+                    "rounded-md px-2 py-0.5 text-sm font-medium",
+                    EVENT_ACCENT[e.type].chip,
+                  )}
+                >
+                  {te(`types.${e.type}`)}
+                </span>
+                <span className="text-muted-foreground">
+                  {e.startDate === e.endDate
+                    ? formatDayMonth(e.startDate)
+                    : t("dateRange", {
+                        start: formatDayMonth(e.startDate),
+                        end: formatDayMonth(e.endDate),
+                      })}
+                </span>
+              </p>
+            </div>
+            {editable ? (
+              <EventDescription eventId={e.id} initial={e.description ?? ""} />
+            ) : e.description ? (
+              <p className="break-words whitespace-pre-wrap">{e.description}</p>
+            ) : (
+              <p className="text-muted-foreground">{te("noDescription")}</p>
+            )}
+          </li>
+        ))}
+      </ul>
+      {editable && (
+        <p>
+          <Link
+            href={seasonHref}
+            className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline"
+          >
+            {te("planLink")}
+          </Link>
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -235,7 +326,10 @@ async function FocusColumn({ focus }: { focus: WeekFocus[] }) {
       aria-labelledby="week-focus-heading"
       className="grid content-start gap-3 rounded-xl border bg-muted/40 p-3 lg:w-64 lg:shrink-0"
     >
-      <h2 id="week-focus-heading" className="font-heading text-xl font-semibold">
+      <h2
+        id="week-focus-heading"
+        className="font-heading text-xl font-semibold"
+      >
         {t("focus")}
       </h2>
       {focus.length === 0 ? (
@@ -250,7 +344,13 @@ async function FocusColumn({ focus }: { focus: WeekFocus[] }) {
               <ul className="grid gap-0.5">
                 {main.map((i) => (
                   <li key={i.id} className="flex items-baseline gap-2">
-                    <span aria-hidden className={cn("size-2.5 shrink-0 rounded-sm", LEVEL_SWATCH[i.level])} />
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-2.5 shrink-0 rounded-sm",
+                        LEVEL_SWATCH[i.level],
+                      )}
+                    />
                     <span className={cn(i.level === "high" && "font-semibold")}>
                       {i.name}
                       <span className="sr-only">, {tl(i.level)}</span>
@@ -259,7 +359,13 @@ async function FocusColumn({ focus }: { focus: WeekFocus[] }) {
                 ))}
                 {low.length > 0 && (
                   <li className="flex items-baseline gap-2 text-muted-foreground">
-                    <span aria-hidden className={cn("size-2.5 shrink-0 rounded-sm", LEVEL_SWATCH.low)} />
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "size-2.5 shrink-0 rounded-sm",
+                        LEVEL_SWATCH.low,
+                      )}
+                    />
                     <span>
                       ({low.map((i) => i.name).join(", ")})
                       <span className="sr-only">, {tl("low")}</span>

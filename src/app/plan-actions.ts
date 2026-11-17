@@ -29,7 +29,7 @@ import {
   updateFocusItem,
 } from "@/lib/data/structure";
 import { copySeason } from "@/lib/data/copy-season";
-import { createEvent, deleteEvent, updateEvent } from "@/lib/data/events";
+import { createEvent, deleteEvent, setEventDescription, updateEvent } from "@/lib/data/events";
 import { saveSeasonWeek } from "@/lib/data/weeks";
 import type { Direction } from "@/lib/reorder";
 
@@ -238,6 +238,22 @@ export async function updateEventAction(
   input: unknown,
 ): Promise<ActionResult> {
   return run(() => updateEvent(eventId, input));
+}
+
+export async function setEventDescriptionAction(
+  eventId: string,
+  description: string,
+): Promise<ActionResult> {
+  // No refresh: the field already shows the text, and re-rendering while typing is wasted work.
+  try {
+    await setEventDescription(eventId, description);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return { ok: false, error: errorKey(error) };
+    }
+    throw error;
+  }
+  return { ok: true };
 }
 
 export async function deleteEventAction(eventId: string): Promise<ActionResult> {

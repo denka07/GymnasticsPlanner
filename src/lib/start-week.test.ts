@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  eventDaysInWeek,
   groupByDay,
   parseWeekParam,
+  weekDays,
   weekItems,
+  type WeekEventInput,
   type WeekSeasonInput,
   type WeekStoredInput,
 } from "./start-week";
@@ -137,5 +140,78 @@ describe("groupByDay", () => {
   });
   it("returns nothing for no items", () => {
     expect(groupByDay([])).toEqual([]);
+  });
+});
+
+const MON = "2026-11-09";
+
+function ev(over: Partial<WeekEventInput>): WeekEventInput {
+  return {
+    id: "e1",
+    seasonId: "s1",
+    groupId: "g1",
+    groupName: "Trupp",
+    name: "Falun",
+    type: "competition",
+    startDate: MON,
+    endDate: MON,
+    description: null,
+    ...over,
+  };
+}
+
+describe("eventDaysInWeek", () => {
+  it("lists every covered day of the week", () => {
+    expect(eventDaysInWeek(MON, { startDate: "2026-11-10", endDate: "2026-11-12" })).toEqual([
+      "2026-11-10",
+      "2026-11-11",
+      "2026-11-12",
+    ]);
+  });
+  it("clips an event that starts before and ends after the week", () => {
+    expect(eventDaysInWeek(MON, { startDate: "2026-11-01", endDate: "2026-11-30" })).toHaveLength(7);
+  });
+  it("is empty for an event outside the week", () => {
+    expect(eventDaysInWeek(MON, { startDate: "2026-11-16", endDate: "2026-11-17" })).toEqual([]);
+    expect(eventDaysInWeek(MON, { startDate: "2026-11-01", endDate: "2026-11-08" })).toEqual([]);
+  });
+  it("keeps only the Sunday of an event that begins the week before", () => {
+    expect(eventDaysInWeek(MON, { startDate: "2026-11-08", endDate: "2026-11-09" })).toEqual([MON]);
+  });
+});
+
+describe("weekDays", () => {
+  const session = (date: string, time: string) => ({ date, time });
+
+  it("puts events before sessions and repeats a multi-day event on each day", () => {
+    const days = weekDays(
+      MON,
+      [session("2026-11-10", "17:00"), session("2026-11-11", "17:00")],
+      [ev({ startDate: "2026-11-10", endDate: "2026-11-11" })],
+    );
+    expect(days.map((d) => [d.date, d.events.length, d.items.length])).toEqual([
+      ["2026-11-10", 1, 1],
+      ["2026-11-11", 1, 1],
+    ]);
+  });
+  it("includes days with only events and leaves out empty days", () => {
+    const days = weekDays(MON, [session("2026-11-09", "17:00")], [ev({ id: "x", startDate: "2026-11-13", endDate: "2026-11-13" })]);
+    expect(days.map((d) => d.date)).toEqual([MON, "2026-11-13"]);
+    expect(days[1].items).toEqual([]);
+  });
+  it("orders events by start date, type, name", () => {
+    const days = weekDays(
+      MON,
+      [],
+      [
+        ev({ id: "a", name: "B", type: "camp", startDate: "2026-11-10", endDate: "2026-11-10" }),
+        ev({ id: "b", name: "Z", type: "competition", startDate: "2026-11-09", endDate: "2026-11-10" }),
+        ev({ id: "c", name: "A", type: "competition", startDate: "2026-11-10", endDate: "2026-11-10" }),
+      ],
+    );
+    expect(days[1].events.map((e) => e.id)).toEqual(["b", "c", "a"]);
+  });
+  it("is empty without sessions and events", () => {
+    expect(weekDays(MON, [], [])).toEqual([]);
   });
 });

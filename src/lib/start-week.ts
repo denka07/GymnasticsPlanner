@@ -3,6 +3,8 @@
  * sessions of that week across seasons (stored sessions plus placeholders),
  * grouped by day. Kept free of React and the database for unit tests.
  */
+import type { EventType } from "@/db/schema";
+import { EVENT_TYPE_ORDER } from "./events";
 import { weekSessions, type SlotLike, type StoredSessionLike } from "./week-sessions";
 import { isMonday, weekdayDate } from "./weeks";
 
@@ -141,4 +143,69 @@ export function groupByDay<T extends { date: string }>(items: readonly T[]): Day
 /** The last day (Sunday) of the week starting `monday`. */
 export function weekEnd(monday: string): string {
   return weekdayDate(monday, 7);
+}
+
+/** An event of a season the user may open, for the shown week. */
+export type WeekEventInput = {
+  id: string;
+  seasonId: string;
+  groupId: string;
+  groupName: string;
+  name: string;
+  type: EventType;
+  startDate: string;
+  endDate: string;
+  description: string | null;
+};
+
+/** The dates (Monday–Sunday) of the week starting `monday` that the event covers. */
+export function eventDaysInWeek(monday: string, event: { startDate: string; endDate: string }): string[] {
+  const days: string[] = [];
+  for (let weekday = 1; weekday <= 7; weekday++) {
+    const date = weekdayDate(monday, weekday);
+    if (date >= event.startDate && date <= event.endDate) {
+      days.push(date);
+    }
+  }
+  return days;
+}
+
+/** Events first by start date, then type order, name and id. */
+export function compareEvents(a: WeekEventInput, b: WeekEventInput): number {
+  const typeDiff = EVENT_TYPE_ORDER.indexOf(a.type) - EVENT_TYPE_ORDER.indexOf(b.type);
+  if (a.startDate !== b.startDate) return a.startDate < b.startDate ? -1 : 1;
+  if (typeDiff !== 0) return typeDiff;
+  const byName = a.name.localeCompare(b.name);
+  if (byName !== 0) return byName;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+export type WeekDay<T extends { date: string }> = {
+  date: string;
+  /** Events covering the day, before the sessions. */
+  events: WeekEventInput[];
+  items: T[];
+};
+
+/**
+ * The days of the week with something on them: for each day the events that
+ * cover it (a multi-day event appears on every covered day of the week),
+ * then the sessions, which are already in time order. Empty days are left out.
+ */
+export function weekDays<T extends { date: string }>(
+  monday: string,
+  items: readonly T[],
+  events: readonly WeekEventInput[],
+): WeekDay<T>[] {
+  const sortedEvents = [...events].sort(compareEvents);
+  const days: WeekDay<T>[] = [];
+  for (let weekday = 1; weekday <= 7; weekday++) {
+    const date = weekdayDate(monday, weekday);
+    const dayEvents = sortedEvents.filter((e) => date >= e.startDate && date <= e.endDate);
+    const dayItems = items.filter((i) => i.date === date);
+    if (dayEvents.length > 0 || dayItems.length > 0) {
+      days.push({ date, events: dayEvents, items: dayItems });
+    }
+  }
+  return days;
 }
