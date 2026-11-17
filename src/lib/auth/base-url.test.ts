@@ -33,10 +33,21 @@ describe("neonAuthUrlFor", () => {
 describe("authBaseUrl", () => {
   const preview = `postgres://u:p@ep-hidden-darkness-bai7eilu-pooler.${host}/neondb`;
 
-  it("prefers NEON_AUTH_BASE_URL", () => {
+  it("uses NEON_AUTH_BASE_URL outside a preview", () => {
+    expect(
+      authBaseUrl({ NEON_AUTH_BASE_URL: "https://set", VERCEL_ENV: "production", DATABASE_URL: preview }),
+    ).toBe("https://set");
+    expect(authBaseUrl({ NEON_AUTH_BASE_URL: "https://set" })).toBe("https://set");
+  });
+
+  it("ignores NEON_AUTH_BASE_URL on a preview whose branch is known", () => {
     expect(
       authBaseUrl({ NEON_AUTH_BASE_URL: "https://set", VERCEL_ENV: "preview", DATABASE_URL: preview }),
-    ).toBe("https://set");
+    ).toBe(`https://ep-hidden-darkness-bai7eilu.neonauth.${host}/neondb/auth`);
+  });
+
+  it("falls back to NEON_AUTH_BASE_URL on a preview without a usable database URL", () => {
+    expect(authBaseUrl({ NEON_AUTH_BASE_URL: "https://set", VERCEL_ENV: "preview" })).toBe("https://set");
   });
 
   it("derives the preview branch's Neon Auth on a Vercel preview", () => {
