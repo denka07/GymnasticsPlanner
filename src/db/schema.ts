@@ -288,6 +288,38 @@ export const activityExercises = pgTable(
   ],
 );
 
+/**
+ * A file (photo or PDF) attached to a whole session. The file itself lives in
+ * the private Vercel Blob store under `pathname`; copying a session's content
+ * copies its rows, so several rows can share one stored file. The file is
+ * deleted from the store when the last row that refers to it goes.
+ */
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    /** Path of the file in the Blob store, e.g. production/sessions/<id>/<random>-plan.pdf. */
+    pathname: text("pathname").notNull(),
+    /** The name the file had when it was uploaded, as shown in the list. */
+    fileName: text("file_name").notNull(),
+    /** Checked against the file's first bytes when it was stored. */
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedBy: uuid("uploaded_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("attachments_session_id_pathname_unique").on(t.sessionId, t.pathname),
+    index("attachments_pathname_idx").on(t.pathname),
+    check("attachments_size_check", sql`${t.sizeBytes} > 0`),
+  ],
+);
+
 // --- Library -------------------------------------------------------------------
 
 /** Global items are visible to everyone and edited by administrators; personal ones by their owner. */
@@ -580,6 +612,11 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
     references: [trainingSlots.id],
   }),
   parts: many(sessionParts),
+  attachments: many(attachments),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  session: one(sessions, { fields: [attachments.sessionId], references: [sessions.id] }),
 }));
 
 export const sessionPartsRelations = relations(sessionParts, ({ one, many }) => ({
@@ -623,6 +660,7 @@ export type NewSessionPart = typeof sessionParts.$inferInsert;
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;
 export type ActivityExercise = typeof activityExercises.$inferSelect;
+export type Attachment = typeof attachments.$inferSelect;
 export type LibraryScope = (typeof libraryScope.enumValues)[number];
 export type Equipment = typeof equipment.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
