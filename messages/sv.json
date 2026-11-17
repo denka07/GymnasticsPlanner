@@ -66,7 +66,11 @@
     "shareSelf": "Du äger redan det här och kan inte dela med dig själv.",
     "commentRequired": "Skriv en kommentar.",
     "alreadySubmitted": "Den är redan inskickad för granskning.",
-    "submissionNotPending": "Inskickningen granskas inte längre. Ladda om sidan."
+    "submissionNotPending": "Inskickningen granskas inte längre. Ladda om sidan.",
+    "attachmentWrongType": "Bara bilder (JPEG, PNG, WebP, HEIC) och PDF-filer kan bifogas.",
+    "attachmentTooLarge": "Filen är större än 10 MB.",
+    "attachmentNotUploaded": "Filen kom inte fram. Försök igen.",
+    "attachmentsUnavailable": "Bilagor går inte att ladda upp just nu."
   },
   "Nav": {
     "label": "Sökväg",
@@ -277,7 +281,7 @@
     "deleteText": "Passet och allt innehåll i det tas bort. Det går inte att ångra.",
     "copyFrom": "Kopiera från pass …",
     "copyTitle": "Kopiera till {name}",
-    "copyIntro": "Delar, rader och tider kopieras. Bockar och anteckningen efteråt följer inte med.",
+    "copyIntro": "Delar, rader och tider kopieras. Bilagorna läggs till bland passets egna. Bockar och anteckningen efteråt följer inte med.",
     "copySources": "Pass att kopiera från",
     "copyNone": "Säsongen har inga andra pass med innehåll än.",
     "copySourceLabel": "{weekday} {date}, vecka {week}",
@@ -396,6 +400,25 @@
     "close": "Stäng",
     "notificationTitle": "Tiden är ute: {part}",
     "notificationBody": "Dags att gå vidare."
+  },
+  "Attachments": {
+    "heading": "Bilagor",
+    "none": "Inga bilagor än.",
+    "add": "Lägg till fil",
+    "busy": "Laddar upp …",
+    "choose": "Välj filer att bifoga",
+    "hint": "Bilder eller PDF, högst 10 MB per fil.",
+    "uploading": "Laddar upp {name} … {percent} %",
+    "progress": "Uppladdning",
+    "wrongType": "Bara bilder (JPEG, PNG, WebP, HEIC) och PDF-filer kan bifogas.",
+    "tooLarge": "Filen är större än 10 MB.",
+    "empty": "Filen är tom.",
+    "uploadFailedTitle": "Filen kunde inte laddas upp",
+    "uploadFailed": "Uppladdningen avbröts. Kontrollera anslutningen och försök igen.",
+    "delete": "Ta bort {name}",
+    "deleteTitle": "Ta bort bilagan?",
+    "deleteText": "{name} tas bort från passet.",
+    "deleteConfirm": "Ta bort"
   },
   "Start": {
     "weekHeading": "Vecka {week}",

@@ -152,6 +152,14 @@ export class OutlineStore {
     }
   };
 
+  /**
+   * Points later saves at a session that was stored by something other than
+   * an outline save (an attachment upload to a placeholder).
+   */
+  adopt(sessionId: string) {
+    this.target = { sessionId };
+  }
+
   /** Takes an outline from the server (after a copy) as saved. */
   replace(lines: OutlineLine[], sessionId: string) {
     this.clearTimer();

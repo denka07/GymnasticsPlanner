@@ -128,6 +128,17 @@ describe("OutlineStore", () => {
     expect(store.currentTarget).toEqual({ sessionId: SESSION });
   });
 
+  it("saves to a session adopted after an upload stored the placeholder", async () => {
+    const { calls, save } = controlledSave();
+    const store = new OutlineStore(lines("A"), placeholder);
+    store.setHandlers(save, () => {}, () => {});
+    store.adopt(SESSION);
+    expect(store.currentTarget).toEqual({ sessionId: SESSION });
+    store.setLines(lines("AB"));
+    vi.advanceTimersByTime(SAVE_DELAY);
+    expect(calls[0].target).toEqual({ sessionId: SESSION });
+  });
+
   it("starts with one empty part for an empty outline", () => {
     const store = new OutlineStore([], placeholder);
     expect(store.getSnapshot().lines).toHaveLength(1);

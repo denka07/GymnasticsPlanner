@@ -120,7 +120,6 @@ export const FILE_NAME_MAX = 200;
  */
 export function displayFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   const clean = base.replace(/[\u0000-\u001f\u007f]/g, "").trim() || "fil";
   if (clean.length <= FILE_NAME_MAX) {
     return clean;
