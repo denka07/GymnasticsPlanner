@@ -80,4 +80,88 @@ test.describe("Start page", () => {
     await expect(page.getByRole("banner").getByText("Dev Coach")).toBeVisible();
     await expect(page.getByRole("link", { name: season.groupName })).toBeVisible();
   });
+
+  test("events show beside the sessions, with a long description that expands", async ({ coach: page, prefix }) => {
+    const long = Array.from({ length: 12 }, (_, i) => `Rad ${i + 1} i beskrivningen`).join("\n");
+    const season = await seedSeason({
+      prefix,
+      weekdays: [1],
+      sessions: [{ weekday: 1, week: 0 }],
+      events: [
+        { name: `${prefix} Läger`, type: "camp", week: 0, weekday: 2, days: 3, description: long },
+        { name: `${prefix} Kort`, type: "show", week: 0, weekday: 5, description: "Kort text" },
+      ],
+    });
+    const first = season.weeks[0];
+    const tuesday = weekdayDate(first, 2);
+    const wednesday = weekdayDate(first, 3);
+
+    await page.goto(`/?week=${first}`);
+    const week = page.getByRole("region", { name: `Vecka ${weekNumber(first)}` });
+    // A multi-day event appears on each covered day, and a day with only events gets a column.
+    await expect(week.getByRole("heading", { name: sessionName(tuesday) })).toBeVisible();
+    await expect(week.getByRole("heading", { name: sessionName(wednesday) })).toBeVisible();
+    await expect(week.getByRole("link", { name: `${prefix} Läger` })).toHaveCount(3);
+    await expect(week.getByText("Läger", { exact: true })).toHaveCount(3);
+    await expect(week.getByRole("link", { name: `${prefix} Kort` })).toHaveAttribute(
+      "href",
+      `/seasons/${season.seasonId}/weeks/${first}`,
+    );
+    // A short description has no "Visa mer".
+    await expect(week.getByText("Kort text")).toBeVisible();
+
+    // The long one is cut off; the button expands and collapses it in place.
+    const camp = week.getByRole("heading", { name: `${prefix} Läger` }).first().locator("xpath=..");
+    const more = camp.getByRole("button", { name: "Visa mer" });
+    await expect(more).toBeVisible();
+    const isCutOff = () =>
+      camp.getByText("Rad 12 i beskrivningen").evaluate((el) => el.scrollHeight > el.clientHeight + 1);
+    await expect.poll(isCutOff).toBe(true);
+    await more.click();
+    await expect(camp.getByRole("button", { name: "Visa mindre" })).toBeVisible();
+    await expect(page).toHaveURL(`/?week=${first}`);
+    await expect.poll(isCutOff).toBe(false);
+    await camp.getByRole("button", { name: "Visa mindre" }).click();
+    await expect(camp.getByRole("button", { name: "Visa mer" })).toBeVisible();
+
+    // The card opens the week page.
+    await camp.getByRole("link", { name: `${prefix} Läger` }).click();
+    await expect(page).toHaveURL(`/seasons/${season.seasonId}/weeks/${first}`);
+  });
+
+  test("an event's description is edited on the week page and kept", async ({ coach: page, prefix }) => {
+    const season = await seedSeason({
+      prefix,
+      events: [{ name: `${prefix} Falun`, week: 1, weekday: 3, days: 2 }],
+    });
+    const url = `/seasons/${season.seasonId}/weeks/${season.weeks[1]}`;
+    await page.goto(url);
+    const field = page.getByRole("textbox", { name: "Beskrivning" });
+    await field.fill("Samling 07:30\nMed matsäck");
+    await field.blur();
+    await expect(page.getByRole("status").filter({ hasText: "Sparat" })).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "Beskrivning" })).toHaveValue("Samling 07:30\nMed matsäck");
+
+    // Shown on the start page too.
+    await page.goto(`/?week=${season.weeks[1]}`);
+    await expect(page.getByText("Samling 07:30").first()).toBeVisible();
+  });
+
+  test("a user without access to the season does not see its events", async ({
+    coach: page,
+    helper,
+    prefix,
+  }) => {
+    const season = await seedSeason({
+      prefix,
+      events: [{ name: `${prefix} Falun`, week: 0, weekday: 3, description: "Bara läsning" }],
+    });
+    // The helper has no access to the group: the event is not visible.
+    await helper.goto(`/?week=${season.weeks[0]}`);
+    await expect(helper.getByText("Bara läsning")).toHaveCount(0);
+    await page.goto(`/seasons/${season.seasonId}/weeks/${season.weeks[0]}`);
+    await expect(page.getByRole("textbox", { name: "Beskrivning" })).toHaveValue("Bara läsning");
+  });
 });

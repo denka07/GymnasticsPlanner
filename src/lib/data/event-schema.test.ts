@@ -43,3 +43,17 @@ describe("eventInput", () => {
     ).toBe(true);
   });
 });
+
+describe("eventInput description", () => {
+  const base = { name: "X", type: "camp", startDate: "2026-10-20", endDate: "" } as const;
+  it("leaves a missing description out so a stored one is kept", () => {
+    expect("description" in eventInput.parse(base)).toBe(false);
+  });
+  it("trims it and turns empty into null", () => {
+    expect(eventInput.parse({ ...base, description: "  Hej\nvälkommen " }).description).toBe("Hej\nvälkommen");
+    expect(eventInput.parse({ ...base, description: "  \n" }).description).toBeNull();
+  });
+  it("rejects too long text", () => {
+    expect(eventInput.safeParse({ ...base, description: "x".repeat(5001) }).success).toBe(false);
+  });
+});

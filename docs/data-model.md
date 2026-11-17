@@ -171,6 +171,9 @@ A dated activity during the season.
 - Name (example: Falun, Nordfemman, Inför NF)
 - Type (example: Tävling, Läger, Uppvisning)
 - Start and end date
+- Description (optional free text, up to 5000 characters; edited on the week page, shown on the week page and the start page)
+
+Only users who can open the season see its events.
 
 ## Session level
 

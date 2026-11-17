@@ -20,6 +20,17 @@ export type SeedSession = {
   isCancelled?: boolean;
 };
 
+export type SeedEvent = {
+  name: string;
+  type?: "competition" | "camp" | "show" | "other";
+  /** Week of the season (0 = the first) and ISO weekday the event starts on. */
+  week: number;
+  weekday: number;
+  /** Days the event lasts; 1 = a single day. */
+  days?: number;
+  description?: string;
+};
+
 export type SeededSeason = {
   groupId: string;
   groupName: string;
@@ -43,12 +54,14 @@ export async function seedSeason({
   weekCount = 4,
   weekdays = [1, 3],
   sessions = [],
+  events = [],
 }: {
   prefix: string;
   start?: { year: number; week: number };
   weekCount?: number;
   weekdays?: number[];
   sessions?: SeedSession[];
+  events?: SeedEvent[];
 }): Promise<SeededSeason> {
   if (!prefix.startsWith("E2E ")) {
     throw new Error("Seeded names must start with the E2E prefix.");
@@ -128,6 +141,20 @@ export async function seedSeason({
         location: "E2E-hallen",
       })),
     ),
+    ...(events.length
+      ? [
+          d.insert(schema.events).values(
+            events.map((e) => ({
+              seasonId,
+              name: e.name,
+              type: e.type ?? "competition",
+              startDate: weekdayDate(weeks[e.week], e.weekday),
+              endDate: plusDays(weekdayDate(weeks[e.week], e.weekday), (e.days ?? 1) - 1),
+              description: e.description ?? null,
+            })),
+          ),
+        ]
+      : []),
     ...(sessionRows.length ? [d.insert(schema.sessions).values(sessionRows)] : []),
     ...(partRows.length ? [d.insert(schema.sessionParts).values(partRows)] : []),
     ...(activityRows.length ? [d.insert(schema.activities).values(activityRows)] : []),
@@ -176,4 +203,11 @@ export async function seedStation(
       : []),
   ] as unknown as Parameters<typeof d.batch>[0]);
   return id;
+}
+
+/** `date` (YYYY-MM-DD) plus `n` days. */
+function plusDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }

@@ -7,7 +7,7 @@ import { getDb } from "@/db";
 import { events } from "@/db/schema";
 import { requireSeasonAccess } from "@/lib/access";
 
-import { eventInput, id } from "./schemas";
+import { eventDescriptionInput, eventInput, id } from "./schemas";
 
 /* Events of a season: competitions, camps, shows and so on. */
 
@@ -43,6 +43,13 @@ export async function updateEvent(eventId: string, input: unknown): Promise<void
   await requireSeasonAccess(await seasonOfEvent(eventId), "edit");
   const values = eventInput.parse(input);
   await getDb().update(events).set(values).where(eq(events.id, eventId));
+}
+
+/** Sets an event's description (empty clears it). Requires edit access to its season. */
+export async function setEventDescription(eventId: string, description: unknown): Promise<void> {
+  const value = eventDescriptionInput.parse(description);
+  await requireSeasonAccess(await seasonOfEvent(eventId), "edit");
+  await getDb().update(events).set({ description: value }).where(eq(events.id, eventId));
 }
 
 /** Deletes an event. Requires edit access to its season. */

@@ -179,6 +179,7 @@ export const events = pgTable(
     type: eventType("type").notNull(),
     startDate: date("start_date", { mode: "string" }).notNull(),
     endDate: date("end_date", { mode: "string" }).notNull(),
+    description: text("description"),
   },
   (t) => [
     index("events_season_id_idx").on(t.seasonId),

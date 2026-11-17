@@ -236,9 +236,21 @@ const isoDate = z
     { error: "invalidDate" },
   );
 
-/** An event of a season. An empty end date means the same day as the start. */
+export const MAX_EVENT_DESCRIPTION_LENGTH = 5000;
+
+/** An event's description: trimmed, empty means none. */
+export const eventDescriptionInput = z
+  .string({ error: "invalid" })
+  .max(MAX_EVENT_DESCRIPTION_LENGTH, { error: "textTooLong" })
+  .transform((v) => (v.trim() === "" ? null : v.trim()));
+
+/**
+ * An event of a season. An empty end date means the same day as the start. A
+ * missing description leaves a stored one untouched.
+ */
 export const eventInput = z
   .object({
+    description: eventDescriptionInput.optional(),
     name,
     type: eventTypeInput,
     startDate: isoDate,
@@ -250,7 +262,13 @@ export const eventInput = z
       ctx.addIssue({ code: "custom", message: "dateOrder", path: ["endDate"] });
       return z.NEVER;
     }
-    return { name: e.name, type: e.type, startDate: e.startDate, endDate };
+    return {
+      name: e.name,
+      type: e.type,
+      startDate: e.startDate,
+      endDate,
+      ...(e.description !== undefined && { description: e.description }),
+    };
   });
 
 export type EventInput = z.input<typeof eventInput>;
