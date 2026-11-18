@@ -57,7 +57,8 @@ erDiagram
     TRAINING_SLOT }o--o| HALL : "default hall"
     SESSION }o--o| HALL : "takes place in"
     STATION ||--o{ STATION_LAYOUT_ITEM : "drawn as"
-    EQUIPMENT ||--o{ STATION_LAYOUT_ITEM : "placed in"
+    EQUIPMENT ||--o{ EQUIPMENT_CONFIGURATION : "can be set up as"
+    EQUIPMENT_CONFIGURATION ||--o{ STATION_LAYOUT_ITEM : "placed in"
     SESSION ||--o{ SESSION_PLAN : has
     SESSION_PLAN }o--o{ SESSION_PART : "applies to"
     SESSION_PLAN ||--o{ PLAN_ITEM : contains
@@ -320,11 +321,22 @@ One line in a station's list of needed equipment.
 A type of equipment found in a hall. A single catalogue that all users can read and only administrators can edit.
 
 - Name (example: Plint, Trampett, Tjockmatta, Kil, Tunnmatta, Skumplint)
-- Width and length in metres (optional; needed for the equipment to be drawn)
-- Image (optional; seen from above, uploaded by an administrator and stretched to the width and length when drawn, whatever its own proportions)
-- Colour (optional; when there is no image, the equipment is drawn as a filled rectangle in this colour)
+- Configurations (zero or more; see below), one of them the default
 
-Equipment without a size cannot be placed in a drawing. A station's layout simply leaves it out.
+Equipment without a configuration cannot be placed in a drawing. A station's layout simply leaves it out.
+
+### Equipment configuration
+
+One way a piece of equipment can be set up, each seen from above with its own size and look. Maintained by administrators with the equipment.
+
+- Equipment
+- Name (example for a tunnmatta: Liggande, Stående på långsidan, Stående på kortsidan, Lutad)
+- Width and length in metres, of what it covers on the floor in this configuration
+- Image (optional; seen from above, uploaded by an administrator and stretched to the width and length when drawn, whatever its own proportions)
+- Colour (optional; when there is no image, the configuration is drawn as a filled rectangle in this colour)
+- Sort order
+
+Equipment that is only ever used one way has a single configuration. When equipment is placed in a drawing its default configuration is used, and the configuration can be changed on the placed item.
 
 ### Submission
 
@@ -379,7 +391,7 @@ Something fixed in a hall, drawn in every plan for that hall and not movable the
 Where one piece of a station's equipment sits when the station is drawn. Together they are the station's visual representation.
 
 - Station
-- Equipment
+- Equipment and its configuration (example: Tunnmatta, Lutad)
 - Position relative to the station's centre, and rotation
 - Layer order (higher is drawn on top; example: a flipper on a tjockmatta)
 - Label (optional short text; example: 2 delar)
@@ -402,7 +414,7 @@ One thing placed in a session plan.
 
 - Session plan
 - Kind, with what that kind needs:
-  - **Equipment:** the equipment.
+  - **Equipment:** the equipment and its configuration.
   - **Station:** the station, and optionally the activity it is used for (an activity in a part the plan applies to), shown as a number that leads to the activity's text. A placed station follows the station's layout in the library, so a change there shows in every plan. "Anpassa" turns it into an adapted copy: its equipment arrangement is copied into the plan item and can then be changed for this plan only.
   - **Text:** the text (example: Nedförsbacke skapas med plint 4 + 3 + 2 del).
   - **Area:** width and length, drawn as a dashed outline (example: Lämna tomt här för AG + Parkour).
@@ -416,7 +428,7 @@ Rules:
 - Who may see and change a session plan follows the session: view access to see it, edit access to change it.
 - Everyone who can see a session plan can see the stations and equipment drawn in it, as with the stations its activities link to.
 - Copying a session's content also copies its plans. A copied plan applies to the parts at the same positions in the copied outline.
-- Equipment drawn in a plan or a station layout cannot be deleted from the catalogue, as with equipment a station needs. A station that is deleted while placed in plans leaves adapted copies in those plans.
+- Equipment, or an equipment configuration, drawn in a plan or a station layout cannot be deleted from the catalogue, as with equipment a station needs. A station that is deleted while placed in plans leaves adapted copies in those plans.
 
 ## Decisions
 
@@ -437,7 +449,8 @@ Rules:
 - Links between stations and exercises are saved per link: a save only changes the links the user may change, so a coach's personal exercises on a global station survive an administrator's edit, and the other way round.
 - A station submission can include the submitter's personal exercises that the station supports, and the administrator chooses which of them become global with the station. Personal exercises that are not included, or not chosen, stay personal; their links to the now global station stay and are visible only to those who can see the exercise.
 - An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
-- Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries, and set their size, image and colour.
+- Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries and their configurations.
+- Equipment can have several configurations (example: a mat lying flat, standing on its long or short side, or leaning), each with its own size, image and colour. A placed item records which configuration it shows.
 - Halls are global library items maintained by administrators. A training slot has a default hall and a session may use another.
 - A session has a main plan and optional plans for chosen parts, rather than one plan per part.
 - A station placed in a plan follows its library layout until it is adapted, which turns it into a copy for that plan.
