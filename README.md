@@ -48,7 +48,7 @@ The main flows have Playwright tests in `e2e/`, one spec file per flow:
 | `session-planning.spec.ts` | Typing parts and activities in the week page's outline editor, durations and clock times; copying another session's content |
 | `session-page.spec.ts` | The session page at phone size: ticks and progress, resetting ticks, the note after the session, expanding a linked activity |
 | `attachments.spec.ts` | Uploading a photo and a PDF to a session card, a fake photo refused, opening them from the session page and their headers, 404 for someone without access, deleting one and its stored file. Skipped without `BLOB_READ_WRITE_TOKEN` |
-| `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the alert and "Bocka av"; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
+| `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the red full-screen alert (focused) and "Bocka av", closing it with "Stäng" and Escape; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
 | `library.spec.ts` | Equipment, a station with equipment and exercises; linking a station and exercises from an activity (creating an exercise by name); deleting an exercise an activity uses |
 | `sharing.spec.ts` | The Dela dialog: view and edit access, removing a share, a share waiting for someone who has not signed in |
 | `review.spec.ts` | Submitting a station with some of its exercises, withdrawing, rejecting with a comment, approving; what other users see; "Gör global" and "Kopiera till mina" |

@@ -27,6 +27,8 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-alert: var(--alert);
+  --color-alert-foreground: var(--alert-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -75,6 +77,8 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --alert: oklch(0.5 0.21 27);
+  --alert-foreground: oklch(1 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
@@ -125,6 +129,8 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --alert: oklch(0.46 0.2 27);
+  --alert-foreground: oklch(1 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -165,5 +171,20 @@
   }
   html {
     @apply font-sans;
+  }
+}
+/* The timer's "time is up" overlay pulses gently, unless motion is reduced. */
+@keyframes timer-alert-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.25);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .timer-alert-pulse {
+    animation: timer-alert-pulse 1.6s ease-in-out infinite;
   }
 }
