@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ALERT_SOUND_MAX_MS,
   addMinute,
+  alertSoundCapReached,
+  alertSoundMode,
   clockTime,
   countdownTimer,
   formatRemaining,
@@ -134,5 +137,19 @@ describe("parseStoredTimer", () => {
   it("treats missing flags as false", () => {
     const raw = JSON.stringify({ partId: "p1", mode: "plan", endsAt: now });
     expect(parseStoredTimer(raw, now)).toEqual({ partId: "p1", mode: "plan", endsAt: now, rang: false, notified: false });
+  });
+});
+
+describe("alert sound", () => {
+  const end = 1_000_000;
+  it("loops right after the end and until two minutes have passed", () => {
+    expect(alertSoundMode(end, end)).toBe("loop");
+    expect(alertSoundMode(end, end + ALERT_SOUND_MAX_MS - 1)).toBe("loop");
+    expect(alertSoundCapReached(end, end + ALERT_SOUND_MAX_MS - 1)).toBe(false);
+  });
+  it("plays once and stops at the two-minute cap", () => {
+    expect(alertSoundCapReached(end, end + ALERT_SOUND_MAX_MS)).toBe(true);
+    expect(alertSoundMode(end, end + ALERT_SOUND_MAX_MS)).toBe("once");
+    expect(alertSoundMode(end, end + 10 * 60_000)).toBe("once");
   });
 });

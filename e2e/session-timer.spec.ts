@@ -55,20 +55,70 @@ test.describe("Part timer on the session page", () => {
     await page.reload();
     await expect(timer).toHaveText("02:00");
 
-    // The time runs out: the bar turns into the alert.
+    // The time runs out: a red full-screen alert takes over and gets focus.
     await advance(125_000);
-    const bar = page.getByRole("region", { name: "Timer" });
-    await expect(bar.getByText("Tiden är ute", { exact: true })).toBeVisible();
-    await expect(bar.getByText("Nästa: Trampett")).toBeVisible();
+    const alert = page.getByRole("alertdialog", { name: /Tiden är ute/ });
+    await expect(alert.getByText("Tiden är ute", { exact: true })).toBeVisible();
+    await expect(alert.getByText("Uppvärmning", { exact: true })).toBeVisible();
+    await expect(alert.getByText("Nästa: Trampett")).toBeVisible();
+    await expect(alert).toBeFocused();
     await expect(timer).toBeHidden();
+    await expect(page.getByRole("region", { name: "Timer" })).toBeHidden();
 
-    await bar.getByRole("button", { name: "Bocka av" }).tap();
-    await expect(bar).toBeHidden();
+    await alert.getByRole("button", { name: "Bocka av" }).tap();
+    await expect(alert).toBeHidden();
     await expect(checklist.getByRole("checkbox", { name: /Uppvärmning/ })).toBeChecked();
     await expect(page.getByRole("status").filter({ hasText: /av 2 klara/ })).toHaveText("1 av 2 klara");
     // The tick is saved on the server.
     await page.reload();
     await expect(page.getByRole("status").filter({ hasText: /av 2 klara/ })).toHaveText("1 av 2 klara");
+  });
+
+  test("the time-up alert closes with Stäng and with Escape, without ticking the part", async ({
+    coach: page,
+    prefix,
+  }) => {
+    const season = await seedSeason({
+      prefix,
+      weekdays: [1],
+      sessions: [{ weekday: 1, week: 0, parts: [{ title: "Uppvärmning", minutes: 10 }] }],
+    });
+    let now = new Date("2031-03-03T16:00:00+01:00").getTime();
+    await page.clock.setFixedTime(now);
+    await page.goto(`/sessions/${season.sessionIds[0]}`);
+    const checklist = page.getByRole("list", { name: "Delar i passet" });
+    const dialog = page.getByRole("dialog", { name: "Timer för Uppvärmning" });
+    await openWith(
+      await hydrated(checklist.getByRole("button", { name: "Starta timer för Uppvärmning" })),
+      dialog,
+    );
+    await dialog.getByRole("textbox", { name: "Minuter" }).fill("1");
+    await dialog.getByRole("button", { name: "Starta", exact: true }).tap();
+    await expect(dialog).toBeHidden();
+
+    const alert = page.getByRole("alertdialog", { name: /Tiden är ute/ });
+    for (const close of ["button", "escape"] as const) {
+      if (close === "escape") {
+        await page.getByRole("button", { name: "Starta timer för Uppvärmning" }).tap();
+        await dialog.getByRole("textbox", { name: "Minuter" }).fill("1");
+        await dialog.getByRole("button", { name: "Starta", exact: true }).tap();
+        await expect(dialog).toBeHidden();
+      }
+      await page.clock.setFixedTime((now += 65_000));
+      await expect(alert).toBeVisible();
+      await expect(alert).toBeFocused();
+      // Without a next part there is no "Starta nästa".
+      await expect(alert.getByRole("button", { name: "Starta nästa" })).toHaveCount(0);
+      const box = await alert.getByRole("button", { name: "Stäng" }).boundingBox();
+      expect(box?.height).toBeGreaterThanOrEqual(56);
+      if (close === "button") {
+        await alert.getByRole("button", { name: "Stäng" }).tap();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+      await expect(alert).toBeHidden();
+      await expect(checklist.getByRole("checkbox", { name: /Uppvärmning/ })).not.toBeChecked();
+    }
   });
 
   test("a timer by the plan, stopping it, and replacing a running timer", async ({ coach: page, prefix }) => {

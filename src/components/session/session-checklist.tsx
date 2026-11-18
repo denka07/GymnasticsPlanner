@@ -2,7 +2,7 @@
 
 import { TimerIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { resetTicksAction, setPartDoneAction } from "@/app/session-actions";
@@ -21,13 +21,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ViewActivity } from "@/lib/data/session-view";
 import { partClockTimes } from "@/lib/outline";
-import { minutesSinceEnd, plannedEnd, remainingMs } from "@/lib/part-timer";
+import { ALERT_SOUND_MAX_MS, alertSoundMode, minutesSinceEnd, plannedEnd, remainingMs } from "@/lib/part-timer";
 import { progress } from "@/lib/session-view";
 import { cn } from "@/lib/utils";
 
 import { ActivityDetails } from "./activity-details";
+import { TimerAlert } from "./timer-alert";
 import { TimerBar } from "./timer-bar";
-import { clockNow, playChime, prepareNotifications, ScreenAwake, showTimerNotification, vibrate } from "./timer-effects";
+import { clockNow, prepareNotifications, ScreenAwake, showTimerNotification, startAlarm } from "./timer-effects";
 import { TimerStartDialog, type TimerTarget } from "./timer-start-dialog";
 import { usePartTimer } from "./use-part-timer";
 
@@ -110,21 +111,41 @@ export function SessionChecklist({
     prepareNotifications();
   }, []);
 
-  // Keep the screen on while a timer runs and the page is shown. The browser
-  // drops the lock when the page is hidden; it is taken again on return.
+  // Keep the screen on while a timer runs and, after it ran out, until the
+  // alert is handled. The browser drops the lock when the page is hidden; it
+  // is taken again on return.
+  const hasTimer = timer !== null;
   useEffect(() => {
-    if (running && visible) {
+    if (hasTimer && visible) {
       void awake.acquire();
     } else {
       awake.release();
     }
-  }, [awake, running, visible]);
+  }, [awake, hasTimer, visible]);
   useEffect(() => () => awake.release(), [awake]);
+
+  // The alarm (sound and vibration) belongs to the alert: it is stopped when
+  // the alert is handled, which removes the timer, and on leaving the page.
+  const stopAlarm = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!expired && stopAlarm.current) {
+      stopAlarm.current();
+      stopAlarm.current = null;
+    }
+  }, [expired]);
+  useEffect(
+    () => () => {
+      stopAlarm.current?.();
+      stopAlarm.current = null;
+    },
+    [],
+  );
 
   // Signal the end once: sound and vibration on the page, or a notification
   // while the page is hidden. Returning to the page later still plays the sound.
   const alertTitle = timedPart?.title ?? "";
   const alertNext = nextPart?.title ?? null;
+  const endsAt = timer?.endsAt ?? 0;
   const rang = timer?.rang ?? true;
   const notified = timer?.notified ?? true;
   useEffect(() => {
@@ -133,8 +154,11 @@ export function SessionChecklist({
     }
     if (visible && !rang) {
       mark("rang");
-      playChime();
-      vibrate();
+      stopAlarm.current?.();
+      stopAlarm.current = startAlarm({
+        loop: alertSoundMode(endsAt, clockNow()) === "loop",
+        stopAt: endsAt + ALERT_SOUND_MAX_MS,
+      });
     } else if (!visible && !notified) {
       mark("notified");
       void showTimerNotification(
@@ -143,7 +167,7 @@ export function SessionChecklist({
         sessionId,
       );
     }
-  }, [expired, visible, rang, notified, mark, tt, alertTitle, alertNext, sessionId]);
+  }, [expired, visible, rang, notified, mark, tt, alertTitle, alertNext, sessionId, endsAt]);
 
   async function toggle(itemId: string, value: boolean) {
     setDone((d) => ({ ...d, [itemId]: value }));
@@ -293,17 +317,22 @@ export function SessionChecklist({
         }}
       />
 
-      {timer && timedPart && now !== 0 && (
+      {timer && timedPart && now !== 0 && !expired && (
         <TimerBar
           partTitle={timedPart.title}
-          nextTitle={nextPart?.title ?? null}
           mode={timer.mode}
           endsAt={timer.endsAt}
           remaining={remainingMs(timer.endsAt, now)}
-          expired={expired}
+          onAddMinute={extend}
+          onStop={stop}
+        />
+      )}
+      {timer && timedPart && now !== 0 && expired && (
+        <TimerAlert
+          partTitle={timedPart.title}
+          nextTitle={nextPart?.title ?? null}
           minutesAgo={minutesSinceEnd(timer.endsAt, now)}
           canTick={editable && !(done[timedPart.id] ?? false)}
-          onAddMinute={extend}
           onStop={stop}
           onTick={() => {
             stop();

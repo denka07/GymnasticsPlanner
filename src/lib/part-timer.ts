@@ -34,6 +34,25 @@ export const MAX_AHEAD_MS = 8 * 24 * 60 * 60 * 1000;
 
 const MINUTE = 60_000;
 
+/**
+ * How long after the end the alert sound may keep repeating. A forgotten
+ * phone stops ringing; the visual alert stays until it is handled.
+ */
+export const ALERT_SOUND_MAX_MS = 2 * MINUTE;
+
+/**
+ * Whether the alert sound repeats ("loop") or plays one short round
+ * ("once"): it loops unless the time ran out two minutes ago or more.
+ */
+export function alertSoundMode(endsAt: number, now: number): "loop" | "once" {
+  return alertSoundCapReached(endsAt, now) ? "once" : "loop";
+}
+
+/** True once the repeating alert sound has run for its two minutes. */
+export function alertSoundCapReached(endsAt: number, now: number): boolean {
+  return now - endsAt >= ALERT_SOUND_MAX_MS;
+}
+
 /** The localStorage key of a session's timer. */
 export function timerStorageKey(sessionId: string): string {
   return `part-timer:${sessionId}`;
