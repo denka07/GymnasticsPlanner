@@ -117,11 +117,11 @@ Done when a submitted station can be approved and then seen by another user.
 
 ### 7. Equipment for drawing
 
-- Width, length, colour and image on equipment, set by administrators on the Redskap tab.
+- Configurations on equipment, each with a name, width, length, colour and image, set by administrators on the Redskap tab; one is the default.
 - Image upload to the private Blob store, with the same checks as attachments.
-- Equipment drawn as a preview in the list: image stretched to its size, or a coloured rectangle.
+- Each configuration drawn as a preview in the list: image stretched to its size, or a coloured rectangle.
 
-Done when an administrator can give Tunnmatta a size and an image and see it drawn to scale.
+Done when an administrator can give Tunnmatta the configurations Liggande and Stående på långsidan, each with its size and image, and see both drawn to scale.
 
 ### 8. Halls and the drawing editor
 
