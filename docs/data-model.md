@@ -14,10 +14,10 @@ In scope:
 - Global library content maintained by administrators, with coaches able to submit their own for review.
 - Sharing groups, seasons and sessions with other users (help coaches).
 - An optional free-text note on each session about how it went.
+- Drawn plans: halls, station layouts and session plans drawn to scale (see [Drawn plans](#drawn-plans)).
 
 Out of scope:
 
-- Drawn station layouts of the hall (planned for a later version, see [Later: drawn plans](#later-drawn-plans)).
 - Gymnasts and attendance (recorded in a separate system).
 
 ## Overview
@@ -52,6 +52,15 @@ erDiagram
     STATION ||--o{ STATION_EQUIPMENT : needs
     EQUIPMENT ||--o{ STATION_EQUIPMENT : "used in"
     STATION }o--o{ EXERCISE : supports
+
+    HALL ||--o{ HALL_FEATURE : has
+    TRAINING_SLOT }o--o| HALL : "default hall"
+    SESSION }o--o| HALL : "takes place in"
+    STATION ||--o{ STATION_LAYOUT_ITEM : "drawn as"
+    EQUIPMENT ||--o{ STATION_LAYOUT_ITEM : "placed in"
+    SESSION ||--o{ SESSION_PLAN : has
+    SESSION_PLAN }o--o{ SESSION_PART : "applies to"
+    SESSION_PLAN ||--o{ PLAN_ITEM : contains
 ```
 
 Two relationships are left out of the diagram to keep it readable: a share points at exactly one group, season or session, and a submission points at exactly one exercise or station.
@@ -116,7 +125,8 @@ A recurring training time during a season. Training times can differ between sea
 - Season
 - Weekday (example: Monday, Wednesday, Sunday)
 - Start and end time (optional)
-- Location (optional)
+- Location (optional free text)
+- Hall (optional; the default hall for this training day, example: C-salen on Mondays, AB-hallen on Wednesdays and Sundays)
 
 ### Season week
 
@@ -184,7 +194,8 @@ One training occasion for a group.
 
 - Season
 - Date, with start and end time (optional)
-- Location (optional)
+- Location (optional free text)
+- Hall (optional; copied from the training slot when the session is first stored, and can be changed for this session)
 - Training slot (optional; the recurring slot the session was created from)
 - Cancelled flag (a cancelled session keeps its content)
 - Note after the session (optional free text about how it went)
@@ -309,6 +320,11 @@ One line in a station's list of needed equipment.
 A type of equipment found in a hall. A single catalogue that all users can read and only administrators can edit.
 
 - Name (example: Plint, Trampett, Tjockmatta, Kil, Tunnmatta, Skumplint)
+- Width and length in metres (optional; needed for the equipment to be drawn)
+- Image (optional; seen from above, uploaded by an administrator and stretched to the width and length when drawn, whatever its own proportions)
+- Colour (optional; when there is no image, the equipment is drawn as a filled rectangle in this colour)
+
+Equipment without a size cannot be placed in a drawing. A station's layout simply leaves it out.
 
 ### Submission
 
@@ -335,13 +351,72 @@ Rules:
 - On approval of a station the administrator ticks which included exercises become global with it (all at first). The station and the ticked exercises become global in one transaction; each exercise is checked again (still personal, still the submitter's, still supported by the station). An exercise that becomes global this way keeps its creator, and a pending submission of its own is marked approved. Included exercises that were not ticked stay personal, and the submitter is told which became global and which stayed personal. A rejection rejects the whole submission and nothing becomes global.
 - An administrator making their own station global ticks which of their own personal exercises it supports become global with it (all at first).
 
-## Later: drawn plans
+## Drawn plans
 
-In a drawn plan, an activity's station is placed in the hall. A later version can add the entities below without changing the text model:
+A drawn plan shows, to scale and seen from above, where the equipment and stations stand in a hall. It complements the text plan; it does not replace it. All sizes and positions are in metres. A position is the centre of an item, measured from the hall's top-left corner, and a rotation is in degrees clockwise.
 
-- Hall: the room and its fixed features (doors, wall bars, storage).
-- Size and colour on equipment, so that it can be drawn.
-- Placement: where a station's equipment, its label and a spotter sit in the hall for a given session.
+### Hall
+
+A training hall. Halls are global: they belong to the library, every user can read them, and only administrators create and edit them.
+
+- Name (example: C-salen, AB-hallen)
+- Width and length in metres
+- Fixed features (see below)
+
+A training slot can name a default hall, and a session can use another hall than its slot's.
+
+### Hall feature
+
+Something fixed in a hall, drawn in every plan for that hall and not movable there.
+
+- Hall
+- Kind: wall bars, door, port, storage, wall or other
+- Position, width, length and rotation
+- Label (optional; example: Förråd, Port till AB-hallen)
+
+### Station layout item
+
+Where one piece of a station's equipment sits when the station is drawn. Together they are the station's visual representation.
+
+- Station
+- Equipment
+- Position relative to the station's centre, and rotation
+- Layer order (higher is drawn on top; example: a flipper on a tjockmatta)
+- Label (optional short text; example: 2 delar)
+
+Only equipment the station needs can be placed, and at most as many as its quantity (2 × Tunnmatta can be placed twice). Equipment the station needs but that is not placed is not drawn. Whoever may edit the station may edit its layout.
+
+### Session plan
+
+A drawing of a session in its hall.
+
+- Session
+- Applies to: the whole session (the main plan) or chosen session parts
+- Name (optional; example: Banan)
+
+A session has at most one main plan and any number of plans for chosen parts. A part belongs to at most one such plan; a part without one shows the main plan. A new plan can start as a copy of another plan of the same session, since configurations for different parts often differ only a little. The plan uses the session's hall; if the hall is changed, items keep their positions.
+
+### Plan item
+
+One thing placed in a session plan.
+
+- Session plan
+- Kind, with what that kind needs:
+  - **Equipment:** the equipment.
+  - **Station:** the station, and optionally the activity it is used for (an activity in a part the plan applies to), shown as a number that leads to the activity's text. A placed station follows the station's layout in the library, so a change there shows in every plan. "Anpassa" turns it into an adapted copy: its equipment arrangement is copied into the plan item and can then be changed for this plan only.
+  - **Text:** the text (example: Nedförsbacke skapas med plint 4 + 3 + 2 del).
+  - **Area:** width and length, drawn as a dashed outline (example: Lämna tomt här för AG + Parkour).
+  - **Person:** a role, Coach or Passare.
+  - **Arrow:** a length, for example the direction of run-up to a trampett.
+- Position, rotation and layer order
+- Label (optional short text; example: 2 delar, Trupp 2)
+
+Rules:
+
+- Who may see and change a session plan follows the session: view access to see it, edit access to change it.
+- Everyone who can see a session plan can see the stations and equipment drawn in it, as with the stations its activities link to.
+- Copying a session's content also copies its plans. A copied plan applies to the parts at the same positions in the copied outline.
+- Equipment drawn in a plan or a station layout cannot be deleted from the catalogue, as with equipment a station needs. A station that is deleted while placed in plans leaves adapted copies in those plans.
 
 ## Decisions
 
@@ -362,6 +437,11 @@ In a drawn plan, an activity's station is placed in the hall. A later version ca
 - Links between stations and exercises are saved per link: a save only changes the links the user may change, so a coach's personal exercises on a global station survive an administrator's edit, and the other way round.
 - A station submission can include the submitter's personal exercises that the station supports, and the administrator chooses which of them become global with the station. Personal exercises that are not included, or not chosen, stay personal; their links to the now global station stay and are visible only to those who can see the exercise.
 - An exercise has no focus cues or easier/harder variants. Focus points are written in the activity's text for the session, and alternative exercises are other exercises supported by the same station.
-- Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries.
+- Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries, and set their size, image and colour.
+- Halls are global library items maintained by administrators. A training slot has a default hall and a session may use another.
+- A session has a main plan and optional plans for chosen parts, rather than one plan per part.
+- A station placed in a plan follows its library layout until it is adapted, which turns it into a copy for that plan.
+- Plans are drawn with equipment, stations, text, areas, people (Coach, Passare) and arrows. There are no free lines.
+- Drawn plans are edited on a desktop and read on a phone. There is no import of earlier drawings.
 - Attachments belong to a whole session, not to a part or an activity. Only photos and PDFs up to 10 MB are accepted; no video. The type is checked against the file's first bytes, not its name.
 - Copying a session's content adds its attachments to the target's own instead of replacing them, so files uploaded to the target are never lost by a copy.
