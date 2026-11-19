@@ -1,11 +1,14 @@
-import { boundsOf, type Placed } from "@/lib/drawing/editor";
+import type React from "react";
+
+import type { DrawingExtent } from "@/lib/drawing/bounds";
+import { boundsOf, type Placed, type Rect } from "@/lib/drawing/editor";
 import { UPRIGHT_CLASS } from "@/lib/drawing/view";
 import { contentSize, type DrawnPlanItem, type PersonRole, type PlanItemContent } from "@/lib/session-plans";
 import { cn } from "@/lib/utils";
 
 import { ArrowShape, TextShape } from "../drawing/annotation-drawing";
 import { ConfigurationShape } from "../drawing/configuration-drawing";
-import { DrawingLabel, HallFeatures, HallFloor, labelSize, placement } from "../drawing/hall-drawing";
+import { DrawingLabel, hallExtent, HallFeatures, HallFloor, labelSize, placement } from "../drawing/hall-drawing";
 import { LayoutItems } from "../drawing/station-layout-drawing";
 import { TurnableSvg } from "../drawing/turnable-svg";
 import type { HallDrawing } from "@/lib/data/halls";
@@ -119,11 +122,55 @@ export function PlanItemShape({
   }
 }
 
-/** A station's number in a filled circle, upright, centred on a point. */
-export function NumberBadge({ x, y, number, size }: { x: number; y: number; number: number; size: number }) {
-  const r = size * 0.85;
+/** A number badge's radius for a label size. */
+function badgeRadius(size: number): number {
+  return size * 0.85;
+}
+
+/** What a tappable station number needs: what it says and what tapping does. */
+export type NumberAction = { label: (number: number) => string; onActivate: (activityId: string) => void };
+
+/**
+ * A station's number in a filled circle, upright, centred on a point. With
+ * `action` it is a button that leads to its activity.
+ */
+export function NumberBadge({
+  x,
+  y,
+  number,
+  size,
+  activityId,
+  action,
+}: {
+  x: number;
+  y: number;
+  number: number;
+  size: number;
+  activityId?: string;
+  action?: NumberAction;
+}) {
+  const r = badgeRadius(size);
+  const interactive = action && activityId;
   return (
-    <g data-station-number={number} className="pointer-events-none">
+    <g
+      data-station-number={number}
+      className={interactive ? "cursor-pointer outline-none [&:focus-visible>circle]:stroke-ring" : "pointer-events-none"}
+      {...(interactive
+        ? {
+            role: "button",
+            tabIndex: 0,
+            "aria-label": action.label(number),
+            onClick: () => action.onActivate(activityId),
+            onKeyDown: (event: React.KeyboardEvent) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                action.onActivate(activityId);
+              }
+            },
+          }
+        : {})}
+    >
+      {interactive && <circle cx={x} cy={y} r={r * 1.8} fill="transparent" />}
       <circle cx={x} cy={y} r={r} className="fill-primary stroke-background" strokeWidth={r * 0.15} />
       <text
         x={x}
@@ -147,17 +194,19 @@ export function PlanOverlay({
   items,
   numbers,
   size,
+  numberAction,
 }: {
   items: readonly (Placed & { label: string | null; content: PlanItemContent })[];
   /** Activity id to number. */
   numbers: ReadonlyMap<string, number>;
   size: number;
+  numberAction?: NumberAction;
 }) {
   return (
     <g>
       {items.map((item) =>
         item.label ? (
-          <DrawingLabel key={`label-${item.id}`} x={item.x} y={item.y} text={item.label} size={size * 0.8} />
+          <DrawingLabel key={`label-${item.id}`} x={item.x} y={item.y} text={item.label} size={size * ITEM_LABEL_SCALE} />
         ) : null,
       )}
       {items.map((item) => {
@@ -167,10 +216,63 @@ export function PlanOverlay({
           return null;
         }
         const b = boundsOf(item);
-        return <NumberBadge key={`number-${item.id}`} x={b.x} y={b.y} number={number} size={size} />;
+        return (
+          <NumberBadge
+            key={`number-${item.id}`}
+            x={b.x}
+            y={b.y}
+            number={number}
+            size={size}
+            activityId={c.kind === "station" ? (c.activityId ?? undefined) : undefined}
+            action={numberAction}
+          />
+        );
       })}
     </g>
   );
+}
+
+/** The label size of a plan item's label, from the hall's label size. */
+const ITEM_LABEL_SCALE = 0.8;
+
+/**
+ * Everything a plan's overlay draws past its items: labels and station
+ * numbers, for the part of the drawing that is shown.
+ */
+export function overlayExtent(
+  items: readonly (Placed & { label: string | null; content: PlanItemContent })[],
+  numbers: ReadonlyMap<string, number>,
+  size: number,
+): Pick<DrawingExtent, "boxes" | "labels"> {
+  const r = badgeRadius(size) * 1.1;
+  const boxes: Rect[] = items.flatMap((item) => {
+    const c = item.content;
+    if (c.kind !== "station" || !c.activityId || !numbers.has(c.activityId)) {
+      return [];
+    }
+    const b = boundsOf(item);
+    return [{ x: b.x - r, y: b.y - r, width: 2 * r, height: 2 * r }];
+  });
+  const labels = items.flatMap((item) =>
+    item.label ? [{ x: item.x, y: item.y, text: item.label, size: size * ITEM_LABEL_SCALE }] : [],
+  );
+  return { boxes, labels };
+}
+
+/** What a plan drawing shows: its hall with features and labels, its items, labels and numbers. */
+export function planExtent(
+  hall: HallDrawing,
+  items: readonly (Placed & { label: string | null; content: PlanItemContent })[],
+  numbers: ReadonlyMap<string, number>,
+): DrawingExtent {
+  const base = hallExtent(hall);
+  const overlay = overlayExtent(items, numbers, labelSize(hall));
+  return {
+    area: base.area,
+    items: [...(base.items ?? []), ...items],
+    boxes: overlay.boxes,
+    labels: [...(base.labels ?? []), ...(overlay.labels ?? [])],
+  };
 }
 
 /** A drawn item placed in metres, as the editor and the overlay take it. */
@@ -198,22 +300,35 @@ export function PlanDrawing({
   numbers,
   initials,
   label,
+  turned,
+  numberAction,
   className,
+  ...rest
 }: {
   hall: HallDrawing;
   items: readonly DrawnPlanItem[];
   numbers: ReadonlyMap<string, number>;
   initials: PersonInitials;
   label: string;
+  /** Draws only this orientation instead of following the screen's. */
+  turned?: boolean;
+  /** Makes the station numbers buttons. */
+  numberAction?: NumberAction;
   className?: string;
-}) {
-  const width = hall.widthCm / 100;
-  const height = hall.lengthCm / 100;
-  const margin = Math.max(width, height) * 0.02;
+} & Omit<React.SVGProps<SVGSVGElement>, "children" | "viewBox">) {
   const placed = items.map(placedPlanItem);
   const size = labelSize(hall);
   return (
-    <TurnableSvg area={{ width, height }} margin={margin} label={label} className={className} data-plan-drawing>
+    <TurnableSvg
+      // Buttons inside an image would be hidden from assistive technology.
+      role={numberAction ? "group" : undefined}
+      {...rest}
+      extent={planExtent(hall, placed, numbers)}
+      label={label}
+      turned={turned}
+      className={className}
+      data-plan-drawing
+    >
       <HallFloor floor={hall} />
       <HallFeatures features={hall.features} labels hall={hall} />
       {placed.map((item) => (
@@ -227,7 +342,7 @@ export function PlanDrawing({
           />
         </g>
       ))}
-      <PlanOverlay items={placed} numbers={numbers} size={size} />
+      <PlanOverlay items={placed} numbers={numbers} size={size} numberAction={numberAction} />
     </TurnableSvg>
   );
 }

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { savePlanItemsAction } from "@/app/session-plan-actions";
 import { CommitField, parseNumber } from "@/components/drawing/commit-field";
 import { DrawingEditor, type EditorApi } from "@/components/drawing/drawing-editor";
-import { HallFeatures, HallFloor, labelSize } from "@/components/drawing/hall-drawing";
+import { hallExtent, HallFeatures, HallFloor, labelSize } from "@/components/drawing/hall-drawing";
 import { StationThumbnail } from "@/components/drawing/station-layout-drawing";
 import type { CatalogueEntry } from "@/components/halls/hall-editor";
 import { SaveBar } from "@/components/library/save-bar";
@@ -43,7 +43,7 @@ import { NativeSelect, NativeSelectOptGroup, NativeSelectOption } from "@/compon
 import type { HallDrawing } from "@/lib/data/halls";
 import type { LoadedPlan, PickStation } from "@/lib/data/session-plans";
 import { ARROW_MAX_CM, ARROW_MIN_CM, cleanText, DEFAULT_ARROW_CM, MAX_TEXT_LENGTH } from "@/lib/drawing/annotations";
-import type { Placed } from "@/lib/drawing/editor";
+import { boundsOf, type Placed } from "@/lib/drawing/editor";
 import { HALL_MAX_CM, MAX_LABEL_LENGTH, normalizeDegrees } from "@/lib/halls";
 import type { LoadedPart } from "@/lib/outline";
 import {
@@ -61,7 +61,7 @@ import {
 } from "@/lib/session-plans";
 
 import { activityTitle } from "./plan-text";
-import { PlanItemShape, PlanOverlay, placedPlanItem, type PersonInitials } from "./plan-drawing";
+import { overlayExtent, PlanItemShape, PlanOverlay, placedPlanItem, type PersonInitials } from "./plan-drawing";
 
 /*
  * The session plan editor (docs/data-model.md, "Plan item"): the shared
@@ -172,6 +172,14 @@ export function PlanEditor({
         label={t("editorLabel", { plan: planName, hall: hall.name })}
         viewKey={`plan:${plan.id}`}
         itemLabel={itemLabel}
+        extent={(shown) => {
+          const fixed = hallExtent(hall);
+          const overlay = overlayExtent(shown, numbers, size);
+          return {
+            boxes: [...(fixed.items ?? []).map(boundsOf), ...(overlay.boxes ?? [])],
+            labels: [...(fixed.labels ?? []), ...(overlay.labels ?? [])],
+          };
+        }}
         background={
           <g className="pointer-events-none">
             <HallFloor floor={hall} />

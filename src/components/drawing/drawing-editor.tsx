@@ -31,6 +31,7 @@ import {
 } from "react";
 
 import { Button } from "@/components/ui/button";
+import { drawingBounds, type DrawingExtent } from "@/lib/drawing/bounds";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -41,7 +42,6 @@ import {
   DEFAULT_GRID,
   dragDelta,
   duplicate,
-  fitView,
   gridPositions,
   idsInRect,
   moveBy,
@@ -73,7 +73,6 @@ import {
   toDrawingPoint,
   turnByDefault,
   uprightStyle,
-  viewArea,
   viewStorageKey,
   viewTransform,
 } from "@/lib/drawing/view";
@@ -202,6 +201,13 @@ type Gesture =
 const HANDLE_PX = 7;
 const HANDLE_GAP_PX = 22;
 
+/** Space around a fitted view, in metres. */
+const FIT_MARGIN = 1;
+
+function sameView(a: ViewBox, b: ViewBox): boolean {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.width - b.width) + Math.abs(a.height - b.height) < 1e-6;
+}
+
 export function DrawingEditor<T extends Placed>({
   area,
   initialItems,
@@ -216,6 +222,7 @@ export function DrawingEditor<T extends Placed>({
   className,
   initialView,
   viewKey,
+  extent,
 }: {
   /** The drawing's size in metres; items' centres stay inside it. */
   area: Area;
@@ -223,6 +230,11 @@ export function DrawingEditor<T extends Placed>({
   initialView?: ViewBox;
   /** Remembers the user's choice of turned view under this name (for example "hall:<id>"). */
   viewKey?: string;
+  /**
+   * What is drawn past the items' own shapes (labels, numbers, the hall's
+   * features), so fitting the view shows all of it.
+   */
+  extent?: (items: readonly T[]) => Omit<DrawingExtent, "area" | "items">;
   initialItems: T[];
   /** Called with the items whenever a change is committed (not during a drag). */
   onItemsChange?: (items: T[]) => void;
@@ -253,7 +265,10 @@ export function DrawingEditor<T extends Placed>({
   const [grid, setGrid] = useState<number | null>(DEFAULT_GRID);
   const [snapRotation, setSnapRotation] = useState(true);
   // The view is in view space; it starts unturned until the canvas is measured.
-  const [view, setView] = useState<ViewBox>(() => initialView ?? fitView(area));
+  /** The view that shows the whole area, the items and everything drawn past them. */
+  const fitted = (shown: readonly T[], turnedView: boolean): ViewBox =>
+    rectToView(drawingBounds({ area, items: shown, ...extent?.(shown) }, turnedView, FIT_MARGIN), area, turnedView);
+  const [view, setView] = useState<ViewBox>(() => initialView ?? fitted(initialItems, false));
   const [canvas, setCanvas] = useState<{ width: number; height: number } | null>(null);
   // A choice made here wins over the stored one, which wins over the default.
   const [turnChoice, setTurnChoice] = useState<boolean | null>(null);
@@ -269,7 +284,9 @@ export function DrawingEditor<T extends Placed>({
   const [shownTurned, setShownTurned] = useState(false);
   if (shownTurned !== turned) {
     setShownTurned(turned);
-    setView((v) => rectToView(rectToDrawing(v, area, shownTurned), area, turned));
+    // A fitted view stays fitted (upright labels lie the other way); another keeps its part.
+    const wasFitted = !initialView && sameView(view, fitted(state.history.present, shownTurned));
+    setView((v) => (wasFitted ? fitted(state.history.present, turned) : rectToView(rectToDrawing(v, area, shownTurned), area, turned)));
   }
   const [marquee, setMarquee] = useState<Rect | null>(null);
   const [pxPerMetre, setPxPerMetre] = useState(10);
@@ -632,7 +649,7 @@ export function DrawingEditor<T extends Placed>({
         onGrid={setGrid}
         onSnapRotation={setSnapRotation}
         onZoom={(f) => zoom(f)}
-        onFit={() => setView(fitView(viewArea(area, turned)))}
+        onFit={() => setView(fitted(items, turned))}
       />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="grid content-start gap-2">

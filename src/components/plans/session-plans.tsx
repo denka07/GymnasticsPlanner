@@ -1,7 +1,8 @@
 "use client";
 
-import { CircleHelpIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CircleHelpIcon, PencilIcon, PlusIcon, PrinterIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useCallback, useId, useMemo, useState, useTransition } from "react";
 
 import {
@@ -33,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -40,6 +42,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import type { SessionPlansPage } from "@/lib/data/session-plans";
 import type { LoadedPlan } from "@/lib/data/session-plans";
 import type { LoadedPart } from "@/lib/outline";
+import { printHref } from "@/lib/plan-reading";
 import {
   linkedActivityIds,
   MAX_PLAN_NAME_LENGTH,
@@ -51,7 +54,9 @@ import { cn } from "@/lib/utils";
 
 import { PlanDrawing } from "./plan-drawing";
 import { outlineOf, PlanEditor } from "./plan-editor";
+import { planName as nameOf, personInitials } from "./plan-names";
 import { PlanText } from "./plan-text";
+import { SavePlanImage } from "./save-plan-image";
 
 /*
  * The body of a session's plans page (docs/implementation-plan.md, step 10):
@@ -59,20 +64,6 @@ import { PlanText } from "./plan-text";
  * desktop with edit access) or drawn read-only, and the text of the parts it
  * applies to with the stations' numbers.
  */
-
-type Translate = ReturnType<typeof useTranslations<"Plans">>;
-
-/** A plan's name as lists show it. */
-function nameOf(plan: LoadedPlan, parts: readonly LoadedPart[], t: Translate): string {
-  if (plan.name) {
-    return plan.name;
-  }
-  if (plan.isMain) {
-    return t("mainPlan");
-  }
-  const titles = parts.filter((p) => plan.partIds.includes(p.id)).map((p) => p.title);
-  return titles.length > 0 ? t("partPlan", { parts: titles.join(", ") }) : t("partPlanUnnamed");
-}
 
 /** What the page's one-line header shows. */
 export type PlansHeader = { title: string; time: string | null; backHref: string; backLabel: string };
@@ -125,7 +116,7 @@ export function SessionPlans({
   }
 
   const selectedName = selected ? nameOf(selected, parts, t) : "";
-  const initials = { coach: t("initials.coach"), passare: t("initials.passare") };
+  const initials = personInitials(t);
 
   return (
     <div className="grid gap-4">
@@ -224,36 +215,51 @@ export function SessionPlans({
                     <p className="max-w-prose text-sm text-muted-foreground">{t("noPartsHint")}</p>
                   )}
                 </div>
-                {page.canEdit && (
-                  <div className="hidden flex-wrap gap-2 lg:flex">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={dirty}
-                      title={dirty ? t("saveFirst") : undefined}
-                      onClick={() => setEditing(true)}
-                    >
-                      <PencilIcon data-icon="inline-start" />
-                      {selected.isMain ? t("rename") : t("settings")}
-                    </Button>
-                    <ConfirmDelete
-                      trigger={
-                        <Button type="button" variant="outline">
-                          <Trash2Icon data-icon="inline-start" />
-                          {t("delete")}
-                        </Button>
-                      }
-                      title={t("deleteTitle", { plan: selectedName })}
-                      description={t("deleteText")}
-                      action={async () => {
-                        await deletePlanAction(selected.id);
-                        setDirty(false);
-                        setLive(null);
-                        setSelectedId(plans.find((p) => p.id !== selected.id)?.id ?? null);
-                      }}
-                    />
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {hall && (
+                    <>
+                      <PrintMenu sessionId={page.session.id} planId={selected.id} disabled={dirty} />
+                      <SavePlanImage
+                        hall={hall}
+                        items={shownItems}
+                        numbers={numbers}
+                        initials={initials}
+                        name={selectedName}
+                        date={page.session.date}
+                      />
+                    </>
+                  )}
+                  {page.canEdit && (
+                    <div className="hidden flex-wrap gap-2 lg:flex">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={dirty}
+                        title={dirty ? t("saveFirst") : undefined}
+                        onClick={() => setEditing(true)}
+                      >
+                        <PencilIcon data-icon="inline-start" />
+                        {selected.isMain ? t("rename") : t("settings")}
+                      </Button>
+                      <ConfirmDelete
+                        trigger={
+                          <Button type="button" variant="outline">
+                            <Trash2Icon data-icon="inline-start" />
+                            {t("delete")}
+                          </Button>
+                        }
+                        title={t("deleteTitle", { plan: selectedName })}
+                        description={t("deleteText")}
+                        action={async () => {
+                          await deletePlanAction(selected.id);
+                          setDirty(false);
+                          setLive(null);
+                          setSelectedId(plans.find((p) => p.id !== selected.id)?.id ?? null);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               {!hall ? null : page.canEdit ? (
@@ -352,6 +358,29 @@ export function SessionPlans({
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** "Skriv ut …": opens the print view for this plan or for all of the session's plans. */
+function PrintMenu({ sessionId, planId, disabled }: { sessionId: string; planId: string; disabled: boolean }) {
+  const t = useTranslations("PlanPrint");
+  const tp = useTranslations("Plans");
+  const router = useRouter();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button type="button" variant="outline" disabled={disabled} title={disabled ? tp("saveFirst") : undefined}>
+            <PrinterIcon data-icon="inline-start" />
+            {t("printMenu")}
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-auto">
+        <DropdownMenuItem onClick={() => router.push(printHref(sessionId, { planId }))}>{t("onlyThis")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push(printHref(sessionId, "all"))}>{t("all")}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

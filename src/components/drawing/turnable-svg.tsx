@@ -1,6 +1,7 @@
 import type { ReactNode, SVGProps } from "react";
 
-import { viewArea, viewTransform, uprightStyle } from "@/lib/drawing/view";
+import { drawingBounds, readMargin, viewBoxOf, type DrawingExtent } from "@/lib/drawing/bounds";
+import { rectToView, viewTransform, uprightStyle } from "@/lib/drawing/view";
 import { cn } from "@/lib/utils";
 
 /*
@@ -11,31 +12,38 @@ import { cn } from "@/lib/utils";
  * screen and drawn as it is on a phone held upright.
  */
 export function TurnableSvg({
-  area,
+  extent,
   margin,
   label,
+  turned,
   className,
   children,
   ...rest
 }: {
-  /** The drawing's size in metres; `children` draw from (0, 0) to it. */
-  area: { width: number; height: number };
-  /** Space around the drawing, in metres. */
-  margin: number;
+  /**
+   * The drawing's area in metres (`children` draw from (0, 0) to it) and
+   * what reaches past it, labels included: all of it is shown.
+   */
+  extent: DrawingExtent;
+  /** Space around everything shown, in metres; 1 % of the area's long side when left out. */
+  margin?: number;
   /** What the drawing shows, for assistive technology. */
   label: string;
+  /** Draws only this orientation instead of following the screen's. */
+  turned?: boolean;
   className?: string;
   children: ReactNode;
 } & Omit<SVGProps<SVGSVGElement>, "children" | "viewBox">) {
+  const area = extent.area;
   const svg = (turned: boolean, shownClass?: string) => {
-    const shown = viewArea(area, turned);
+    const shown = rectToView(drawingBounds(extent, turned, margin ?? readMargin(area)), area, turned);
     return (
       <svg
-        {...rest}
         role="img"
+        {...rest}
         aria-label={label}
         data-turned={turned || undefined}
-        viewBox={`${-margin} ${-margin} ${shown.width + 2 * margin} ${shown.height + 2 * margin}`}
+        viewBox={viewBoxOf(shown)}
         className={cn("block h-auto w-full", className, shownClass)}
       >
         <g transform={viewTransform(area, turned)} style={uprightStyle(turned)}>
@@ -44,6 +52,9 @@ export function TurnableSvg({
       </svg>
     );
   };
+  if (turned !== undefined) {
+    return svg(turned && area.width !== area.height);
+  }
   if (area.width === area.height) {
     return svg(false);
   }

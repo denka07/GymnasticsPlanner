@@ -1,4 +1,5 @@
 import { doorSwing, hatchLines, rowLines, stripeLines, type Segment } from "@/lib/drawing/feature-look";
+import { drawingBounds, readMargin, viewBoxOf, type DrawingExtent } from "@/lib/drawing/bounds";
 import { cmToUnits } from "@/lib/drawing/geometry";
 import { UPRIGHT_CLASS } from "@/lib/drawing/view";
 import { isShapeKind, KIND_DEFAULTS, type FeatureKind } from "@/lib/halls";
@@ -160,6 +161,31 @@ export function labelSize(hall: { widthCm: number; lengthCm: number }): number {
   return Math.min(Math.max(shorter / 30, 0.3), 1.2);
 }
 
+/**
+ * What a hall drawing shows: the hall, its features and, when drawn, their
+ * labels, so a feature or label at the edge is not cut off.
+ */
+export function hallExtent(
+  hall: { widthCm: number; lengthCm: number; features: readonly PlacedFeature[] },
+  labels = true,
+): DrawingExtent {
+  const size = labelSize(hall);
+  return {
+    area: { width: cmToUnits(hall.widthCm), height: cmToUnits(hall.lengthCm) },
+    items: hall.features.map((f) => ({
+      id: f.id,
+      x: cmToUnits(f.xCm),
+      y: cmToUnits(f.yCm),
+      rotation: f.rotation,
+      width: cmToUnits(f.widthCm),
+      height: cmToUnits(f.lengthCm),
+    })),
+    labels: labels
+      ? hall.features.flatMap((f) => (f.label ? [{ x: cmToUnits(f.xCm), y: cmToUnits(f.yCm), text: f.label, size }] : []))
+      : [],
+  };
+}
+
 /** What is needed to draw a hall's floor. */
 export type DrawableFloor = {
   widthCm: number;
@@ -244,12 +270,10 @@ export function HallDrawing({
   turnable?: boolean;
   className?: string;
 }) {
-  const width = cmToUnits(hall.widthCm);
-  const height = cmToUnits(hall.lengthCm);
-  const margin = Math.max(width, height) * 0.01;
+  const extent = hallExtent(hall, labels);
   if (turnable) {
     return (
-      <TurnableSvg area={{ width, height }} margin={margin} label={label} className={className}>
+      <TurnableSvg extent={extent} label={label} className={className}>
         <HallFloor floor={hall} />
         <HallFeatures features={hall.features} labels={labels} hall={hall} />
       </TurnableSvg>
@@ -259,7 +283,7 @@ export function HallDrawing({
     <svg
       role="img"
       aria-label={label}
-      viewBox={`${-margin} ${-margin} ${width + 2 * margin} ${height + 2 * margin}`}
+      viewBox={viewBoxOf(drawingBounds(extent, false, readMargin(extent.area)))}
       className={cn("block h-auto w-full", className)}
     >
       <HallFloor floor={hall} />
