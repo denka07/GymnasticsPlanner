@@ -205,6 +205,32 @@ export async function seedStation(
   return id;
 }
 
+/** A hall without features; administrators create halls, so no owner. */
+export async function seedHall(name: string, widthCm = 2000, lengthCm = 3000): Promise<string> {
+  if (!name.startsWith("E2E ")) {
+    throw new Error("Seeded names must start with the E2E prefix.");
+  }
+  const [row] = await db().insert(schema.halls).values({ name, widthCm, lengthCm }).returning({ id: schema.halls.id });
+  return row.id;
+}
+
+/** Catalogue equipment with one configuration (the default); returns both ids. */
+export async function seedEquipment(
+  name: string,
+  configuration: { name: string; widthCm: number; lengthCm: number; color?: string },
+): Promise<{ equipmentId: string; configurationId: string }> {
+  if (!name.startsWith("E2E ")) {
+    throw new Error("Seeded names must start with the E2E prefix.");
+  }
+  const d = db();
+  const [entry] = await d.insert(schema.equipment).values({ name }).returning({ id: schema.equipment.id });
+  const [config] = await d
+    .insert(schema.equipmentConfigurations)
+    .values({ equipmentId: entry.id, ...configuration, sortOrder: 0, isDefault: true })
+    .returning({ id: schema.equipmentConfigurations.id });
+  return { equipmentId: entry.id, configurationId: config.id };
+}
+
 /** `date` (YYYY-MM-DD) plus `n` days. */
 function plusDays(date: string, n: number): string {
   const d = new Date(`${date}T00:00:00Z`);

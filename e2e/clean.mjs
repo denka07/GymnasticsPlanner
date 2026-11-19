@@ -1,5 +1,5 @@
 // `npm run test:e2e:clean`: removes all data the browser tests left behind,
-// that is every group, station, exercise and equipment named "E2E …", and
+// that is every group, station, exercise, hall and equipment named "E2E …", and
 // the files under "e2e/" in the Blob store older than a day (newer ones may
 // belong to a run in progress, for example on CI).
 import { cleanE2eBlobs, cleanE2eData } from "./support/clean.mjs";
