@@ -432,7 +432,11 @@ A drawing of a session in its hall.
 - Applies to: the whole session (the main plan) or chosen session parts
 - Name (optional; example: Banan)
 
-A session has at most one main plan and any number of plans for chosen parts. A part belongs to at most one such plan; a part without one shows the main plan. A new plan can start as a copy of another plan of the same session, since configurations for different parts often differ only a little. The plan uses the session's hall; if the hall is changed, items keep their positions.
+A session has at most one main plan and any number of plans for chosen parts. A part belongs to at most one such plan; a part without one shows the main plan. A new plan can start empty or as a copy of another plan of the same session, since configurations for different parts often differ only a little. A copy keeps its items; links to activities outside the new plan's parts are dropped.
+
+A plan needs a hall: it is drawn on the session's hall, with the floor and the fixed features under the items, which cannot be moved there. A session without a hall gets one chosen before its first plan is drawn. If the session's hall is changed, items keep their positions (whole centimetres from the hall's top-left corner), even if they then lie outside a smaller hall.
+
+When a part with its own plan is deleted, the plan is kept. A part plan left without parts is marked "inga passdelar"; it can be attached to other parts or deleted. Attaching a part to a plan takes it from the plan it had, and links to activities that no longer belong to a plan's parts are removed.
 
 ### Plan item
 
@@ -441,7 +445,7 @@ One thing placed in a session plan.
 - Session plan
 - Kind, with what that kind needs:
   - **Equipment:** the equipment and its configuration.
-  - **Station:** the station, and optionally the activity it is used for (an activity in a part the plan applies to), shown as a number that leads to the activity's text. A placed station follows the station's layout in the library, so a change there shows in every plan. "Anpassa" turns it into an adapted copy: its equipment arrangement is copied into the plan item and can then be changed for this plan only.
+  - **Station:** the station, and optionally the activity it is used for (an activity in a part the plan applies to), shown as a number that leads to the activity's text. A placed station follows the station's layout in the library, so a change there shows in every plan. "Anpassa" turns it into an adapted copy: its layout items (equipment, arrows and texts) and its name are copied into the plan item and can then be changed for this plan only.
   - **Text:** the text (example: Nedförsbacke skapas med plint 4 + 3 + 2 del).
   - **Area:** width and length, drawn as a dashed outline (example: Lämna tomt här för AG + Parkour).
   - **Person:** a role, Coach or Passare.
@@ -453,7 +457,12 @@ Rules:
 
 - Who may see and change a session plan follows the session: view access to see it, edit access to change it.
 - Everyone who can see a session plan can see the stations and equipment drawn in it, as with the stations its activities link to.
-- Copying a session's content also copies its plans. A copied plan applies to the parts at the same positions in the copied outline.
+- Station numbers are never typed. They follow the activities' order in the session: parts in order, activities top to bottom, counting only the activities that are linked to a station placed in that plan. The text plan and the drawing therefore match. An activity is linked to at most one placed station per plan.
+- When a station is placed and exactly one activity in the plan's parts links to that station, the placed station is linked to that activity. Otherwise the user picks the activity, or leaves it unlinked.
+- The station picker lists the stations the plan's parts use first, then the rest of the library the user can see, with search.
+- A person is drawn as a circle with the role's initial; an area as a dashed outline with its label inside.
+- A plan is saved as a whole, in one transaction, and checked on the server: every referenced station, equipment, configuration and activity must exist, new stations must be visible to the user (stations already in the session's plans or activities stay allowed), each configuration must belong to its equipment, and linked activities must belong to the plan's parts.
+- Copying a session's content also copies its plans, replacing the target's plans like its outline. A copied plan applies to the parts at the same positions in the copied outline, and its links follow the copied activities.
 - Equipment, or an equipment configuration, drawn in a plan or a station layout cannot be deleted from the catalogue, as with equipment a station needs. A station that is deleted while placed in plans leaves adapted copies in those plans.
 
 ## Decisions
