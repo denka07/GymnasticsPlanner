@@ -237,6 +237,9 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
         label={t("editorLabel", { name })}
         viewKey={`hall:${hall.id}`}
         itemLabel={itemLabel}
+        extent={(shown) => ({
+          labels: shown.flatMap((item) => (item.label ? [{ x: item.x, y: item.y, text: item.label, size }] : [])),
+        })}
         background={
           <HallFloor
             floor={{
