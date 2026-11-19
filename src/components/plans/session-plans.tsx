@@ -442,7 +442,9 @@ function PlanFormDialog({
   const id = useId();
   const errorMessage = useErrorMessage();
   const hasMain = plans.some((p) => p.isMain);
-  const [main, setMain] = useState(editing ? editing.isMain : !hasMain);
+  const [wantsMain, setMain] = useState(!hasMain);
+  // A main plan made meanwhile (or by this dialog) leaves only part plans to add.
+  const main = editing ? editing.isMain : wantsMain && !hasMain;
   const [chosen, setChosen] = useState<string[]>(editing?.partIds ?? []);
   const [name, setName] = useState(editing?.name ?? "");
   const [copyFrom, setCopyFrom] = useState("");
@@ -453,7 +455,7 @@ function PlanFormDialog({
   const owner = (partId: string) => plans.find((p) => !p.isMain && p.id !== editing?.id && p.partIds.includes(partId));
 
   function reset() {
-    setMain(editing ? editing.isMain : !hasMain);
+    setMain(true);
     setChosen(editing?.partIds ?? []);
     setName(editing?.name ?? "");
     setCopyFrom("");
@@ -544,13 +546,14 @@ function PlanFormDialog({
               {parts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("noPartsInSession")}</p>
               ) : (
-                <ul className="grid max-h-64 gap-1.5 overflow-y-auto">
+                <ul className="grid gap-1.5">
                   {parts.map((part) => {
                     const other = owner(part.id);
                     return (
                       <li key={part.id}>
                         <Label className="flex items-start gap-2 font-normal">
                           <Checkbox
+                            aria-label={part.title}
                             className="mt-0.5"
                             checked={chosen.includes(part.id)}
                             onCheckedChange={(checked) =>
