@@ -146,11 +146,14 @@ Done when the example station "Bakvänd trampett till tjockmatta med kil ovanpå
 
 ### 10. Session plans
 
-- On the week page: a main plan per session and plans for chosen parts, each starting empty or as a copy of another plan of the session.
-- Placing stations (the session's own first), equipment, text, areas, people and arrows in the session's hall.
-- Linking a placed station to the activity it is used for, shown as a number.
-- Adapting a placed station into a copy for that plan.
-- Plans copied along with a session's content.
+- On the week page, each session has a "Ritningar" button that opens a page for that session's plans (`/sessions/[sessionId]/plans`). There the user adds the main plan and plans for chosen parts, each starting empty or as a copy of another plan of the session, and edits them with the shared editor. Desktop-first; read-only for view access and on phones (step 11 adds the phone reading view).
+- A plan needs a hall: without one, the page asks for the session's hall first (the same setting as on the week page). The hall's floor and fixed features are drawn under the plan and cannot be moved.
+- Placing stations (those the plan's parts use first, then the rest of the visible library, with search), equipment from the catalogue, text, areas, people (Coach, Passare) and arrows.
+- Linking a placed station to the activity it is used for: automatic when exactly one activity in the plan's parts links to the station, otherwise picked. Numbers are never typed; they follow the activities' order in the session, counting only activities linked to a placed station in the plan, and are shown on the station and next to the activity in the plan's text.
+- Adapting a placed station into a copy for that plan ("Anpassa").
+- A part plan whose parts are deleted is kept, marked "inga passdelar", and can be attached to other parts or deleted.
+- Plans copied along with a session's content, part plans applying to the parts at the same positions.
+- Equipment and configurations drawn in a plan cannot be deleted from the catalogue; a station deleted while placed leaves adapted copies.
 
 Done when a week 36 session for Trupp 5 has a main plan and a separate plan for its Trampett part, with numbered stations linked to activities.
 
