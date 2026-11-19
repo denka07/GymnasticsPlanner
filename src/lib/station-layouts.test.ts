@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   canPlace,
   configurationsMatch,
+  layoutItemSize,
+  layoutView,
   MAX_LAYOUT_ITEMS,
   placementsLeft,
   pruneLayout,
@@ -135,5 +137,45 @@ describe("stationLayoutInput", () => {
       lengthCm: 100,
     }));
     expect(stationLayoutInput.safeParse(many).success).toBe(false);
+  });
+});
+
+describe("layoutItemSize and layoutView", () => {
+  const placement = { id: uuid(1), xCm: 0, yCm: 0, rotation: 0, label: null };
+  const matta = {
+    ...placement,
+    kind: "equipment" as const,
+    equipmentId: MATTA,
+    configurationId: CONF,
+    equipmentName: "Tjockmatta",
+    configurationName: "Liggande",
+    widthCm: 200,
+    lengthCm: 300,
+    color: null,
+    imageUrl: null,
+  };
+
+  it("takes equipment's size from its configuration and an arrow's from its length", () => {
+    expect(layoutItemSize(matta)).toEqual({ width: 2, height: 3 });
+    expect(layoutItemSize({ ...placement, kind: "arrow", lengthCm: 500 }).width).toBe(5);
+  });
+
+  it("is null for an empty layout", () => {
+    expect(layoutView([])).toBeNull();
+  });
+
+  it("shows every item with a margin, turned items by their turned box", () => {
+    const view = layoutView([matta, { ...matta, id: uuid(2), xCm: 400, rotation: 90 }], 0.5)!;
+    // The first spans x -1..1, the turned one 4-1.5..4+1.5 = 2.5..5.5.
+    expect(view.x).toBeCloseTo(-1.5);
+    expect(view.width).toBeCloseTo(7.5);
+    expect(view.y).toBeCloseTo(-2);
+    expect(view.height).toBeCloseTo(4);
+  });
+
+  it("is at least the minimum across, centred on the items", () => {
+    const view = layoutView([{ ...placement, kind: "text", text: "A", xCm: 100 }], 0, 2)!;
+    expect(view.width).toBe(2);
+    expect(view.x + view.width / 2).toBeCloseTo(1);
   });
 });

@@ -11,6 +11,7 @@ import {
   exercises,
   stationEquipment,
   stationExercises,
+  stationLayoutItems,
   stations,
   users,
   type LibraryScope,
@@ -26,13 +27,23 @@ import {
   canEditLink,
   canSeeCreator,
   isVisibleInLibrary,
+  PG_UNIQUE_VIOLATION,
+  pgErrorCode,
   searchPattern,
   type ScopeFilter,
 } from "@/lib/library";
+import { configurationsMatch, pruneLayout } from "@/lib/station-layouts";
 
 import { allEquipmentExists } from "./equipment";
 import { UserError } from "./errors";
 import { stationLinkStatements } from "./library-links";
+import {
+  configurationOwners,
+  layoutRows,
+  loadLayoutValues,
+  loadStationLayouts,
+  type DrawnLayoutItem,
+} from "./station-layouts";
 import { createLibraryItemInput, idList, searchInput, stationInput } from "./schemas";
 import { getReviewState, myNewestStatuses, type ReviewState } from "./submissions";
 
@@ -61,6 +72,8 @@ export type StationListItem = {
   exerciseCount: number;
   /** The status of the user's newest submission of the station, if any. */
   status: SubmissionStatus | null;
+  /** The layout in layer order; empty when the station has none. */
+  layout: DrawnLayoutItem[];
 };
 
 /**
@@ -83,7 +96,7 @@ export async function listStations(
     return [];
   }
   const ids = rows.map((r) => r.id);
-  const [lines, links, statuses] = await Promise.all([
+  const [lines, links, statuses, layouts] = await Promise.all([
     db
       .select({
         stationId: stationEquipment.stationId,
@@ -99,6 +112,7 @@ export async function listStations(
       .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
       .where(and(inArray(stationExercises.stationId, ids), visibleTo(exercises, user))),
     myNewestStatuses("station", user.id, ids),
+    loadStationLayouts(ids),
   ]);
   return rows
     .map((row) => ({
@@ -109,6 +123,7 @@ export async function listStations(
         .map(({ name, quantity }) => ({ name, quantity }))
         .sort(byName),
       exerciseCount: links.filter((l) => l.stationId === row.id).length,
+      layout: layouts.get(row.id) ?? [],
     }))
     .sort(byName);
 }
@@ -133,6 +148,8 @@ export type StationDetails = {
   /** Who created it; only administrators get it, and only for a global station. */
   creatorName: string | null;
   review: ReviewState;
+  /** The layout in layer order; empty when the station has none. */
+  layout: DrawnLayoutItem[];
 };
 
 /** One station with its equipment and supported exercises. notFound() without access. */
@@ -141,7 +158,7 @@ export async function getStation(stationId: string): Promise<StationDetails> {
   const db = getDb();
   const ownerOfPersonal =
     station.scope === "personal" && station.ownerId === user.id ? station.ownerId : null;
-  const [lines, linked, [uses], creatorName, review] = await Promise.all([
+  const [lines, linked, [uses], creatorName, review, layouts] = await Promise.all([
     db
       .select({
         equipmentId: stationEquipment.equipmentId,
@@ -176,6 +193,7 @@ export async function getStation(stationId: string): Promise<StationDetails> {
           .then((rows) => rows[0]?.name ?? null)
       : Promise.resolve(null),
     getReviewState("station", station, user),
+    loadStationLayouts([station.id]),
   ]);
   return {
     station: {
@@ -204,6 +222,7 @@ export async function getStation(stationId: string): Promise<StationDetails> {
     activityCount: access === "edit" ? (uses?.n ?? 0) : null,
     creatorName,
     review,
+    layout: layouts.get(station.id) ?? [],
   };
 }
 
@@ -243,24 +262,40 @@ export async function createStation(input: {
 }
 
 /**
- * Saves a station's fields, equipment lines and supported exercises in one
- * transaction. Only links the user may change are added or removed
+ * Saves a station's fields, equipment lines, supported exercises and layout
+ * in one transaction. Only links the user may change are added or removed
  * (canEditLink); links to exercises they cannot see are left alone.
+ *
+ * The layout is saved as a whole (the stored one when the input has none).
+ * Every equipment item must name a configuration of its equipment. Items that
+ * do not fit the new equipment lines (equipment no longer needed, or beyond a
+ * line's quantity, topmost first) are left out; returns how many.
  */
-export async function updateStation(stationId: string, input: unknown): Promise<void> {
+export async function updateStation(stationId: string, input: unknown): Promise<{ removed: number }> {
   const { user, station } = await requireStationAccess(stationId, "edit");
   const values = stationInput.parse(input);
   const equipmentIds = values.equipment.map((l) => l.equipmentId);
-  const [equipmentOk, links] = await Promise.all([
+  const [equipmentOk, links, layout] = await Promise.all([
     allEquipmentExists(equipmentIds),
     stationLinkStatements(station, values.exerciseIds, user),
+    values.layout ?? loadLayoutValues(station.id),
   ]);
   if (!equipmentOk) {
     throw new UserError("invalid");
   }
+  const { kept, removed } = pruneLayout(layout, values.equipment);
+  const owners = await configurationOwners(
+    kept.flatMap((i) => (i.kind === "equipment" ? [i.configurationId] : [])),
+  );
+  if (!configurationsMatch(kept, owners)) {
+    throw new UserError("invalid");
+  }
 
   const db = getDb();
+  // Removing the lines also removes their layout items (the foreign key
+  // cascades); the layout is cleared first anyway and written after the lines.
   const rest: BatchItem<"pg">[] = [
+    db.delete(stationLayoutItems).where(eq(stationLayoutItems.stationId, station.id)),
     db.delete(stationEquipment).where(eq(stationEquipment.stationId, station.id)),
     ...links,
   ];
@@ -275,13 +310,25 @@ export async function updateStation(stationId: string, input: unknown): Promise<
       ),
     );
   }
-  await db.batch([
-    db
-      .update(stations)
-      .set({ name: values.name, description: values.description })
-      .where(eq(stations.id, station.id)),
-    ...rest,
-  ]);
+  if (kept.length > 0) {
+    rest.push(db.insert(stationLayoutItems).values(layoutRows(station.id, kept)));
+  }
+  try {
+    await db.batch([
+      db
+        .update(stations)
+        .set({ name: values.name, description: values.description })
+        .where(eq(stations.id, station.id)),
+      ...rest,
+    ]);
+  } catch (error) {
+    // A layout item id that belongs to another station.
+    if (pgErrorCode(error) === PG_UNIQUE_VIOLATION) {
+      throw new UserError("invalid");
+    }
+    throw error;
+  }
+  return { removed: removed.length };
 }
 
 /**
@@ -339,7 +386,7 @@ export async function copyStation(stationId: string): Promise<{ id: string }> {
     throw new UserError("invalid");
   }
   const db = getDb();
-  const [lines, linked] = await Promise.all([
+  const [lines, linked, layout] = await Promise.all([
     db
       .select({ equipmentId: stationEquipment.equipmentId, quantity: stationEquipment.quantity })
       .from(stationEquipment)
@@ -349,11 +396,20 @@ export async function copyStation(stationId: string): Promise<{ id: string }> {
       .from(stationExercises)
       .innerJoin(exercises, eq(exercises.id, stationExercises.exerciseId))
       .where(and(eq(stationExercises.stationId, station.id), visibleTo(exercises, user))),
+    loadLayoutValues(station.id),
   ]);
   const id = crypto.randomUUID();
   const rest: BatchItem<"pg">[] = [];
   if (lines.length > 0) {
     rest.push(db.insert(stationEquipment).values(lines.map((l) => ({ ...l, stationId: id }))));
+  }
+  // The layout comes along, with new ids, after the lines it refers to.
+  const copiedLayout = pruneLayout(layout, lines).kept.map((item) => ({
+    ...item,
+    id: crypto.randomUUID(),
+  }));
+  if (copiedLayout.length > 0) {
+    rest.push(db.insert(stationLayoutItems).values(layoutRows(id, copiedLayout)));
   }
   if (linked.length > 0) {
     rest.push(

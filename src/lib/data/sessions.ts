@@ -52,6 +52,7 @@ import {
   type AttachmentItem,
 } from "./attachment-files";
 import { hallsExist, listHallOptions, type HallOption } from "./halls";
+import { loadStationLayouts, type DrawnLayoutItem } from "./station-layouts";
 import {
   outlineInput,
   sessionDetailsInput,
@@ -82,6 +83,8 @@ export type ActivityLibrary = {
    * included.
    */
   editableStationIds: string[];
+  /** The layouts of the stations that have one, by station id, to draw them small. */
+  layouts: Record<string, DrawnLayoutItem[]>;
 };
 
 /** A station or exercise the picker offers, marked when it is global. */
@@ -406,6 +409,12 @@ async function loadActivityLibrary(): Promise<ActivityLibrary> {
   for (const r of supportRows) {
     (supports[r.stationId] ??= []).push(r.exerciseId);
   }
+  const layouts: Record<string, DrawnLayoutItem[]> = {};
+  for (const [stationId, items] of await loadStationLayouts(stationRows.map((s) => s.id))) {
+    if (items.length > 0) {
+      layouts[stationId] = items;
+    }
+  }
   return {
     stations: stationRows
       .map(({ id, name, scope }) => ({ id, name, global: scope === "global" }))
@@ -417,6 +426,7 @@ async function loadActivityLibrary(): Promise<ActivityLibrary> {
     editableStationIds: stationRows
       .filter((s) => canEditLink(s, { scope: "personal", ownerId: user.id }, user))
       .map((s) => s.id),
+    layouts,
   };
 }
 

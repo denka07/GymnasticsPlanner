@@ -6,6 +6,8 @@
  */
 import { z } from "zod";
 
+import { stationLayoutInput } from "../station-layouts";
+
 import {
   isValidIsoWeek,
   MAX_SEASON_WEEKS,
@@ -479,6 +481,11 @@ export const stationInput = z.object(
       ),
     /** Every supported exercise, among those the user may see. */
     exerciseIds: idList,
+    /**
+     * The whole layout in layer order. Items that no longer fit the equipment
+     * are removed on save; without it the stored layout is kept and pruned.
+     */
+    layout: stationLayoutInput.optional(),
   },
   { error: "invalid" },
 );
