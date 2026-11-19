@@ -6,6 +6,7 @@ import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { createExerciseInlineAction, createStationInlineAction } from "@/app/library-actions";
+import { StationThumbnail } from "@/components/drawing/station-layout-drawing";
 import { useErrorMessage } from "@/components/plan/use-error-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export function ActivityLinkDialog({
   onChange: (links: ActivityLinks) => void;
 }) {
   const t = useTranslations("Session");
+  const tLayout = useTranslations("StationLayout");
   const errorMessage = useErrorMessage();
   const library = useActivityLibrary();
   const stationInputId = useId();
@@ -68,7 +70,11 @@ export function ActivityLinkDialog({
   const exerciseTrimmed = exerciseSearch.trim();
   const stationMatches = station ? [] : pickerMatches(shownStations, [], stationSearch);
   const canCreateStation =
-    stationTrimmed !== "" && !hasName(library.stations.map((s) => s.name), stationTrimmed);
+    stationTrimmed !== "" &&
+    !hasName(
+      library.stations.map((s) => s.name),
+      stationTrimmed,
+    );
   const supported = new Set(station ? (library.supports[station.id] ?? []) : []);
   const exerciseMatches = exerciseOptions(
     shownExercises,
@@ -78,7 +84,12 @@ export function ActivityLinkDialog({
   );
   const full = exercises.length >= MAX_EXERCISES_PER_ACTIVITY;
   const canCreateExercise =
-    !full && exerciseTrimmed !== "" && !hasName(library.exercises.map((e) => e.name), exerciseTrimmed);
+    !full &&
+    exerciseTrimmed !== "" &&
+    !hasName(
+      library.exercises.map((e) => e.name),
+      exerciseTrimmed,
+    );
   const stationEditable = station !== null && library.editableStationIds.includes(station.id);
 
   function chooseStation(item: LinkedItem) {
@@ -143,12 +154,18 @@ export function ActivityLinkDialog({
           <DialogDescription>{t("linkIntro")}</DialogDescription>
         </DialogHeader>
 
-        <div role="group" aria-label={t("filterLabel")} className="inline-flex w-fit rounded-lg border p-0.5">
-          {([
-            ["all", t("filterAll")],
-            ["mine", t("filterMine")],
-            ["global", t("filterGlobal")],
-          ] as const).map(([value, label]) => (
+        <div
+          role="group"
+          aria-label={t("filterLabel")}
+          className="inline-flex w-fit rounded-lg border p-0.5"
+        >
+          {(
+            [
+              ["all", t("filterAll")],
+              ["mine", t("filterMine")],
+              ["global", t("filterGlobal")],
+            ] as const
+          ).map(([value, label]) => (
             <button
               key={value}
               type="button"
@@ -171,6 +188,11 @@ export function ActivityLinkDialog({
             <>
               <h3 className="font-semibold">{t("stationHeading")}</h3>
               <div className="flex items-center gap-2 rounded-md border px-3 py-1">
+                <StationThumbnail
+                  items={library.layouts[station.id] ?? []}
+                  label={tLayout("thumbnailLabel", { name: station.name })}
+                  className="h-12 w-16"
+                />
                 <span className="min-w-0 flex-1 break-words">{station.name}</span>
                 <Button
                   type="button"
@@ -200,7 +222,8 @@ export function ActivityLinkDialog({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (stationMatches[0] && stationTrimmed !== "") chooseStation(stationMatches[0]);
+                    if (stationMatches[0] && stationTrimmed !== "")
+                      chooseStation(stationMatches[0]);
                     else if (canCreateStation) createStation();
                   }
                 }}
@@ -215,6 +238,11 @@ export function ActivityLinkDialog({
                       aria-label={t("chooseStation", { name: item.name })}
                       onClick={() => chooseStation(item)}
                     >
+                      <StationThumbnail
+                        items={library.layouts[item.id] ?? []}
+                        label={tLayout("thumbnailLabel", { name: item.name })}
+                        className="h-10 w-14"
+                      />
                       {item.name}
                       {item.global && (
                         <Badge variant="secondary" className="ml-1">
@@ -273,7 +301,9 @@ export function ActivityLinkDialog({
                     size="icon"
                     className="size-11"
                     aria-label={t("removeExercise", { name: e.name })}
-                    onClick={() => onChange({ station, exercises: exercises.filter((x) => x.id !== e.id) })}
+                    onClick={() =>
+                      onChange({ station, exercises: exercises.filter((x) => x.id !== e.id) })
+                    }
                   >
                     <XIcon />
                   </Button>
@@ -297,7 +327,8 @@ export function ActivityLinkDialog({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (exerciseMatches[0] && exerciseTrimmed !== "") addExercise(exerciseMatches[0].item);
+                    if (exerciseMatches[0] && exerciseTrimmed !== "")
+                      addExercise(exerciseMatches[0].item);
                     else if (canCreateExercise) createExercise();
                   }
                 }}

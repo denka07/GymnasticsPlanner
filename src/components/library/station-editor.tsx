@@ -3,7 +3,7 @@
 import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -11,6 +11,8 @@ import {
   deleteStationAction,
   updateStationAction,
 } from "@/app/library-actions";
+import { StationLayoutDrawing } from "@/components/drawing/station-layout-drawing";
+import type { CatalogueEntry } from "@/components/halls/hall-editor";
 import { ConfirmDelete } from "@/components/plan/confirm-delete";
 import { useErrorMessage } from "@/components/plan/use-error-message";
 import { Button } from "@/components/ui/button";
@@ -20,15 +22,28 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import { MAX_EQUIPMENT_QUANTITY } from "@/lib/data/schemas";
 import { byName } from "@/lib/library";
+import { pruneLayout, type DrawnLayoutItem } from "@/lib/station-layouts";
 
 import { LinkPicker } from "./link-picker";
+import {
+  StationLayoutEditor,
+  toDrawnItem,
+  toEditorItem,
+  toLayoutInput,
+  type LayoutEditorItem,
+} from "./station-layout-editor";
 import { SaveBar } from "./save-bar";
 import { useLibraryForm } from "./use-library-form";
 
 type Item = { id: string; name: string };
 type Line = { equipmentId: string; name: string; quantity: string };
 
-/** Edits a station: name, description, needed equipment and supported exercises. */
+const READING = "mx-auto w-full max-w-3xl";
+
+/**
+ * Edits a station: name, description, needed equipment, supported exercises
+ * and its layout, all saved together.
+ */
 export function StationEditor({
   station,
   initialEquipment,
@@ -37,6 +52,8 @@ export function StationEditor({
   exercises: initialAllExercises,
   activityCount,
   isGlobal = false,
+  initialLayout,
+  configurations,
 }: {
   station: { id: string; name: string; description: string | null };
   initialEquipment: { equipmentId: string; name: string; quantity: number }[];
@@ -49,7 +66,12 @@ export function StationEditor({
   activityCount: number;
   /** A global item: its usage counts activities of all users. */
   isGlobal?: boolean;
+  /** The stored layout in layer order. */
+  initialLayout: DrawnLayoutItem[];
+  /** Equipment that has configurations, with them: what can be drawn. */
+  configurations: CatalogueEntry[];
 }) {
+  const tLayout = useTranslations("StationLayout");
   const t = useTranslations("Stations");
   const tl = useTranslations("Library");
   const errorMessage = useErrorMessage();
@@ -65,15 +87,47 @@ export function StationEditor({
   const [chosen, setChosen] = useState<Item[]>(initialExercises);
   const [allExercises, setAllExercises] = useState<Item[]>(initialAllExercises);
   const [toAdd, setToAdd] = useState("");
+  const [layout, setLayout] = useState<LayoutEditorItem[]>(() => initialLayout.map(toEditorItem));
+  // A new key starts the drawing editor afresh, after a save removed items.
+  const [editorKey, setEditorKey] = useState(0);
+
+  const layoutLines = useMemo(
+    () =>
+      lines.map((l) => ({
+        equipmentId: l.equipmentId,
+        name: l.name,
+        quantity: Math.max(0, Math.trunc(Number(l.quantity)) || 0),
+      })),
+    [lines],
+  );
+  const pruned = useMemo(() => pruneLayout(layout, layoutLines), [layout, layoutLines]);
+  const removedIds = useMemo(() => new Set(pruned.removed.map((i) => i.id)), [pruned]);
 
   const form = useLibraryForm(
     {
       name,
       description,
-      equipment: lines.map((l) => ({ equipmentId: l.equipmentId, quantity: Number(l.quantity) })),
+      equipment: lines.map((l) => ({
+        equipmentId: l.equipmentId,
+        quantity: Number(l.quantity),
+      })),
       exerciseIds: chosen.map((e) => e.id),
+      // What the layout will be once saved; the save sends it all, and the
+      // server removes what no longer fits and says how much.
+      layout: pruned.kept.map(toLayoutInput),
     },
-    (payload) => updateStationAction(station.id, payload),
+    async (payload) => {
+      const result = await updateStationAction(station.id, {
+        ...payload,
+        layout: layout.map(toLayoutInput),
+      });
+      if (result.ok && result.removed > 0) {
+        setLayout(pruned.kept);
+        setEditorKey((k) => k + 1);
+        toast.info(tLayout("removed", { count: result.removed }));
+      }
+      return result;
+    },
   );
 
   const unused = catalogue.filter((c) => !lines.some((l) => l.equipmentId === c.id));
@@ -100,7 +154,7 @@ export function StationEditor({
 
   return (
     <form onSubmit={form.submit} className="grid gap-8">
-      <section className="grid gap-4">
+      <section className={`grid gap-4 ${READING}`}>
         <div className="grid gap-2">
           <Label htmlFor={nameId}>{tl("nameLabel")}</Label>
           <Input
@@ -124,7 +178,7 @@ export function StationEditor({
         </div>
       </section>
 
-      <section aria-labelledby={`${nameId}-equipment`} className="grid gap-3">
+      <section aria-labelledby={`${nameId}-equipment`} className={`grid gap-3 ${READING}`}>
         <h2 id={`${nameId}-equipment`} className="font-heading text-xl font-semibold">
           {t("equipmentHeading")}
         </h2>
@@ -209,7 +263,50 @@ export function StationEditor({
         )}
       </section>
 
-      <section aria-labelledby={`${nameId}-exercises`} className="grid gap-3">
+      <section aria-labelledby={`${nameId}-layout`} className="grid gap-3">
+        <div className={`grid gap-1 ${READING}`}>
+          <h2 id={`${nameId}-layout`} className="font-heading text-xl font-semibold">
+            {tLayout("heading")}
+          </h2>
+          <p className="text-muted-foreground">{tLayout("intro")}</p>
+          {pruned.removed.length > 0 && (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100"
+            >
+              {tLayout("willRemove", { count: pruned.removed.length })}
+            </p>
+          )}
+        </div>
+        {/* The editor is made for a desktop; on smaller screens the layout is shown read-only. */}
+        <div className="hidden lg:block">
+          <StationLayoutEditor
+            key={editorKey}
+            stationName={name}
+            initialItems={layout}
+            onItemsChange={setLayout}
+            lines={layoutLines}
+            catalogue={configurations}
+            removedIds={removedIds}
+          />
+        </div>
+        <div className={`grid gap-3 lg:hidden ${READING}`}>
+          <p className="rounded-lg border bg-muted/40 px-3 py-2.5">{tLayout("desktopOnly")}</p>
+          {layout.length > 0 ? (
+            <div className="rounded-lg border bg-card p-3">
+              <StationLayoutDrawing
+                items={layout.map((i) => toDrawnItem(i, configurations))}
+                label={tLayout("drawingLabel", { name })}
+                className="h-auto max-h-96 w-full"
+              />
+            </div>
+          ) : (
+            <p className="text-muted-foreground">{tLayout("empty")}</p>
+          )}
+        </div>
+      </section>
+
+      <section aria-labelledby={`${nameId}-exercises`} className={`grid gap-3 ${READING}`}>
         <h2 id={`${nameId}-exercises`} className="font-heading text-xl font-semibold">
           {t("exercisesHeading")}
         </h2>
@@ -248,11 +345,14 @@ export function StationEditor({
           onAdd={(item) => setChosen((prev) => [...prev, item].sort(byName))}
           addLabel={(n) => t("addExercise", { name: n })}
           noMatches={t("noMatches")}
-          create={{ label: (n) => t("createExercise", { name: n }), onCreate: createExercise }}
+          create={{
+            label: (n) => t("createExercise", { name: n }),
+            onCreate: createExercise,
+          }}
         />
       </section>
 
-      <div>
+      <div className={READING}>
         <ConfirmDelete
           trigger={
             <Button type="button" variant="outline" className="h-11 px-4 text-destructive">
