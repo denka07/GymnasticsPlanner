@@ -285,7 +285,7 @@ export function SessionColumn({
             onOpenChange={setCopyOpen}
             targetName={name}
             targetDate={data.date}
-            targetHasContent={hasContent}
+            targetHasContent={hasContent || data.planCount > 0}
             sources={copySources.filter((s) => s.id !== sessionId)}
             copy={async (sourceId) => {
               // Let a save in flight finish first, so it cannot overwrite the copy.
