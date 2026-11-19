@@ -50,6 +50,7 @@ The main flows have Playwright tests in `e2e/`, one spec file per flow:
 | `attachments.spec.ts` | Uploading a photo and a PDF to a session card, a fake photo refused, opening them from the session page and their headers, 404 for someone without access, deleting one and its stored file. Skipped without `BLOB_READ_WRITE_TOKEN` |
 | `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the red full-screen alert (focused) and "Bocka av", closing it with "Stäng" and Escape; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
 | `equipment-configurations.spec.ts` | An administrator adding configurations to equipment (one with a colour, one with a PNG image), both drawn to scale on the equipment's page and the Redskap tab, the image's headers, changing the default, deleting the default and its stored image; Dev Helper seeing the page without edit controls and getting 404 from an administrator's action and the upload token route. The image steps are skipped without `BLOB_READ_WRITE_TOKEN` |
+| `halls.spec.ts` | An administrator creating a hall in metres and drawing wall bars, a door, an MD pit and fixed equipment in the editor (size, label, drag onto the grid, Shift+arrows, rotate and undo, duplicate and delete), saving it, equipment fixed in a hall refused deletion; Dev Helper reading the hall; a training day's default hall and the question about upcoming stored sessions (yes and no); placeholders showing their slot's hall, a stored session copying it, and changing a session's hall on the week page |
 | `library.spec.ts` | Equipment, a station with equipment and exercises; linking a station and exercises from an activity (creating an exercise by name); deleting an exercise an activity uses |
 | `sharing.spec.ts` | The Dela dialog: view and edit access, removing a share, a share waiting for someone who has not signed in |
 | `review.spec.ts` | Submitting a station with some of its exercises, withdrawing, rejecting with a comment, approving; what other users see; "Gör global" and "Kopiera till mina" |
@@ -98,6 +99,12 @@ Equipment images (PNG, JPEG or WebP, at most 5 MB; never SVG) use the same store
 - Opening: `GET /api/equipment-images/<configuration id>?v=<version>` serves the image to any signed-in user with its type, `nosniff` and private caching. `v` is the random part of the file name, so a replaced image gets a new URL: with the current version the answer may be cached for a year, otherwise it must be revalidated.
 - Replacing or removing an image, deleting a configuration and deleting equipment delete the old stored images after the database change, best effort as above.
 
+Hall feature images work the same way (`src/lib/data/halls.ts`), except that a feature gets its image only when the whole hall is saved:
+
+- Paths: `<env>/halls/<hall id>/<random>-<safe file name>`. The token route is `POST /api/hall-images/upload`; the image is checked by its first bytes right after the upload and again when a hall is saved with it.
+- Opening: `GET /api/hall-images/<hall id>/<file name>` serves an image a feature of that hall uses to any signed-in user, and an administrator's upload that is not saved yet. The file name starts with the random part, so it plays the role of equipment images' `v`: a saved image may be cached for a year.
+- Saving a hall deletes the images in its folder that no feature uses any more, except uploads younger than an hour; deleting a hall deletes its folder.
+
 ## Neon branches
 
 Besides `main` (production) and `dev`, the Vercel integration creates a branch `preview/<git-branch>` for each pull request's preview deployment, and `cleanup-preview-branch.yml` deletes it when the pull request is merged or closed. The browser test workflow's `ci/e2e-…` branches live only while a run lasts. The plan allows 10 branches; if a preview or test run fails with "Resource provisioning failed", look for left-over branches.
@@ -114,7 +121,7 @@ Preview deployments work the same way on their own database: the Vercel integrat
 
 | Path | Contents |
 |---|---|
-| `src/app` | Pages and layouts; the library is under `/library` (`stations`, `exercises`, `equipment`, and `review` for administrators) |
+| `src/app` | Pages and layouts; the library is under `/library` (`stations`, `exercises`, `equipment`, `halls`, and `review` for administrators) |
 | `src/components/ui` | shadcn/ui components |
 | `src/db` | Database schema and client |
 | `src/lib/auth` | Google sign-in through Neon Auth and the current user |
@@ -122,7 +129,8 @@ Preview deployments work the same way on their own database: the Vercel integrat
 | `src/lib/data` | Data layer: reads and writes, each authorised on the server |
 | `src/lib/library.ts` | Library rules and helpers: access, who may change which station–exercise links, copy, submit, withdraw, review and make global; search, equipment lines |
 | `src/lib/outline.ts` | The session outline editor's model: parts, activities and their station and exercise links |
-| `src/lib/drawing`, `src/components/drawing` | Drawn plans: pure helpers (centimetres to metres, how a configuration is drawn, a scale that fits) and the SVG pieces that draw an equipment configuration and a 1 m scale bar |
+| `src/lib/drawing`, `src/components/drawing` | Drawn plans: pure helpers (centimetres to metres, how a configuration is drawn, a scale that fits), the editor's geometry and undo history (`editor.ts`, `history.ts`), the lines of hall features' default looks; the SVG pieces that draw configurations, halls and a 1 m scale bar, and the shared drawing editor (`drawing-editor.tsx`) |
+| `src/lib/halls.ts`, `src/components/halls` | Hall rules (feature kinds and their defaults, sizes in metres, the saved input, image paths) and the hall editor |
 | `src/lib/equipment-configurations.ts` | Equipment configuration rules: input, sizes, colours, images and their storage paths |
 | `src/lib/weeks.ts` | Week helpers: Mondays, ISO week numbers |
 | `src/i18n` | Language configuration |
