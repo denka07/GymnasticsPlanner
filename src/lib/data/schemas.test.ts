@@ -51,8 +51,8 @@ describe("seasonInput", () => {
       firstWeek: "2026-08-17",
       lastWeek: "2026-12-07",
       trainingSlots: [
-        { weekday: 1, startTime: "17:00", endTime: "19:00", location: "Hallen" },
-        { weekday: 7, startTime: null, endTime: null, location: null },
+        { weekday: 1, startTime: "17:00", endTime: "19:00", location: "Hallen", hallId: null },
+        { weekday: 7, startTime: null, endTime: null, location: null, hallId: null },
       ],
     });
   });

@@ -6,7 +6,7 @@ const MON = "2026-08-31"; // week 36
 
 const slots: SlotLike[] = [
   { id: "sun", weekday: 7, startTime: "10:00:00", endTime: null, location: null },
-  { id: "mon", weekday: 1, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen" },
+  { id: "mon", weekday: 1, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen", hallId: "hall-c" },
   { id: "wed", weekday: 3, startTime: null, endTime: null, location: null },
 ];
 
@@ -21,7 +21,7 @@ function describeEntries(entries: ReturnType<typeof weekSessions>) {
 }
 
 describe("weekSessions", () => {
-  it("gives a placeholder per slot with the slot's date, times and location", () => {
+  it("gives a placeholder per slot with the slot's date, times, location and hall", () => {
     const entries = weekSessions(slots, MON, false, []);
     expect(describeEntries(entries)).toEqual([
       "P:mon@2026-08-31",
@@ -36,8 +36,10 @@ describe("weekSessions", () => {
         startTime: "17:00:00",
         endTime: "19:00:00",
         location: "Hallen",
+        hallId: "hall-c",
       },
     });
+    expect(entries[1].kind === "placeholder" && entries[1].placeholder.hallId).toBeNull();
   });
 
   it("replaces a slot's placeholder with its stored session", () => {

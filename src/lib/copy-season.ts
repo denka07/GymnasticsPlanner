@@ -27,6 +27,7 @@ export type SourceSlot = {
   startTime: string | null;
   endTime: string | null;
   location: string | null;
+  hallId?: string | null;
 };
 
 export type SourceDiscipline = { id: string; name: string; sortOrder: number };
@@ -112,6 +113,7 @@ export function planSeasonCopy(
       startTime: s.startTime,
       endTime: s.endTime,
       location: s.location,
+      hallId: s.hallId ?? null,
     })),
     disciplines,
     focusItems,

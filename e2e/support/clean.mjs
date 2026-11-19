@@ -1,11 +1,12 @@
-// Removes data left by the browser tests: groups, stations, exercises and
-// equipment whose names start with an E2E prefix. Used by the tests'
+// Removes data left by the browser tests: groups, stations, exercises, halls
+// and equipment whose names start with an E2E prefix. Used by the tests'
 // set-up and teardown and by `npm run test:e2e:clean` (e2e/clean.mjs).
 //
 // It only ever deletes rows whose name starts with the given prefix, and it
 // refuses any prefix that does not start with "E2E ". Attached files of the
 // deleted sessions are deleted from the Blob store when no row refers to them
-// any more, and the images of deleted equipment stored under "e2e/" (both
+// any more, and the images of deleted equipment and halls stored under
+// "e2e/" (both
 // skipped without BLOB_READ_WRITE_TOKEN). Plain JavaScript so it
 // runs with any supported Node.js version.
 
@@ -51,30 +52,40 @@ export async function cleanE2eData(prefix = E2E_PREFIX) {
     where g.name like ${pattern}`;
   // Groups first: deleting one removes its seasons, sessions, activities and
   // shares, so no activity still points at the library items below.
-  const [groups, stations, exercises, images, equipment] = await sql.transaction([
+  // Halls before equipment: equipment fixed in a hall cannot be deleted.
+  const [groups, stations, exercises, hallImages, halls, images, equipment] = await sql.transaction([
     sql`delete from groups where name like ${pattern} returning id`,
     sql`delete from stations where name like ${pattern} returning id`,
     sql`delete from exercises where name like ${pattern} returning id`,
+    sql`select f.image_pathname as pathname from hall_features f
+          join halls h on h.id = f.hall_id
+        where h.name like ${pattern} and f.image_pathname is not null`,
+    sql`delete from halls where name like ${pattern} returning id`,
     // The images of the configurations the next statement deletes with their equipment.
     sql`select c.image_pathname as pathname from equipment_configurations c
           join equipment e on e.id = c.equipment_id
         where e.name like ${pattern} and c.image_pathname is not null
-          and not exists (select 1 from station_equipment se where se.equipment_id = e.id)`,
+          and not exists (select 1 from station_equipment se where se.equipment_id = e.id)
+          and not exists (select 1 from hall_features hf where hf.equipment_id = e.id)`,
     sql`delete from equipment where name like ${pattern}
           and not exists (select 1 from station_equipment se where se.equipment_id = equipment.id)
+          and not exists (select 1 from hall_features hf where hf.equipment_id = equipment.id)
         returning id`,
   ]);
   const removedFiles = await deleteUnreferencedBlobs(
     sql,
     files.map((f) => f.pathname),
   );
-  const removedImages = await deleteE2eImages(images.map((i) => i.pathname));
+  const removedImages = await deleteE2eImages(
+    [...images, ...hallImages].map((i) => i.pathname),
+  );
   return {
     files: removedFiles,
     images: removedImages,
     groups: groups.length,
     stations: stations.length,
     exercises: exercises.length,
+    halls: halls.length,
     equipment: equipment.length,
   };
 }
@@ -86,7 +97,7 @@ function blobConfigured() {
 }
 
 /**
- * Deletes the stored images of removed test equipment. Only paths under
+ * Deletes the stored images of removed test equipment and halls. Only paths under
  * "e2e/" are touched, where the browser tests store their files; an image a
  * dev server stored elsewhere is left behind. Returns how many went.
  *

@@ -15,6 +15,7 @@ import {
 } from "@/lib/library";
 
 import { imagePathnamesOfEquipment } from "./equipment-configurations";
+import { isEquipmentInHall } from "./halls";
 import { UserError } from "./errors";
 import { id, name } from "./schemas";
 
@@ -78,12 +79,15 @@ export async function renameEquipment(
 }
 
 /**
- * Deletes an entry that no station uses, with its configurations, and then
- * their images. Administrators only.
+ * Deletes an entry that no station uses and no hall has fixed in it, with
+ * its configurations, and then their images. Administrators only.
  */
 export async function deleteEquipment(equipmentId: unknown): Promise<void> {
   await requireAdmin();
   const entryId = id.parse(equipmentId);
+  if (await isEquipmentInHall(entryId)) {
+    throw new UserError("equipmentInHall");
+  }
   const images = await imagePathnamesOfEquipment(entryId);
   try {
     await getDb().delete(equipment).where(eq(equipment.id, entryId));

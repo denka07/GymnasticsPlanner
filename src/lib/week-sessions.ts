@@ -14,6 +14,7 @@ export type SlotLike = {
   startTime: string | null;
   endTime: string | null;
   location: string | null;
+  hallId?: string | null;
 };
 
 export type StoredSessionLike = {
@@ -29,6 +30,8 @@ export type Placeholder = {
   startTime: string | null;
   endTime: string | null;
   location: string | null;
+  /** The slot's hall, which the session gets when it is first stored. */
+  hallId: string | null;
 };
 
 export type WeekEntry<S> =
@@ -81,6 +84,7 @@ export function weekSessions<S extends StoredSessionLike>(
           startTime: slot.startTime,
           endTime: slot.endTime,
           location: slot.location,
+          hallId: slot.hallId ?? null,
         },
       });
     }

@@ -51,6 +51,7 @@ import {
   releaseBlobs,
   type AttachmentItem,
 } from "./attachment-files";
+import { hallsExist, listHallOptions, type HallOption } from "./halls";
 import {
   outlineInput,
   sessionDetailsInput,
@@ -121,6 +122,8 @@ export type WeekPlan = {
   copySources: CopySource[];
   /** For linking activities; null without edit access. */
   library: ActivityLibrary | null;
+  /** Every hall, for showing and choosing a session's hall. */
+  halls: HallOption[];
 };
 
 /** True when `weekStart` is a Monday within the season. */
@@ -281,10 +284,11 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
   ]);
 
   const sessionIds = sessionRows.map((s) => s.id);
-  const [outlines, files, library] = await Promise.all([
+  const [outlines, files, library, hallOptions] = await Promise.all([
     loadOutlines(sessionIds),
     loadAttachments(sessionIds),
     canEdit(access) ? loadActivityLibrary() : null,
+    listHallOptions(),
   ]);
   const stored: StoredSession[] = sessionRows.map((s) => ({
     ...s,
@@ -321,6 +325,7 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
     sessions: weekSessions(slots, weekStart, isBreak, stored),
     copySources: sourceRows,
     library,
+    halls: hallOptions,
   };
 }
 
@@ -479,6 +484,7 @@ export async function resolveForEdit(input: unknown): Promise<Resolved> {
       startTime: slot.slot.startTime,
       endTime: slot.slot.endTime,
       location: slot.slot.location,
+      hallId: slot.slot.hallId,
       trainingSlotId: slot.slot.id,
     })
     .onConflictDoNothing()
@@ -507,6 +513,9 @@ export async function updateSessionDetails(target: unknown, input: unknown): Pro
   if (mondayOf(values.date) !== mondayOf(resolved.date)) {
     throw invalid("dateOutsideWeek");
   }
+  if (values.hallId && !(await hallsExist([values.hallId]))) {
+    throw invalid("hallNotFound");
+  }
   await getDb().update(sessions).set(values).where(eq(sessions.id, resolved.sessionId));
   return resolved.sessionId;
 }
@@ -528,6 +537,9 @@ export async function setSessionCancelled(target: unknown, cancelled: unknown): 
 export async function createExtraSession(seasonId: string, input: unknown): Promise<string> {
   await requireSeasonAccess(seasonId, "edit");
   const values = sessionDetailsInput.parse(input);
+  if (values.hallId && !(await hallsExist([values.hallId]))) {
+    throw invalid("hallNotFound");
+  }
   const db = getDb();
   const [season] = await db
     .select({ firstWeek: seasons.firstWeek, lastWeek: seasons.lastWeek })

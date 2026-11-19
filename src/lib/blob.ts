@@ -1,10 +1,10 @@
 import "server-only";
 
-import { del, get } from "@vercel/blob";
+import { del, get, list } from "@vercel/blob";
 
 /*
- * The private Vercel Blob store that holds session attachments and equipment
- * images. The SDK reads BLOB_READ_WRITE_TOKEN from the environment; the token
+ * The private Vercel Blob store that holds session attachments, equipment
+ * images and hall feature images. The SDK reads BLOB_READ_WRITE_TOKEN from the environment; the token
  * and the store's URLs never reach the browser, which gets files through
  * /api/attachments/[attachmentId] and /api/equipment-images/[configurationId]
  * only.
@@ -59,6 +59,20 @@ export async function readBlobStart(
     offset += chunk.length;
   }
   return { bytes: bytes.slice(0, count), size: blob.size };
+}
+
+/** Every stored file under `prefix`, with when it was uploaded. */
+export async function listBlobs(prefix: string): Promise<{ pathname: string; uploadedAt: Date }[]> {
+  const result: { pathname: string; uploadedAt: Date }[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix, cursor, limit: 1000 });
+    for (const b of page.blobs) {
+      result.push({ pathname: b.pathname, uploadedAt: new Date(b.uploadedAt) });
+    }
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return result;
 }
 
 /**
