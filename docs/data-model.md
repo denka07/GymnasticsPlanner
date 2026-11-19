@@ -331,10 +331,13 @@ One way a piece of equipment can be set up, each seen from above with its own si
 
 - Equipment
 - Name (example for a tunnmatta: Liggande, Stående på långsidan, Stående på kortsidan, Lutad)
-- Width and length in metres, of what it covers on the floor in this configuration
+- Width and length, of what it covers on the floor in this configuration, stored in whole centimetres (1–5000) and shown as "200 × 100 cm"; drawings work in metres. Seen from above, the width runs across (x) and the length along (y)
 - Image (optional; seen from above, uploaded by an administrator and stretched to the width and length when drawn, whatever its own proportions)
 - Colour (optional; when there is no image, the configuration is drawn as a filled rectangle in this colour)
 - Sort order
+- Default (at most one per equipment)
+
+The name is unique per equipment, ignoring case. The first configuration becomes the default; when the default is deleted, the first remaining one in order becomes the default. Images are PNG, JPEG or WebP, at most 5 MB. When there is neither image nor colour, the configuration is drawn in a neutral grey with an outline.
 
 Equipment that is only ever used one way has a single configuration. When equipment is placed in a drawing its default configuration is used, and the configuration can be changed on the placed item.
 

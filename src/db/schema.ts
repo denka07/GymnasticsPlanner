@@ -338,6 +338,59 @@ export const equipment = pgTable(
   (t) => [uniqueIndex("equipment_name_lower_unique").on(sql`lower(${t.name})`)],
 );
 
+/**
+ * One way a piece of equipment can be set up, seen from above, with the size
+ * it covers on the floor and how it is drawn: its image (stretched to the
+ * size), else a rectangle in its colour. At most one per equipment is the
+ * default, used when the equipment is placed in a drawing.
+ */
+export const equipmentConfigurations = pgTable(
+  "equipment_configurations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    equipmentId: uuid("equipment_id")
+      .notNull()
+      .references(() => equipment.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Across, in whole centimetres (x in a drawing). */
+    widthCm: integer("width_cm").notNull(),
+    /** Along, in whole centimetres (y in a drawing). */
+    lengthCm: integer("length_cm").notNull(),
+    /** Path of the image in the Blob store, e.g. production/equipment/<id>/<random>-tunnmatta.png. */
+    imagePathname: text("image_pathname"),
+    /** Checked against the image's first bytes when it was stored. */
+    imageContentType: text("image_content_type"),
+    /** "#rrggbb", lowercase. */
+    color: text("color"),
+    sortOrder: integer("sort_order").notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("equipment_configurations_name_lower_unique").on(
+      t.equipmentId,
+      sql`lower(${t.name})`,
+    ),
+    uniqueIndex("equipment_configurations_one_default")
+      .on(t.equipmentId)
+      .where(sql`${t.isDefault}`),
+    check(
+      "equipment_configurations_size_check",
+      sql`${t.widthCm} between 1 and 5000 and ${t.lengthCm} between 1 and 5000`,
+    ),
+    check(
+      "equipment_configurations_color_check",
+      sql`${t.color} is null or ${t.color} ~ '^#[0-9a-f]{6}$'`,
+    ),
+    check(
+      "equipment_configurations_image_check",
+      sql`(${t.imagePathname} is null and ${t.imageContentType} is null) or (${t.imagePathname} is not null and ${t.imageContentType} in ('image/png', 'image/jpeg', 'image/webp'))`,
+    ),
+  ],
+);
+
 /** A reusable exercise. A personal one has an owner; a global one has none. */
 export const exercises = pgTable(
   "exercises",
@@ -663,6 +716,7 @@ export type ActivityExercise = typeof activityExercises.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type LibraryScope = (typeof libraryScope.enumValues)[number];
 export type Equipment = typeof equipment.$inferSelect;
+export type EquipmentConfiguration = typeof equipmentConfigurations.$inferSelect;
 export type Exercise = typeof exercises.$inferSelect;
 export type NewExercise = typeof exercises.$inferInsert;
 export type Station = typeof stations.$inferSelect;

@@ -10,6 +10,16 @@ import {
   deleteEquipment,
   renameEquipment,
 } from "@/lib/data/equipment";
+import {
+  createConfiguration,
+  deleteConfiguration,
+  moveConfiguration,
+  prepareEquipmentImageUpload,
+  registerEquipmentImage,
+  removeEquipmentImage,
+  setDefaultConfiguration,
+  updateConfiguration,
+} from "@/lib/data/equipment-configurations";
 import { UserError } from "@/lib/data/errors";
 import {
   copyExercise,
@@ -280,6 +290,79 @@ export async function renameEquipmentAction(
 export async function deleteEquipmentAction(equipmentId: string): Promise<ActionResult> {
   return run(async () => {
     await deleteEquipment(equipmentId);
+    return {};
+  });
+}
+
+// --- Equipment configurations -----------------------------------------------------
+// See src/lib/data/equipment-configurations.ts. Administrators only.
+
+export async function createConfigurationAction(
+  equipmentId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    await createConfiguration(equipmentId, input);
+    return {};
+  });
+}
+
+export async function updateConfigurationAction(
+  configurationId: string,
+  input: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    await updateConfiguration(configurationId, input);
+    return {};
+  });
+}
+
+export async function moveConfigurationAction(
+  configurationId: string,
+  direction: unknown,
+): Promise<ActionResult> {
+  return run(async () => {
+    await moveConfiguration(configurationId, direction);
+    return {};
+  });
+}
+
+export async function setDefaultConfigurationAction(configurationId: string): Promise<ActionResult> {
+  return run(async () => {
+    await setDefaultConfiguration(configurationId);
+    return {};
+  });
+}
+
+export async function deleteConfigurationAction(configurationId: string): Promise<ActionResult> {
+  return run(async () => {
+    await deleteConfiguration(configurationId);
+    return {};
+  });
+}
+
+/** Step 1 of an image upload: checks the file and returns the path to upload to. */
+export async function prepareEquipmentImageUploadAction(
+  configurationId: string,
+  file: { name: string; type: string; size: number },
+): Promise<Result<{ pathname: string }>> {
+  return run(() => prepareEquipmentImageUpload(configurationId, file), { refreshPage: false });
+}
+
+/** Step 3 of an image upload: checks the stored file and gives it to the configuration. */
+export async function registerEquipmentImageAction(
+  configurationId: string,
+  input: { pathname: string },
+): Promise<ActionResult> {
+  return run(async () => {
+    await registerEquipmentImage(configurationId, input);
+    return {};
+  });
+}
+
+export async function removeEquipmentImageAction(configurationId: string): Promise<ActionResult> {
+  return run(async () => {
+    await removeEquipmentImage(configurationId);
     return {};
   });
 }

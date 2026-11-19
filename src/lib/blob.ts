@@ -3,10 +3,11 @@ import "server-only";
 import { del, get } from "@vercel/blob";
 
 /*
- * The private Vercel Blob store that holds session attachments. The SDK reads
- * BLOB_READ_WRITE_TOKEN from the environment; the token and the store's URLs
- * never reach the browser, which gets files through
- * /api/attachments/[attachmentId] only.
+ * The private Vercel Blob store that holds session attachments and equipment
+ * images. The SDK reads BLOB_READ_WRITE_TOKEN from the environment; the token
+ * and the store's URLs never reach the browser, which gets files through
+ * /api/attachments/[attachmentId] and /api/equipment-images/[configurationId]
+ * only.
  */
 
 export function blobConfigured(): boolean {
@@ -73,7 +74,7 @@ export async function deleteBlobs(pathnames: string[]): Promise<void> {
     await del(pathnames);
   } catch (error) {
     console.error(
-      `Could not delete ${pathnames.length} stored attachment file(s):`,
+      `Could not delete ${pathnames.length} stored file(s):`,
       error instanceof Error ? error.message : error,
     );
   }
