@@ -494,5 +494,7 @@ Rules:
 - A station placed in a plan follows its library layout until it is adapted, which turns it into a copy for that plan.
 - Plans are drawn with equipment, stations, text, areas, people (Coach, Passare) and arrows. There are no free lines.
 - Drawn plans are edited on a desktop and read on a phone. There is no import of earlier drawings.
+- On the phone's session page a plan is opened on demand from its part, never shown automatically: the stations are built before the session, so the drawing is needed only when the coach chooses to look. A part shows its own plan, or else the main plan.
+- Printing follows view access: anyone who can see a session's plans can print them, one plan per page, or save one as an image.
 - Attachments belong to a whole session, not to a part or an activity. Only photos and PDFs up to 10 MB are accepted; no video. The type is checked against the file's first bytes, not its name.
 - Copying a session's content adds its attachments to the target's own instead of replacing them, so files uploaded to the target are never lost by a copy.
