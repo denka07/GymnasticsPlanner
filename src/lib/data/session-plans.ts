@@ -46,6 +46,7 @@ import {
   type PersonRole,
 } from "@/lib/session-plans";
 import type { DrawnLayoutItem } from "@/lib/station-layouts";
+import { readingOrder } from "@/lib/plan-reading";
 import { mondayOf } from "@/lib/weeks";
 
 import { getHall, hallsExist, listHallOptions, type HallDrawing, type HallOption } from "./halls";
@@ -280,6 +281,40 @@ export async function loadPlans(sessionId: string): Promise<LoadedPlan[]> {
     .sort((a, b) => Number(b.isMain) - Number(a.isMain));
 }
 
+/** A session's plans as its page reads them. */
+export type PlansToRead = {
+  hall: HallDrawing;
+  parts: LoadedPart[];
+  /** In reading order: the main plan first, then part plans in part order. */
+  plans: LoadedPlan[];
+};
+
+/**
+ * A session's plans for reading on its page, or null when it has none or no
+ * hall to draw them in. Does not check access: the caller has checked view
+ * access to the session.
+ */
+export async function loadPlansToRead(sessionId: string, hallId: string | null): Promise<PlansToRead | null> {
+  if (!hallId) {
+    return null;
+  }
+  const [plans, outlines, hall] = await Promise.all([loadPlans(sessionId), loadOutlines([sessionId]), getHall(hallId)]);
+  if (plans.length === 0) {
+    return null;
+  }
+  const parts = outlines.get(sessionId) ?? [];
+  const outline = outlineOf(parts);
+  const ordered = readingOrder(plans, parts.map((p) => p.id));
+  return {
+    hall,
+    parts,
+    plans: ordered.map((plan) => ({
+      ...plan,
+      items: keepAllowedLinks(plan.items, activityIdsOf(partsOfPlan(plan, plans, outline))),
+    })),
+  };
+}
+
 /** The outline as the plan rules need it. */
 function outlineOf(parts: readonly LoadedPart[]): OutlinePart[] {
   return parts.map((p) => ({
@@ -328,13 +363,19 @@ async function loadPickStations(): Promise<PickStation[]> {
 /**
  * Everything the plans page shows. Calls notFound() without view access.
  * Links to activities that no longer belong to a plan's parts are left out.
+ * `reading` leaves out what only the editor needs (the halls to choose from
+ * and the stations to place), for the print view.
  */
-export async function getSessionPlansPage(sessionId: string): Promise<SessionPlansPage> {
+export async function getSessionPlansPage(
+  sessionId: string,
+  { reading = false }: { reading?: boolean } = {},
+): Promise<SessionPlansPage> {
   if (!isUuid(sessionId)) {
     notFound();
   }
   const { user, access } = await requireSessionAccess(sessionId, "view");
   const editable = canEdit(access);
+  const editing = editable && !reading;
   const [row] = await getDb()
     .select({
       session: sessions,
@@ -351,8 +392,8 @@ export async function getSessionPlansPage(sessionId: string): Promise<SessionPla
     loadOutlines([sessionId]),
     loadPlans(sessionId),
     s.hallId ? getHall(s.hallId) : null,
-    editable ? listHallOptions() : [],
-    editable ? loadPickStations() : [],
+    editing ? listHallOptions() : [],
+    editing ? loadPickStations() : [],
     getSeasonAccess(user.id, row.season.id),
   ]);
   const parts = outlines.get(sessionId) ?? [];

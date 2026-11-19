@@ -25,6 +25,8 @@ import { ALERT_SOUND_MAX_MS, alertSoundMode, minutesSinceEnd, plannedEnd, remain
 import { progress } from "@/lib/session-view";
 import { cn } from "@/lib/utils";
 
+import { PartPlanButton, activityElementId } from "@/components/plans/plan-reader";
+
 import { ActivityDetails } from "./activity-details";
 import { TimerAlert } from "./timer-alert";
 import { TimerBar } from "./timer-bar";
@@ -277,6 +279,7 @@ export function SessionChecklist({
                   </span>
                 )}
                 </label>
+                <PartPlanButton partId={p.id} partTitle={p.title} />
                 <Button
                   variant="ghost"
                   size="icon"
@@ -291,7 +294,12 @@ export function SessionChecklist({
               {p.activities.length > 0 && (
                 <ul className="ml-6 grid divide-y divide-border/60 border-l pl-2 text-base leading-snug">
                   {p.activities.map((a) => (
-                    <li key={a.id} className="py-1 first:pt-0 last:pb-0">
+                    <li
+                      key={a.id}
+                      id={activityElementId(a.id)}
+                      tabIndex={-1}
+                      className="scroll-mt-20 py-1 outline-none first:pt-0 last:pb-0"
+                    >
                       <ActivityDetails activity={a} />
                     </li>
                   ))}

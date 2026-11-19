@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
 import { PageLoading, PageShell } from "@/components/page-shell";
+import { PlanReader, PlansButton } from "@/components/plans/plan-reader";
 import { AttachmentList } from "@/components/session/session-attachments";
 import { SessionChecklist } from "@/components/session/session-checklist";
 import { SessionNote } from "@/components/session/session-note";
@@ -52,93 +53,97 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
         { label: heading },
       ]}
     >
-      {/* The part timer's bar sets --part-timer-space while it shows. */}
-      <div className="mx-auto grid w-full max-w-2xl gap-5 pb-(--part-timer-space,0px)">
-        <header className="grid gap-2">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
-              {heading}
-            </h1>
-            <div className="flex flex-wrap justify-end gap-2">
-              {isOwner(view.access) && (
-                <ShareDialog kind="session" id={session.id} name={heading} />
-              )}
+      {/* Plans open on demand from the top and from each part (docs/implementation-plan.md, step 11). */}
+      <PlanReader data={view.plans} date={session.date}>
+        {/* The part timer's bar sets --part-timer-space while it shows. */}
+        <div className="mx-auto grid w-full max-w-2xl gap-5 pb-(--part-timer-space,0px)">
+          <header className="grid gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
+                {heading}
+              </h1>
+              <div className="flex flex-wrap justify-end gap-2">
+                <PlansButton />
+                {isOwner(view.access) && (
+                  <ShareDialog kind="session" id={session.id} name={heading} />
+                )}
+                {editable && (
+                  <ButtonLink
+                    variant="outline"
+                    className="h-11 px-4 text-base"
+                    href={weekHref}
+                  >
+                    {t("edit")}
+                  </ButtonLink>
+                )}
+              </div>
+            </div>
+            {(time || session.location || view.hallName) && (
+              <p className="text-lg">{[time, ...placeParts(session.location, view.hallName)].filter(Boolean).join(" · ")}</p>
+            )}
+            <p className="text-muted-foreground">
+              {t("groupLine", { group: group.name, season: season.name })}
+            </p>
+            {session.isCancelled && (
+              <div
+                role="status"
+                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-lg font-semibold text-destructive"
+              >
+                {t("cancelled")}
+                <span className="sr-only">. {t("cancelledText")}</span>
+              </div>
+            )}
+            <nav aria-label={t("navLabel")} className="grid grid-cols-2 gap-2">
+              <NeighbourLink target={view.previous} direction="previous" />
+              <NeighbourLink target={view.next} direction="next" />
+            </nav>
+          </header>
+
+          {hasParts ? (
+            <SessionChecklist
+              key={`checklist-${session.id}`}
+              sessionId={session.id}
+              parts={view.parts}
+              date={session.date}
+              startTime={session.startTime}
+              editable={participate}
+            />
+          ) : (
+            <div className="grid justify-items-start gap-3 rounded-xl border bg-muted/40 p-4">
+              <p className="text-lg">{t("empty")}</p>
               {editable && (
                 <ButtonLink
                   variant="outline"
                   className="h-11 px-4 text-base"
                   href={weekHref}
                 >
-                  {t("edit")}
+                  {t("plan")}
                 </ButtonLink>
               )}
             </div>
-          </div>
-          {(time || session.location || view.hallName) && (
-            <p className="text-lg">{[time, ...placeParts(session.location, view.hallName)].filter(Boolean).join(" · ")}</p>
           )}
-          <p className="text-muted-foreground">
-            {t("groupLine", { group: group.name, season: season.name })}
-          </p>
-          {session.isCancelled && (
-            <div
-              role="status"
-              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-lg font-semibold text-destructive"
-            >
-              {t("cancelled")}
-              <span className="sr-only">. {t("cancelledText")}</span>
-            </div>
+
+          {(participate || session.noteAfter) && (
+            <SessionNote
+              key={`note-${session.id}`}
+              sessionId={session.id}
+              initial={session.noteAfter ?? ""}
+              editable={participate}
+            />
           )}
-          <nav aria-label={t("navLabel")} className="grid grid-cols-2 gap-2">
-            <NeighbourLink target={view.previous} direction="previous" />
-            <NeighbourLink target={view.next} direction="next" />
-          </nav>
-        </header>
 
-        {hasParts ? (
-          <SessionChecklist
-            key={`checklist-${session.id}`}
-            sessionId={session.id}
-            parts={view.parts}
-            date={session.date}
-            startTime={session.startTime}
-            editable={participate}
-          />
-        ) : (
-          <div className="grid justify-items-start gap-3 rounded-xl border bg-muted/40 p-4">
-            <p className="text-lg">{t("empty")}</p>
-            {editable && (
-              <ButtonLink
-                variant="outline"
-                className="h-11 px-4 text-base"
-                href={weekHref}
-              >
-                {t("plan")}
-              </ButtonLink>
-            )}
-          </div>
-        )}
-
-        {(participate || session.noteAfter) && (
-          <SessionNote
-            key={`note-${session.id}`}
-            sessionId={session.id}
-            initial={session.noteAfter ?? ""}
-            editable={participate}
-          />
-        )}
-
-        {view.attachments.length > 0 && (
-          <section aria-labelledby="attachments-heading" className="grid gap-2">
-            <h2 id="attachments-heading" className="font-heading text-xl font-semibold">
-              {ta("heading")}
-            </h2>
-            <div className="text-base">
-              <AttachmentList items={view.attachments} />
-            </div>
-          </section>
-        )}
-      </div>
+          {view.attachments.length > 0 && (
+            <section aria-labelledby="attachments-heading" className="grid gap-2">
+              <h2 id="attachments-heading" className="font-heading text-xl font-semibold">
+                {ta("heading")}
+              </h2>
+              <div className="text-base">
+                <AttachmentList items={view.attachments} />
+              </div>
+            </section>
+          )}
+        </div>
+      </PlanReader>
     </PageShell>
   );
 }

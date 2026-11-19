@@ -985,5 +985,42 @@
     "rotationLabel": "Vridning (°)",
     "positionHint": "X och Y räknas från hallens övre vänstra hörn.",
     "introButton": "Om ritningar"
+  },
+  "PlanReading": {
+    "plansButton": "Ritningar",
+    "openAll": "{count, plural, one {Visa passets ritning} other {Visa passets # ritningar}}",
+    "planButton": "Ritning",
+    "openForPart": "Visa ritningen för {part}",
+    "position": "{index} av {count}",
+    "previousPlan": "Föregående ritning: {plan}",
+    "nextPlan": "Nästa ritning: {plan}",
+    "noPrevious": "Ingen föregående ritning",
+    "noNext": "Ingen nästa ritning",
+    "close": "Stäng ritningen",
+    "zoomIn": "Zooma in",
+    "zoomOut": "Zooma ut",
+    "fit": "Visa hela",
+    "turn": "Vrid ritningen",
+    "showActivity": "Station {number}: visa aktiviteten",
+    "tapNumber": "Tryck på ett nummer för att se aktiviteten.",
+    "saveImage": "Spara som bild",
+    "savingImage": "Sparar bild …",
+    "imageFailed": "Bilden kunde inte sparas."
+  },
+  "PlanPrint": {
+    "heading": "Skriv ut",
+    "pageTitle": "Skriv ut ritningar {session}",
+    "print": "Skriv ut",
+    "printMenu": "Skriv ut …",
+    "chooseLabel": "Vad ska skrivas ut?",
+    "all": "Alla ritningar",
+    "allCount": "{count, plural, one {Alla ritningar (#)} other {Alla ritningar (#)}}",
+    "onlyThis": "Den här ritningen",
+    "hint": "Varje ritning får en egen sida, med passdelarna och numren efter ritningen. Spara som PDF i utskriftsdialogen.",
+    "back": "Till ritningarna",
+    "noPlans": "Passet har inga ritningar att skriva ut.",
+    "noHall": "Passet har ingen hall, så ritningarna kan inte skrivas ut.",
+    "sessionLine": "{session} · {group}",
+    "hallLine": "Hall: {hall}"
   }
 }
