@@ -1,13 +1,14 @@
 import type React from "react";
 
-import { boundsOf, type Placed } from "@/lib/drawing/editor";
+import type { DrawingExtent } from "@/lib/drawing/bounds";
+import { boundsOf, type Placed, type Rect } from "@/lib/drawing/editor";
 import { UPRIGHT_CLASS } from "@/lib/drawing/view";
 import { contentSize, type DrawnPlanItem, type PersonRole, type PlanItemContent } from "@/lib/session-plans";
 import { cn } from "@/lib/utils";
 
 import { ArrowShape, TextShape } from "../drawing/annotation-drawing";
 import { ConfigurationShape } from "../drawing/configuration-drawing";
-import { DrawingLabel, HallFeatures, HallFloor, labelSize, placement } from "../drawing/hall-drawing";
+import { DrawingLabel, hallExtent, HallFeatures, HallFloor, labelSize, placement } from "../drawing/hall-drawing";
 import { LayoutItems } from "../drawing/station-layout-drawing";
 import { TurnableSvg } from "../drawing/turnable-svg";
 import type { HallDrawing } from "@/lib/data/halls";
@@ -121,6 +122,11 @@ export function PlanItemShape({
   }
 }
 
+/** A number badge's radius for a label size. */
+function badgeRadius(size: number): number {
+  return size * 0.85;
+}
+
 /** What a tappable station number needs: what it says and what tapping does. */
 export type NumberAction = { label: (number: number) => string; onActivate: (activityId: string) => void };
 
@@ -143,7 +149,7 @@ export function NumberBadge({
   activityId?: string;
   action?: NumberAction;
 }) {
-  const r = size * 0.85;
+  const r = badgeRadius(size);
   const interactive = action && activityId;
   return (
     <g
@@ -200,7 +206,7 @@ export function PlanOverlay({
     <g>
       {items.map((item) =>
         item.label ? (
-          <DrawingLabel key={`label-${item.id}`} x={item.x} y={item.y} text={item.label} size={size * 0.8} />
+          <DrawingLabel key={`label-${item.id}`} x={item.x} y={item.y} text={item.label} size={size * ITEM_LABEL_SCALE} />
         ) : null,
       )}
       {items.map((item) => {
@@ -224,6 +230,49 @@ export function PlanOverlay({
       })}
     </g>
   );
+}
+
+/** The label size of a plan item's label, from the hall's label size. */
+const ITEM_LABEL_SCALE = 0.8;
+
+/**
+ * Everything a plan's overlay draws past its items: labels and station
+ * numbers, for the part of the drawing that is shown.
+ */
+export function overlayExtent(
+  items: readonly (Placed & { label: string | null; content: PlanItemContent })[],
+  numbers: ReadonlyMap<string, number>,
+  size: number,
+): Pick<DrawingExtent, "boxes" | "labels"> {
+  const r = badgeRadius(size) * 1.1;
+  const boxes: Rect[] = items.flatMap((item) => {
+    const c = item.content;
+    if (c.kind !== "station" || !c.activityId || !numbers.has(c.activityId)) {
+      return [];
+    }
+    const b = boundsOf(item);
+    return [{ x: b.x - r, y: b.y - r, width: 2 * r, height: 2 * r }];
+  });
+  const labels = items.flatMap((item) =>
+    item.label ? [{ x: item.x, y: item.y, text: item.label, size: size * ITEM_LABEL_SCALE }] : [],
+  );
+  return { boxes, labels };
+}
+
+/** What a plan drawing shows: its hall with features and labels, its items, labels and numbers. */
+export function planExtent(
+  hall: HallDrawing,
+  items: readonly (Placed & { label: string | null; content: PlanItemContent })[],
+  numbers: ReadonlyMap<string, number>,
+): DrawingExtent {
+  const base = hallExtent(hall);
+  const overlay = overlayExtent(items, numbers, labelSize(hall));
+  return {
+    area: base.area,
+    items: [...(base.items ?? []), ...items],
+    boxes: overlay.boxes,
+    labels: [...(base.labels ?? []), ...(overlay.labels ?? [])],
+  };
 }
 
 /** A drawn item placed in metres, as the editor and the overlay take it. */
@@ -267,9 +316,6 @@ export function PlanDrawing({
   numberAction?: NumberAction;
   className?: string;
 } & Omit<React.SVGProps<SVGSVGElement>, "children" | "viewBox">) {
-  const width = hall.widthCm / 100;
-  const height = hall.lengthCm / 100;
-  const margin = Math.max(width, height) * 0.02;
   const placed = items.map(placedPlanItem);
   const size = labelSize(hall);
   return (
@@ -277,8 +323,7 @@ export function PlanDrawing({
       // Buttons inside an image would be hidden from assistive technology.
       role={numberAction ? "group" : undefined}
       {...rest}
-      area={{ width, height }}
-      margin={margin}
+      extent={planExtent(hall, placed, numbers)}
       label={label}
       turned={turned}
       className={className}
