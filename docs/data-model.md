@@ -129,6 +129,8 @@ A recurring training time during a season. Training times can differ between sea
 - Location (optional free text)
 - Hall (optional; the default hall for this training day, example: C-salen on Mondays, AB-hallen on Wednesdays and Sundays)
 
+When a slot's hall is changed in the season settings and the slot has stored sessions that have not passed (dated today or later) with another hall, the user is asked whether to change their hall too, and is shown how many there are. Saying no leaves them as they are. Placeholders always show the slot's current hall. Copying a season copies each slot's hall.
+
 ### Season week
 
 One week within a season. Exists so that a week can carry information of its own.
@@ -201,7 +203,7 @@ One training occasion for a group.
 - Cancelled flag (a cancelled session keeps its content)
 - Note after the session (optional free text about how it went)
 
-A week shows one session per training slot. Until a slot's session for a week is first edited it is only a placeholder and nothing is stored; the first edit stores it, copying the slot's date, times and location. From then on the session keeps its own date, times and location even if the slot changes. There is at most one session per training slot and date. Sessions without a training slot are extra sessions added by hand; only those can be deleted. A break week shows no placeholders, but sessions stored in it are still shown.
+A week shows one session per training slot. Until a slot's session for a week is first edited it is only a placeholder and nothing is stored; the first edit stores it, copying the slot's date, times, location and hall. From then on the session keeps its own date, times, location and hall even if the slot changes (for the hall, unless the user agrees to update the slot's upcoming sessions; see Training slot). A placeholder shows its slot's hall. A session having a hall does not mean it has a drawing; a session plan is optional (see Session plan). There is at most one session per training slot and date. Sessions without a training slot are extra sessions added by hand; only those can be deleted. A break week shows no placeholders, but sessions stored in it are still shown.
 
 The focus for a session's week is not stored on the session. It is computed from the focus allocations for that week and shown while planning.
 
@@ -325,6 +327,8 @@ A type of equipment found in a hall. A single catalogue that all users can read 
 
 Equipment without a configuration cannot be placed in a drawing. A station's layout simply leaves it out.
 
+Equipment, or one of its configurations, that is fixed in a hall (see Hall feature) cannot be deleted from the catalogue.
+
 ### Equipment configuration
 
 One way a piece of equipment can be set up, each seen from above with its own size and look. Maintained by administrators with the equipment.
@@ -374,20 +378,27 @@ A drawn plan shows, to scale and seen from above, where the equipment and statio
 
 A training hall. Halls are global: they belong to the library, every user can read them, and only administrators create and edit them.
 
-- Name (example: C-salen, AB-hallen)
-- Width and length in metres
-- Fixed features (see below)
+- Name (example: C-salen, AB-hallen), unique ignoring case
+- Width and length, typed in metres with decimals (example: 24,5 × 42 m) and stored in whole centimetres (1–20000), like equipment sizes
+- Fixed features (see below), in layer order
 
-A training slot can name a default hall, and a session can use another hall than its slot's.
+A training slot can name a default hall, and a session can use another hall than its slot's. Deleting a hall is not blocked: the training slots and sessions that used it are left without a hall.
+
+A hall is saved as a whole, with all its features, in one transaction, and checked on the server; referenced equipment and configurations must exist.
 
 ### Hall feature
 
 Something fixed in a hall, drawn in every plan for that hall and not movable there.
 
 - Hall
-- Kind: wall bars, door, port, storage, wall or other
-- Position, width, length and rotation
+- Kind: wall bars (ribbstol), door (dörr), port, storage (förråd), wall (vägg), foam pit (skumgrop), MD pit (MD-grop), stands (läktare), other (övrigt) or equipment
+- For equipment: one of the catalogue's equipment and one of its configurations, fixed in the hall (example: a tumbling track that always lies out). Its size and look come from the configuration.
+- For every other kind: width and length in whole centimetres (1–20000), a colour, and an optional image seen from above, stretched to the width and length like a configuration's image. MD pits, for example, differ in size and colour between halls.
+- Position (its centre, from the hall's top-left corner) and rotation
+- Layer order (higher is drawn on top)
 - Label (optional; example: Förråd, Port till AB-hallen)
+
+Each kind has a default colour and, without an image, a look of its own, so that a hall can be drawn as close to reality as possible: wall bars striped, storage hatched, a wall solid dark grey, pits filled, a door and a port as an opening, stands as rows. Images are PNG, JPEG or WebP of at most 5 MB, as for configurations. Sizes are typed in centimetres; positions are set by dragging, snapped to 0.5 m at first.
 
 ### Station layout item
 
@@ -455,6 +466,9 @@ Rules:
 - Equipment is one catalogue shared by all users. Only administrators can add, rename and remove entries and their configurations.
 - Equipment can have several configurations (example: a mat lying flat, standing on its long or short side, or leaning), each with its own size, image and colour. A placed item records which configuration it shows.
 - Halls are global library items maintained by administrators. A training slot has a default hall and a session may use another.
+- A session gets its slot's hall when it is first stored. Changing a slot's hall offers to update the slot's stored sessions that have not passed; earlier sessions keep the hall they were held in.
+- Deleting a hall leaves its slots and sessions without a hall rather than being blocked.
+- Hall features have their own size, colour and image, like equipment configurations, and catalogue equipment can be fixed in a hall.
 - A session has a main plan and optional plans for chosen parts, rather than one plan per part.
 - A station placed in a plan follows its library layout until it is adapted, which turns it into a copy for that plan.
 - Plans are drawn with equipment, stations, text, areas, people (Coach, Passare) and arrows. There are no free lines.

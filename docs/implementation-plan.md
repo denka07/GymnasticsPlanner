@@ -50,7 +50,9 @@ How GymnasticsPlanner is built: the technology choices and the order of work. Th
 - The editor offers a grid with snapping (0.25, 0.5 or 1 m; 0.5 m at first) and rotation snapping to 15° steps; both can be turned off. Moving with the arrow keys, multi-select, duplicate, delete, layer order, zoom and pan, undo and redo.
 - One editor component is used for halls, station layouts and session plans; what can be placed differs.
 - A plan is saved as a whole, in one transaction, and checked on the server: every referenced hall, equipment, station and activity must exist and be visible to the user.
-- Equipment images are stored in the private Blob store, like attachments, and served through the app.
+- Equipment images and hall feature images are stored in the private Blob store, like attachments, and served through the app to signed-in users.
+- Sizes are stored in whole centimetres. A hall's size is typed in metres with decimals (24,5 × 42 m), feature sizes in centimetres. Positions are set by dragging, snapped to 0.5 m at first.
+- The editor is desktop-first: on a phone, and for users who may not edit, a drawing is shown read-only.
 
 ### Environments
 
@@ -125,9 +127,11 @@ Done when an administrator can give Tunnmatta the configurations Liggande and St
 
 ### 8. Halls and the drawing editor
 
-- Halls in the library (a Hallar tab), created and edited by administrators: name, size and fixed features.
-- The shared drawing editor: placing, moving, rotating, snapping, zoom, pan, undo.
-- A default hall per training slot in the season settings, and a hall per session on the week page.
+- Halls in the library (a Hallar tab), created and edited by administrators: name, size and fixed features. The list shows each hall drawn small; a hall's page has the editor for administrators and a read-only drawing for others and on phones.
+- Hall features: wall bars, door, port, storage, wall, foam pit, MD pit, stands and other, each with its own size, colour and optional image and a default look per kind; and catalogue equipment with a configuration, fixed in the hall. Feature images are uploaded and served like equipment images.
+- The shared drawing editor: placing, moving by dragging and with the arrow keys, rotating with 15° snapping, grid snapping, multi-select, duplicate, delete, layer order, zoom, pan, undo and redo, and a properties panel for the selected item. Its geometry and history are pure functions with unit tests.
+- A default hall per training slot in the season settings. Changing it asks whether to also change the hall of the slot's stored sessions that have not passed, showing how many.
+- A hall per session on the week page, changed with edit access. Placeholders show the slot's hall, and a session gets the slot's hall when it is first stored.
 
 Done when C-salen and AB-hallen are drawn with their wall bars and doors, and Trupp 5's training days use them.
 
