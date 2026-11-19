@@ -3,7 +3,11 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { deleteSeasonAction, updateSeasonAction } from "@/app/plan-actions";
+import {
+  applySlotHallToUpcomingAction,
+  deleteSeasonAction,
+  updateSeasonAction,
+} from "@/app/plan-actions";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { ConfirmDelete } from "@/components/plan/confirm-delete";
 import { SeasonDialog } from "@/components/plan/season-dialog";
@@ -12,6 +16,7 @@ import { StructureEditor } from "@/components/plan/structure-editor";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { canEdit } from "@/lib/access";
+import { listHallOptions } from "@/lib/data/halls";
 import { getSeasonPlan } from "@/lib/data/seasons";
 import { listCategories } from "@/lib/data/structure";
 import { mondayToWeekInput } from "@/lib/season-weeks";
@@ -32,9 +37,10 @@ async function SetupContent({
   params: PageProps<"/seasons/[seasonId]/setup">["params"];
 }) {
   const { seasonId } = await params;
-  const [plan, categories] = await Promise.all([
+  const [plan, categories, halls] = await Promise.all([
     getSeasonPlan(seasonId),
     listCategories(seasonId),
+    listHallOptions(),
   ]);
   // Setup is for editing; people who can only view see the season page.
   if (!canEdit(plan.access)) {
@@ -77,9 +83,12 @@ async function SetupContent({
                   startTime: s.startTime,
                   endTime: s.endTime,
                   location: s.location,
+                  hallId: s.hallId,
                 })),
               }}
+              halls={halls}
               action={updateSeasonAction.bind(null, season.id)}
+              applyHalls={applySlotHallToUpcomingAction.bind(null, season.id)}
             />
             {plan.access === "owner" && (
               <ConfirmDelete
@@ -98,7 +107,7 @@ async function SetupContent({
         </div>
         <div className="grid gap-1">
           <p className="font-medium">{season.name}</p>
-          <SeasonSummary season={season} trainingSlots={plan.trainingSlots} />
+          <SeasonSummary season={season} trainingSlots={plan.trainingSlots} halls={halls} />
         </div>
       </section>
 

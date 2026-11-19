@@ -6,9 +6,9 @@ import { requireUser } from "@/lib/auth";
 import { countPendingSubmissions } from "@/lib/data/submissions";
 import { cn } from "@/lib/utils";
 
-export type LibraryTab = "stations" | "exercises" | "equipment" | "review";
+export type LibraryTab = "stations" | "exercises" | "equipment" | "halls" | "review";
 
-const TABS: LibraryTab[] = ["stations", "exercises", "equipment"];
+const TABS: LibraryTab[] = ["stations", "exercises", "equipment", "halls"];
 
 /**
  * The library heading and its parts as links; the current one is marked.

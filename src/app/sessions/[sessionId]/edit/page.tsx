@@ -65,6 +65,7 @@ async function SessionEditContent({
               startTime: session.startTime,
               endTime: session.endTime,
               location: session.location,
+              hallId: session.hallId,
               isCancelled: session.isCancelled,
               noteAfter: session.noteAfter,
               parts: session.parts,
@@ -78,6 +79,7 @@ async function SessionEditContent({
             canCopy={false}
             canDelete={false}
             showOpenLink={false}
+            halls={editor.halls}
           />
         </ActivityLibraryProvider>
       </div>

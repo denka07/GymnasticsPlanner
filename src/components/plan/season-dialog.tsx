@@ -3,6 +3,15 @@
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition, type ReactElement } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -15,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import type { ActionResult } from "@/lib/action-result";
 import type { SeasonInput } from "@/lib/data/schemas";
 import {
@@ -29,7 +39,18 @@ import { useErrorMessage } from "./use-error-message";
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 
-type DayState = { on: boolean; startTime: string; endTime: string; location: string };
+type DayState = { on: boolean; startTime: string; endTime: string; location: string; hallId: string };
+
+/** A hall that can be a training day's default. */
+export type HallChoice = { id: string; name: string };
+
+/** A slot whose hall a save changed, with its upcoming stored sessions that have another hall. */
+export type HallChange = {
+  trainingSlotId: string;
+  weekday: number;
+  hallId: string | null;
+  upcomingCount: number;
+};
 
 type FormState = {
   name: string;
@@ -50,11 +71,12 @@ export type SeasonFormInitial = {
     startTime: string | null;
     endTime: string | null;
     location: string | null;
+    hallId: string | null;
   }[];
 };
 
 function emptyDay(): DayState {
-  return { on: false, startTime: "", endTime: "", location: "" };
+  return { on: false, startTime: "", endTime: "", location: "", hallId: "" };
 }
 
 /**
@@ -84,6 +106,7 @@ function toState(initial: SeasonFormInitial | undefined, today?: string): FormSt
       startTime: slot.startTime?.slice(0, 5) ?? "",
       endTime: slot.endTime?.slice(0, 5) ?? "",
       location: slot.location ?? "",
+      hallId: slot.hallId ?? "",
     };
   }
   return {
@@ -110,6 +133,7 @@ function toInput(state: FormState): SeasonInput {
       startTime: state.days[weekday].startTime,
       endTime: state.days[weekday].endTime,
       location: state.days[weekday].location,
+      hallId: state.days[weekday].hallId || null,
     })),
   };
 }
@@ -123,20 +147,30 @@ function previewCount(input: SeasonInput): number | null {
   return n > 0 ? n : null;
 }
 
-/** Creates or edits a season: name, week range and training days. */
+/**
+ * Creates or edits a season: name, week range and training days, each with
+ * an optional default hall. When a save changes a day's hall and that day
+ * has upcoming stored sessions with another hall, the user is asked whether
+ * to change those too (`applyHalls`).
+ */
 export function SeasonDialog({
   trigger,
   title,
   submitLabel,
   initial,
+  halls = [],
   action,
+  applyHalls,
 }: {
   trigger: ReactElement;
   title: string;
   submitLabel: string;
   initial?: SeasonFormInitial;
-  action: (input: SeasonInput) => Promise<ActionResult>;
+  halls?: HallChoice[];
+  action: (input: SeasonInput) => Promise<ActionResult & { hallChanges?: HallChange[] }>;
+  applyHalls?: (trainingSlotIds: string[]) => Promise<ActionResult>;
 }) {
+  const th = useTranslations("Halls");
   const t = useTranslations("Seasons");
   const tc = useTranslations("Common");
   const tw = useTranslations("Weekdays");
@@ -146,6 +180,8 @@ export function SeasonDialog({
   const [state, setState] = useState<FormState>(() => toState(initial));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [hallChanges, setHallChanges] = useState<HallChange[]>([]);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   function onOpenChange(next: boolean) {
     setOpen(next);
@@ -172,6 +208,10 @@ export function SeasonDialog({
       const result = await action(toInput(state));
       if (result.ok) {
         setOpen(false);
+        if (applyHalls && result.hallChanges && result.hallChanges.length > 0) {
+          setApplyError(null);
+          setHallChanges(result.hallChanges);
+        }
       } else {
         setError(errorMessage(result.error));
       }
@@ -179,8 +219,61 @@ export function SeasonDialog({
   }
 
   const count = previewCount(toInput(state));
+  const hallName = (hallId: string | null) => halls.find((h) => h.id === hallId)?.name ?? th("noHall");
+
+  function confirmHalls() {
+    if (!applyHalls) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await applyHalls(hallChanges.map((c) => c.trainingSlotId));
+      if (result.ok) {
+        setHallChanges([]);
+      } else {
+        setApplyError(errorMessage(result.error));
+      }
+    });
+  }
 
   return (
+    <>
+      <AlertDialog
+        open={hallChanges.length > 0}
+        onOpenChange={(next) => {
+          if (!next) {
+            setHallChanges([]);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("hallChangeTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("hallChangeText")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <ul className="grid gap-1">
+            {hallChanges.map((c) => (
+              <li key={c.trainingSlotId}>
+                {t("hallChangeItem", {
+                  day: tw(`d${c.weekday}` as "d1"),
+                  hall: hallName(c.hallId),
+                  count: c.upcomingCount,
+                })}
+              </li>
+            ))}
+          </ul>
+          {applyError && (
+            <p role="alert" className="text-sm text-destructive">
+              {applyError}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("hallChangeKeep")}</AlertDialogCancel>
+            <Button onClick={confirmHalls} disabled={pending}>
+              {pending ? tc("saving") : t("hallChangeApply")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={trigger} />
       <DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
@@ -274,6 +367,26 @@ export function SeasonDialog({
                           onChange={(e) => setDay(weekday, { location: e.target.value })}
                         />
                       </div>
+                      {halls.length > 0 && (
+                        <div className="col-span-2 grid gap-1 sm:col-span-3">
+                          <Label htmlFor={`${dayId}-hall`} className="text-sm text-muted-foreground">
+                            {t("defaultHall")}
+                          </Label>
+                          <NativeSelect
+                            id={`${dayId}-hall`}
+                            className="w-full"
+                            value={day.hallId}
+                            onChange={(e) => setDay(weekday, { hallId: e.target.value })}
+                          >
+                            <NativeSelectOption value="">{th("noHall")}</NativeSelectOption>
+                            {halls.map((h) => (
+                              <NativeSelectOption key={h.id} value={h.id}>
+                                {h.name}
+                              </NativeSelectOption>
+                            ))}
+                          </NativeSelect>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -298,6 +411,7 @@ export function SeasonDialog({
         </form>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 

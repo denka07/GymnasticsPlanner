@@ -253,3 +253,16 @@ export function hallImageUrl(pathname: string): string {
 export function isHallImageFileName(fileName: string): boolean {
   return IMAGE_FILE.test(fileName);
 }
+
+/**
+ * Where a session is, for a line of text: its location and its hall's name,
+ * the hall left out when the location already says it ("C-salen").
+ */
+export function placeParts(location: string | null | undefined, hallName: string | null | undefined): string[] {
+  const place = location?.trim() || null;
+  const hall = hallName?.trim() || null;
+  if (place && hall && place.toLocaleLowerCase("sv") === hall.toLocaleLowerCase("sv")) {
+    return [place];
+  }
+  return [place, hall].filter((p): p is string => p !== null);
+}

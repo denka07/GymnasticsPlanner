@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { canEdit, isOwner } from "@/lib/access";
 import { formatDayMonth, weekdayOf } from "@/lib/dates";
 import { getGroup, listEditableGroups } from "@/lib/data/groups";
+import { listHallOptions } from "@/lib/data/halls";
 import { mondayToWeekInput } from "@/lib/season-weeks";
 
 export default function GroupPage({ params }: PageProps<"/groups/[groupId]">) {
@@ -39,6 +40,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
   const ranges = await Promise.all(seasons.map(weekRangeText));
   // Only the owner copies seasons.
   const targetGroups = owner ? await listEditableGroups() : [];
+  const halls = editable ? await listHallOptions() : [];
 
   return (
     <PageShell crumbs={[{ label: group.name }]}>
@@ -102,6 +104,7 @@ async function GroupContent({ params }: { params: PageProps<"/groups/[groupId]">
                 }
                 title={t("Seasons.createTitle")}
                 submitLabel={t("Common.create")}
+                halls={halls}
                 action={createSeasonAction.bind(null, group.id)}
               />
             )}
