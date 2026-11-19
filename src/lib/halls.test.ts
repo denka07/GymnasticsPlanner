@@ -11,6 +11,7 @@ import {
   newHallInput,
   normalizeDegrees,
   parseMetres,
+  placeParts,
   SHAPE_KINDS,
 } from "./halls";
 
@@ -156,5 +157,14 @@ describe("hall images", () => {
     expect(isHallImageFileName("abc123def456-mdgrop.png")).toBe(true);
     expect(isHallImageFileName("../secret")).toBe(false);
     expect(isHallImageFileName("short-a.png")).toBe(false);
+  });
+});
+
+describe("placeParts", () => {
+  it("names location and hall once each", () => {
+    expect(placeParts("Stora hallen", "C-salen")).toEqual(["Stora hallen", "C-salen"]);
+    expect(placeParts("c-salen ", "C-salen")).toEqual(["c-salen"]);
+    expect(placeParts(null, "C-salen")).toEqual(["C-salen"]);
+    expect(placeParts("  ", null)).toEqual([]);
   });
 });

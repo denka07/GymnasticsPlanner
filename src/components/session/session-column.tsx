@@ -34,11 +34,12 @@ import type { AttachmentItem } from "@/lib/data/attachment-files";
 import type { SessionTarget } from "@/lib/data/schemas";
 import { formatDayMonth, shortTime, weekdayOf } from "@/lib/dates";
 import { fromLoadedParts, hasLinks, type LoadedPart } from "@/lib/outline";
+import { placeParts } from "@/lib/halls";
 import { cn } from "@/lib/utils";
 
 import { CopySessionDialog, type CopySourceOption } from "./copy-session-dialog";
 import { SessionAttachments } from "./session-attachments";
-import { SessionDetailsDialog } from "./session-details-dialog";
+import { SessionDetailsDialog, type HallChoice } from "./session-details-dialog";
 import { SessionOutlineEditor, SessionOutlineView } from "./session-outline-editor";
 import { useSessionOutline } from "./use-session-outline";
 
@@ -50,6 +51,8 @@ export type SessionColumnData = {
   startTime: string | null;
   endTime: string | null;
   location: string | null;
+  /** The session's hall, or for a placeholder its slot's hall. */
+  hallId: string | null;
   isCancelled: boolean;
   noteAfter: string | null;
   parts: LoadedPart[];
@@ -66,6 +69,7 @@ export function SessionColumn({
   canDelete = true,
   canCopy = true,
   showOpenLink = true,
+  halls = [],
 }: {
   data: SessionColumnData;
   seasonId: string;
@@ -79,6 +83,8 @@ export function SessionColumn({
   canCopy?: boolean;
   /** False where the session page is linked already. */
   showOpenLink?: boolean;
+  /** Every hall, to name the session's and to choose another. */
+  halls?: HallChoice[];
 }) {
   const t = useTranslations("Session");
   const tw = useTranslations("Weekdays");
@@ -100,6 +106,7 @@ export function SessionColumn({
   const start = shortTime(data.startTime);
   const end = shortTime(data.endTime);
   const time = start && end ? `${start}–${end}` : (start ?? end);
+  const hallName = halls.find((h) => h.id === data.hallId)?.name ?? null;
   const isPlaceholder = sessionId === null;
   const hasContent = lines.some((l) => l.text.trim() !== "" || hasLinks(l));
   const headingId = `session-${data.trainingSlotId ?? data.sessionId}`;
@@ -132,8 +139,10 @@ export function SessionColumn({
           >
             {name}
           </h3>
-          {(time || data.location) && (
-            <p className="text-muted-foreground">{[time, data.location].filter(Boolean).join(" · ")}</p>
+          {(time || data.location || hallName) && (
+            <p className="text-muted-foreground">
+              {[time, ...placeParts(data.location, hallName)].filter(Boolean).join(" · ")}
+            </p>
           )}
           <div className="flex flex-wrap gap-1.5 empty:hidden">
             {data.isCancelled && <Badge variant="destructive">{t("cancelled")}</Badge>}
@@ -228,9 +237,11 @@ export function SessionColumn({
               startTime: start ?? "",
               endTime: end ?? "",
               location: data.location ?? "",
+              hallId: data.hallId ?? "",
             }}
             minDate={weekStart}
             maxDate={weekEnd}
+            halls={halls}
             submit={async (values) => {
               const result = await updateSessionDetailsAction(store.currentTarget, values);
               return result.ok ? null : result.error;

@@ -22,6 +22,13 @@ import {
 } from "@/lib/data/equipment-configurations";
 import { UserError } from "@/lib/data/errors";
 import {
+  checkHallImage,
+  createHall,
+  deleteHall,
+  prepareHallImageUpload,
+  saveHall,
+} from "@/lib/data/halls";
+import {
   copyExercise,
   createExercise,
   deleteExercise,
@@ -365,4 +372,49 @@ export async function removeEquipmentImageAction(configurationId: string): Promi
     await removeEquipmentImage(configurationId);
     return {};
   });
+}
+
+// --- Halls --------------------------------------------------------------------------
+// See src/lib/data/halls.ts. Everyone reads halls; administrators change them.
+
+/** Creates a hall and opens it in the editor. */
+export async function createHallAction(input: unknown): Promise<ActionResult> {
+  let hallId: string | undefined;
+  const result = await run(async () => {
+    hallId = await createHall(input);
+    return {};
+  });
+  if (hallId) {
+    redirect(`/library/halls/${hallId}`);
+  }
+  return result;
+}
+
+/** Saves a whole hall: name, size and features. */
+export async function saveHallAction(hallId: string, input: unknown): Promise<ActionResult> {
+  return run(async () => {
+    await saveHall(hallId, input);
+    return {};
+  });
+}
+
+export async function deleteHallAction(hallId: string): Promise<void> {
+  await deleteHall(hallId);
+  redirect("/library/halls");
+}
+
+/** Step 1 of a feature image upload: checks the file and returns the path to upload to. */
+export async function prepareHallImageUploadAction(
+  hallId: string,
+  file: { name: string; type: string; size: number },
+): Promise<Result<{ pathname: string }>> {
+  return run(() => prepareHallImageUpload(hallId, file), { refreshPage: false });
+}
+
+/** Step 3 of a feature image upload: checks the stored file; returns the URL to show it with. */
+export async function checkHallImageAction(
+  hallId: string,
+  input: { pathname: string },
+): Promise<Result<{ url: string }>> {
+  return run(() => checkHallImage(hallId, input), { refreshPage: false });
 }

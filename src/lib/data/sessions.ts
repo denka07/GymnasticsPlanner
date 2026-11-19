@@ -339,6 +339,7 @@ export type SessionEditor = {
   session: StoredSession;
   weekStart: string;
   library: ActivityLibrary;
+  halls: HallOption[];
 };
 
 /**
@@ -358,11 +359,12 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
     .innerJoin(groups, eq(groups.id, seasons.groupId))
     .where(eq(sessions.id, sessionId))
     .limit(1);
-  const [outlines, files, library, seasonAccess] = await Promise.all([
+  const [outlines, files, library, seasonAccess, hallOptions] = await Promise.all([
     loadOutlines([sessionId]),
     loadAttachments([sessionId]),
     loadActivityLibrary(),
     getSeasonAccess(user.id, row.season.id),
+    listHallOptions(),
   ]);
   return {
     access,
@@ -376,6 +378,7 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
     },
     weekStart: mondayOf(row.session.date),
     library,
+    halls: hallOptions,
   };
 }
 

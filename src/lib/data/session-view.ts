@@ -10,6 +10,7 @@ import {
   equipment,
   exercises,
   groups,
+  halls,
   seasons,
   sessionParts,
   sessions,
@@ -67,6 +68,8 @@ export type SessionView = {
   /** False when only this session (not its season) is shared with the user. */
   canOpenSeason: boolean;
   session: Session;
+  /** The name of the session's hall, if it has one. */
+  hallName: string | null;
   group: { id: string; name: string };
   season: { id: string; name: string };
   parts: ViewPart[];
@@ -148,10 +151,12 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
         session: sessions,
         group: { id: groups.id, name: groups.name },
         season: { id: seasons.id, name: seasons.name },
+        hallName: halls.name,
       })
       .from(sessions)
       .innerJoin(seasons, eq(seasons.id, sessions.seasonId))
       .innerJoin(groups, eq(groups.id, seasons.groupId))
+      .leftJoin(halls, eq(halls.id, sessions.hallId))
       .where(eq(sessions.id, sessionId))
       .limit(1),
     db
@@ -203,6 +208,7 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     access,
     canOpenSeason: seasonOpen,
     session: row.session,
+    hallName: row.hallName,
     group: row.group,
     season: row.season,
     parts: partRows.map((p) => ({

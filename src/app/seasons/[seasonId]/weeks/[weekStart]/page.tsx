@@ -48,6 +48,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
       startTime: s.startTime,
       endTime: s.endTime,
       location: s.location,
+      hallId: s.hallId,
       isCancelled: s.isCancelled,
       noteAfter: s.noteAfter,
       parts: s.parts,
@@ -62,6 +63,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
     startTime: p.startTime,
     endTime: p.endTime,
     location: p.location,
+    hallId: p.hallId,
     isCancelled: false,
     noteAfter: null,
     parts: [],
@@ -157,6 +159,7 @@ async function WeekContent({
               seasonId={season.id}
               weekStart={weekStart}
               weekEnd={weekEnd}
+              halls={plan.halls}
             />
           )}
         </div>
@@ -201,6 +204,7 @@ async function WeekContent({
                 weekEnd={weekEnd}
                 editable={editable}
                 copySources={copySources}
+                halls={plan.halls}
               />
             ))
           )}

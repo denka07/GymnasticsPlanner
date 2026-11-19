@@ -11,6 +11,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { canEdit, canParticipate, isOwner } from "@/lib/access";
 import { formatDayMonth, formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { getSessionView, type SessionNeighbour } from "@/lib/data/session-view";
+import { placeParts } from "@/lib/halls";
 import { mondayOf } from "@/lib/weeks";
 
 export default function SessionPage({ params }: PageProps<"/sessions/[sessionId]">) {
@@ -73,8 +74,8 @@ async function SessionContent({ params }: { params: PageProps<"/sessions/[sessio
               )}
             </div>
           </div>
-          {(time || session.location) && (
-            <p className="text-lg">{[time, session.location].filter(Boolean).join(" · ")}</p>
+          {(time || session.location || view.hallName) && (
+            <p className="text-lg">{[time, ...placeParts(session.location, view.hallName)].filter(Boolean).join(" · ")}</p>
           )}
           <p className="text-muted-foreground">
             {t("groupLine", { group: group.name, season: season.name })}

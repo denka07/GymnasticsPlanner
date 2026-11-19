@@ -8,17 +8,19 @@ import { createExtraSessionAction } from "@/app/session-actions";
 import { WeekSettingsPopover } from "@/components/plan/week-header";
 import { Button } from "@/components/ui/button";
 
-import { SessionDetailsDialog } from "./session-details-dialog";
+import { SessionDetailsDialog, type HallChoice } from "./session-details-dialog";
 
 /** "Lägg till pass": an extra session on any date of the week. */
 export function AddSessionButton({
   seasonId,
   weekStart,
   weekEnd,
+  halls = [],
 }: {
   seasonId: string;
   weekStart: string;
   weekEnd: string;
+  halls?: HallChoice[];
 }) {
   const t = useTranslations("Week");
   const [open, setOpen] = useState(false);
@@ -32,9 +34,10 @@ export function AddSessionButton({
         open={open}
         onOpenChange={setOpen}
         title={t("addTitle")}
-        initial={{ date: weekStart, startTime: "", endTime: "", location: "" }}
+        initial={{ date: weekStart, startTime: "", endTime: "", location: "", hallId: "" }}
         minDate={weekStart}
         maxDate={weekEnd}
+        halls={halls}
         submit={async (values) => {
           const result = await createExtraSessionAction(seasonId, values);
           return result.ok ? null : result.error;

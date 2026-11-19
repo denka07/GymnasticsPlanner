@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import type { Season, TrainingSlot } from "@/db/schema";
+import { placeParts } from "@/lib/halls";
 import { isoWeek } from "@/lib/weeks";
 
 /** "v. 34–50, 2026", or with both years when the season crosses a new year. */
@@ -18,8 +19,8 @@ export async function weekRangeText(season: Pick<Season, "firstWeek" | "lastWeek
       });
 }
 
-/** One training slot: weekday, times if any and location if any. */
-export async function trainingSlotText(slot: TrainingSlot) {
+/** One training slot: weekday, times if any, location if any and hall if any. */
+export async function trainingSlotText(slot: TrainingSlot, halls: readonly { id: string; name: string }[] = []) {
   const t = await getTranslations("Seasons");
   const tw = await getTranslations("Weekdays");
   const start = slot.startTime?.slice(0, 5);
@@ -33,20 +34,24 @@ export async function trainingSlotText(slot: TrainingSlot) {
           ? t("timeTo", { end })
           : null;
   const day = tw(`d${slot.weekday}` as "d1");
-  return [day, time, slot.location].filter(Boolean).join(" · ");
+  const hall = halls.find((h) => h.id === slot.hallId)?.name;
+  return [day, time, ...placeParts(slot.location, hall)].filter(Boolean).join(" · ");
 }
 
 /** Season header: week range and training days. */
 export async function SeasonSummary({
   season,
   trainingSlots,
+  halls = [],
 }: {
   season: Season;
   trainingSlots: TrainingSlot[];
+  /** Names the slots' halls when given. */
+  halls?: readonly { id: string; name: string }[];
 }) {
   const t = await getTranslations("Seasons");
   const range = await weekRangeText(season);
-  const slots = await Promise.all(trainingSlots.map(trainingSlotText));
+  const slots = await Promise.all(trainingSlots.map((slot) => trainingSlotText(slot, halls)));
 
   return (
     <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5 text-base text-muted-foreground">
