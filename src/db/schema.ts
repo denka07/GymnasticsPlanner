@@ -625,11 +625,11 @@ export const stationLayoutItems = pgTable(
     }).onDelete("cascade"),
     check(
       "station_layout_items_kind_check",
-      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null and ${t.lengthCm} is null and ${t.text} is null) or (${t.kind} = 'arrow' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} between 10 and 2000 and ${t.text} is null) or (${t.kind} = 'text' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} is null and length(${t.text}) between 1 and 200)`,
+      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null and ${t.lengthCm} is null and ${t.text} is null) or (${t.kind} = 'arrow' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} between 10 and 5000 and ${t.text} is null) or (${t.kind} = 'text' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} is null and length(${t.text}) between 1 and 200)`,
     ),
     check(
       "station_layout_items_position_check",
-      sql`${t.xCm} between -1000 and 1000 and ${t.yCm} between -1000 and 1000`,
+      sql`${t.xCm} between -2500 and 2500 and ${t.yCm} between -2500 and 2500`,
     ),
     check("station_layout_items_rotation_check", sql`${t.rotation} >= 0 and ${t.rotation} < 360`),
   ],

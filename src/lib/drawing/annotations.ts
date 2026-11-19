@@ -13,7 +13,7 @@ import { tidy, type Point } from "./editor";
 export const ARROW_THICKNESS = 0.4;
 /** Shortest and longest arrows, in centimetres. */
 export const ARROW_MIN_CM = 10;
-export const ARROW_MAX_CM = 2000;
+export const ARROW_MAX_CM = 5000;
 /** A new arrow's length, in centimetres. */
 export const DEFAULT_ARROW_CM = 300;
 
