@@ -16,6 +16,7 @@ import {
 
 import { imagePathnamesOfEquipment } from "./equipment-configurations";
 import { isEquipmentInHall } from "./halls";
+import { isEquipmentInPlan } from "./session-plans";
 import { isEquipmentInStationLayout } from "./station-layouts";
 import { UserError } from "./errors";
 import { id, name } from "./schemas";
@@ -91,6 +92,9 @@ export async function deleteEquipment(equipmentId: unknown): Promise<void> {
   }
   if (await isEquipmentInStationLayout(entryId)) {
     throw new UserError("equipmentInLayout");
+  }
+  if (await isEquipmentInPlan(entryId)) {
+    throw new UserError("equipmentInPlan");
   }
   const images = await imagePathnamesOfEquipment(entryId);
   try {

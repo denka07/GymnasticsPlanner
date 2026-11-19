@@ -721,6 +721,166 @@ export const submissionExercises = pgTable(
   ],
 );
 
+// --- Session plans ---------------------------------------------------------------
+
+/**
+ * A drawing of a session in its hall (docs/data-model.md, "Session plan"):
+ * the main plan (at most one per session) or a plan for chosen parts
+ * (session_plan_parts). A part plan whose parts were all deleted is kept.
+ */
+export const sessionPlans = pgTable(
+  "session_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    isMain: boolean("is_main").notNull().default(false),
+    name: text("name"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("session_plans_session_id_idx").on(t.sessionId),
+    uniqueIndex("session_plans_one_main").on(t.sessionId).where(sql`${t.isMain}`),
+  ],
+);
+
+/**
+ * A part that a part plan applies to. A part belongs to at most one plan;
+ * the plan and the part belong to the same session (checked when saving).
+ */
+export const sessionPlanParts = pgTable(
+  "session_plan_parts",
+  {
+    sessionPartId: uuid("session_part_id")
+      .primaryKey()
+      .references(() => sessionParts.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => sessionPlans.id, { onDelete: "cascade" }),
+  },
+  (t) => [index("session_plan_parts_plan_id_idx").on(t.planId)],
+);
+
+export const planItemKind = pgEnum("plan_item_kind", [
+  "equipment",
+  "station",
+  "text",
+  "area",
+  "person",
+  "arrow",
+]);
+
+export const planPersonRole = pgEnum("plan_person_role", ["coach", "passare"]);
+
+/**
+ * One thing placed in a session plan (docs/data-model.md, "Plan item").
+ * Positions are whole centimetres from the hall's top-left corner. A station
+ * follows its library layout unless it is adapted, when its layout items are
+ * copied into plan_item_layout_items and its name into `stationName`; a
+ * station that is deleted is first turned into adapted copies. Ids are chosen
+ * by the editor, so an item keeps its id across saves.
+ */
+export const planItems = pgTable(
+  "plan_items",
+  {
+    id: uuid("id").primaryKey(),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => sessionPlans.id, { onDelete: "cascade" }),
+    kind: planItemKind("kind").notNull(),
+    /** Equipment items; equipment drawn in a plan cannot be deleted. */
+    equipmentId: uuid("equipment_id").references(() => equipment.id, { onDelete: "restrict" }),
+    configurationId: uuid("configuration_id").references(() => equipmentConfigurations.id, {
+      onDelete: "restrict",
+    }),
+    /** Station items; null only for an adapted copy of a deleted station. */
+    stationId: uuid("station_id").references(() => stations.id, { onDelete: "set null" }),
+    /** Station items: the activity the station is used for, numbered by it. */
+    activityId: uuid("activity_id").references(() => activities.id, { onDelete: "set null" }),
+    isAdapted: boolean("is_adapted").notNull().default(false),
+    /** Adapted stations: the station's name when it was adapted. */
+    stationName: text("station_name"),
+    personRole: planPersonRole("person_role"),
+    /** Areas: their size. Arrows: `lengthCm` is the arrow's length. */
+    widthCm: integer("width_cm"),
+    lengthCm: integer("length_cm"),
+    /** Texts only. */
+    text: text("text"),
+    xCm: integer("x_cm").notNull(),
+    yCm: integer("y_cm").notNull(),
+    rotation: doublePrecision("rotation").notNull().default(0),
+    layer: integer("layer").notNull(),
+    label: text("label"),
+  },
+  (t) => [
+    index("plan_items_plan_id_idx").on(t.planId),
+    index("plan_items_equipment_id_idx").on(t.equipmentId),
+    index("plan_items_configuration_id_idx").on(t.configurationId),
+    index("plan_items_station_id_idx").on(t.stationId),
+    index("plan_items_activity_id_idx").on(t.activityId),
+    // An activity is numbered by at most one placed station per plan.
+    unique("plan_items_plan_id_activity_id_unique").on(t.planId, t.activityId),
+    check(
+      "plan_items_kind_check",
+      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null)
+        or (${t.kind} = 'station' and (${t.stationId} is not null or ${t.isAdapted}) and (not ${t.isAdapted} or ${t.stationName} is not null))
+        or (${t.kind} = 'text' and length(${t.text}) between 1 and 200)
+        or (${t.kind} = 'area' and ${t.widthCm} between 1 and 20000 and ${t.lengthCm} between 1 and 20000)
+        or (${t.kind} = 'person' and ${t.personRole} is not null)
+        or (${t.kind} = 'arrow' and ${t.lengthCm} between 10 and 5000)`,
+    ),
+    check(
+      "plan_items_position_check",
+      sql`${t.xCm} between 0 and 20000 and ${t.yCm} between 0 and 20000`,
+    ),
+    check("plan_items_rotation_check", sql`${t.rotation} >= 0 and ${t.rotation} < 360`),
+  ],
+);
+
+/**
+ * The layout of an adapted station in a plan, copied from the library and
+ * then changed for that plan only. Like station_layout_items, positions are
+ * whole centimetres from the station's centre.
+ */
+export const planItemLayoutItems = pgTable(
+  "plan_item_layout_items",
+  {
+    id: uuid("id").primaryKey(),
+    planItemId: uuid("plan_item_id")
+      .notNull()
+      .references(() => planItems.id, { onDelete: "cascade" }),
+    kind: stationLayoutItemKind("kind").notNull(),
+    equipmentId: uuid("equipment_id").references(() => equipment.id, { onDelete: "restrict" }),
+    configurationId: uuid("configuration_id").references(() => equipmentConfigurations.id, {
+      onDelete: "restrict",
+    }),
+    lengthCm: integer("length_cm"),
+    text: text("text"),
+    xCm: integer("x_cm").notNull(),
+    yCm: integer("y_cm").notNull(),
+    rotation: doublePrecision("rotation").notNull().default(0),
+    layer: integer("layer").notNull(),
+    label: text("label"),
+  },
+  (t) => [
+    index("plan_item_layout_items_plan_item_id_idx").on(t.planItemId),
+    index("plan_item_layout_items_equipment_id_idx").on(t.equipmentId),
+    index("plan_item_layout_items_configuration_id_idx").on(t.configurationId),
+    check(
+      "plan_item_layout_items_kind_check",
+      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null and ${t.lengthCm} is null and ${t.text} is null) or (${t.kind} = 'arrow' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} between 10 and 5000 and ${t.text} is null) or (${t.kind} = 'text' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} is null and length(${t.text}) between 1 and 200)`,
+    ),
+    check(
+      "plan_item_layout_items_position_check",
+      sql`${t.xCm} between -2500 and 2500 and ${t.yCm} between -2500 and 2500`,
+    ),
+    check("plan_item_layout_items_rotation_check", sql`${t.rotation} >= 0 and ${t.rotation} < 360`),
+  ],
+);
+
 // --- Sharing -------------------------------------------------------------------
 
 export const shareLevel = pgEnum("share_level", ["view", "edit"]);
@@ -902,3 +1062,8 @@ export type SubmissionStatus = (typeof submissionStatus.enumValues)[number];
 export type Share = typeof shares.$inferSelect;
 export type NewShare = typeof shares.$inferInsert;
 export type ShareLevel = (typeof shareLevel.enumValues)[number];
+export type SessionPlan = typeof sessionPlans.$inferSelect;
+export type PlanItem = typeof planItems.$inferSelect;
+export type PlanItemKind = (typeof planItemKind.enumValues)[number];
+export type PlanPersonRole = (typeof planPersonRole.enumValues)[number];
+export type PlanItemLayoutItem = typeof planItemLayoutItems.$inferSelect;
