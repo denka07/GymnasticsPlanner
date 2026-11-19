@@ -11,8 +11,8 @@ import { ARROW_MAX_CM, ARROW_MIN_CM, arrowSize, MAX_TEXT_LENGTH, textSize } from
 import { unionBounds, type Placed, type Rect } from "./drawing/editor";
 import { MAX_LABEL_LENGTH, normalizeDegrees } from "./halls";
 
-/** How far from the station's centre an item's centre may be, in centimetres (10 m). */
-export const STATION_LAYOUT_HALF_CM = 1000;
+/** How far from the station's centre an item's centre may be, in centimetres (25 m), so long setups such as an airtrack with run-up and mats fit. */
+export const STATION_LAYOUT_HALF_CM = 2500;
 
 /** Most items one layout may have. */
 export const MAX_LAYOUT_ITEMS = 200;

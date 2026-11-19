@@ -108,17 +108,17 @@ describe("stationLayoutInput", () => {
     expect(parsed[2]).toMatchObject({ text: "Ansats här", label: null });
   });
 
-  it("refuses positions beyond 10 m from the centre and fractions of a centimetre", () => {
+  it("refuses positions beyond 25 m from the centre and fractions of a centimetre", () => {
     const arrowAt = (xCm: number) => [{ ...base, xCm, id: uuid(1), kind: "arrow", lengthCm: 100 }];
-    expect(stationLayoutInput.safeParse(arrowAt(1000)).success).toBe(true);
-    expect(stationLayoutInput.safeParse(arrowAt(1001)).success).toBe(false);
+    expect(stationLayoutInput.safeParse(arrowAt(2500)).success).toBe(true);
+    expect(stationLayoutInput.safeParse(arrowAt(2501)).success).toBe(false);
     expect(stationLayoutInput.safeParse(arrowAt(10.5)).success).toBe(false);
   });
 
   it("refuses arrows that are too short or too long and empty texts", () => {
     const one = (item: object) => stationLayoutInput.safeParse([{ ...base, id: uuid(1), ...item }]);
     expect(one({ kind: "arrow", lengthCm: 5 }).success).toBe(false);
-    expect(one({ kind: "arrow", lengthCm: 2001 }).success).toBe(false);
+    expect(one({ kind: "arrow", lengthCm: 5001 }).success).toBe(false);
     expect(one({ kind: "text", text: "   " }).success).toBe(false);
     expect(one({ kind: "text", text: "x".repeat(201) }).success).toBe(false);
   });

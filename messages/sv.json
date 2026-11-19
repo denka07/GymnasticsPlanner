@@ -83,7 +83,7 @@
     "configurationInHall": "Uppställningen står fast i en hall och kan inte tas bort.",
     "configurationInLayout": "Uppställningen är ritad i en stations ritning och kan inte tas bort.",
     "equipmentInLayout": "Redskapet är ritat i en stations ritning och kan inte tas bort.",
-    "arrowLengthInvalid": "En pil ska vara mellan 0,1 och 20 meter lång.",
+    "arrowLengthInvalid": "En pil ska vara mellan 0,1 och 50 meter lång.",
     "layoutTextRequired": "Skriv en text.",
     "layoutTextTooLong": "En text får vara högst 200 tecken.",
     "tooManyLayoutItems": "En ritning får ha högst 200 delar.",
