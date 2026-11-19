@@ -666,9 +666,9 @@ function StationProperties({
         </div>
       )}
 
-      {c.stationId && (
+      {library && (
         <Link
-          href={`/library/stations/${c.stationId}`}
+          href={`/library/stations/${library.id}`}
           target="_blank"
           className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline"
         >
