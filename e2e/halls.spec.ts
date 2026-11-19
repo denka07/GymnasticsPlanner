@@ -68,6 +68,11 @@ test.describe("Halls", () => {
     const drawing = page.getByRole("application", { name: `Ritning av ${hallName}` });
     const palette = page.getByRole("region", { name: "Lägg till" });
     await hydrated(palette.getByRole("button", { name: "Ribbstol" }));
+    // On this wide screen the long hall is shown turned at first; the test draws it upright.
+    const turn = page.getByRole("button", { name: "Vrid vyn 90°" });
+    await expect(turn).toHaveAttribute("aria-pressed", "true");
+    await turn.click();
+    await expect(turn).toHaveAttribute("aria-pressed", "false");
 
     // A blue floor, drawn under everything; with a photo of the floor when files can be stored.
     const floorPanel = page.getByRole("region", { name: "Golv", exact: true });

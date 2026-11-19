@@ -814,7 +814,9 @@
     "gridOff": "Av",
     "snapRotation": "Vrid i steg om 15°",
     "rotateHandle": "Vrid",
-    "help": "Dra för att flytta, dra i den runda punkten för att vrida. Klicka med Skift för att markera flera, eller dra en ruta på golvet. Piltangenter flyttar ett steg, R vrider, Delete tar bort, Ctrl+D duplicerar, Ctrl+Z ångrar. Hjulet zoomar; dra med mellanslag nedtryckt för att panorera."
+    "help": "Dra för att flytta, dra i den runda punkten för att vrida. Klicka med Skift för att markera flera, eller dra en ruta på golvet. Piltangenter flyttar ett steg, R vrider, Delete tar bort, Ctrl+D duplicerar, Ctrl+Z ångrar. Hjulet zoomar; dra med mellanslag nedtryckt för att panorera.",
+    "turnView": "Vrid vyn 90°",
+    "helpButton": "Hjälp för ritningen"
   },
   "Share": {
     "button": "Dela",
@@ -981,6 +983,7 @@
     "xLabel": "X (m)",
     "yLabel": "Y (m)",
     "rotationLabel": "Vridning (°)",
-    "positionHint": "X och Y räknas från hallens övre vänstra hörn."
+    "positionHint": "X och Y räknas från hallens övre vänstra hörn.",
+    "introButton": "Om ritningar"
   }
 }

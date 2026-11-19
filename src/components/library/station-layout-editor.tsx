@@ -182,8 +182,11 @@ export function StationLayoutEditor({
   lines,
   catalogue,
   removedIds,
+  viewKey,
 }: {
   stationName: string;
+  /** Remembers the user's choice of turned view (see DrawingEditor). */
+  viewKey?: string;
   initialItems: LayoutEditorItem[];
   onItemsChange: (items: LayoutEditorItem[]) => void;
   /** The station's equipment as the form has it now. */
@@ -232,6 +235,7 @@ export function StationLayoutEditor({
       initialItems={initialItems}
       onItemsChange={onItemsChange}
       label={t("editorLabel", { name: stationName })}
+      viewKey={viewKey}
       itemLabel={itemLabel}
       background={<CentreMark />}
       renderItem={(item) => (

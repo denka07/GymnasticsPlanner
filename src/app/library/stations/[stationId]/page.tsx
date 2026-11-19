@@ -52,12 +52,12 @@ async function StationContent({
       {/* Editors get the width the drawing editor needs; the text keeps a reading width. */}
       <div className={editable ? "grid w-full gap-6" : "mx-auto grid w-full max-w-3xl gap-6"}>
         <div className="mx-auto grid w-full max-w-3xl gap-6">
-          <h1 className="flex flex-wrap items-center gap-3 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
+          <h1 className="flex flex-wrap items-center gap-3 font-heading text-2xl leading-tight font-semibold tracking-tight break-words">
             {station.name}
             {isGlobal && <ScopeBadge />}
           </h1>
           {(details.creatorName !== null || details.activityCount !== null) && (
-            <div className="-mt-4 grid gap-0.5 text-muted-foreground">
+            <div className="-mt-5 grid gap-0.5 text-sm text-muted-foreground">
               {details.creatorName !== null && (
                 <p>{tl("createdBy", { name: details.creatorName })}</p>
               )}

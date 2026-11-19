@@ -283,6 +283,7 @@ export function StationEditor({
           <StationLayoutEditor
             key={editorKey}
             stationName={name}
+            viewKey={`station:${station.id}`}
             initialItems={layout}
             onItemsChange={setLayout}
             lines={layoutLines}

@@ -4,11 +4,13 @@ import {
   BringToFrontIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CircleHelpIcon,
   CopyIcon,
   MaximizeIcon,
   Redo2Icon,
   RotateCcwIcon,
   RotateCwIcon,
+  RotateCwSquareIcon,
   SendToBackIcon,
   Trash2Icon,
   Undo2Icon,
@@ -24,6 +26,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -31,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   addItem,
   angleTo,
@@ -62,6 +66,17 @@ import {
   type ViewBox,
 } from "@/lib/drawing/editor";
 import { canRedo, canUndo, commit, createHistory, redo, undo, type History } from "@/lib/drawing/history";
+import {
+  drawingDirection,
+  rectToDrawing,
+  rectToView,
+  toDrawingPoint,
+  turnByDefault,
+  uprightStyle,
+  viewArea,
+  viewStorageKey,
+  viewTransform,
+} from "@/lib/drawing/view";
 import { cn } from "@/lib/utils";
 
 import { placement } from "./hall-drawing";
@@ -79,7 +94,49 @@ import { placement } from "./hall-drawing";
  * Ctrl+D duplicates, Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y) undo and redo,
  * Ctrl+A selects all, Escape clears the selection, Page Up and Page Down
  * change layer.
+ *
+ * The view can be turned 90° ("Vrid vyn 90°") without changing the drawing:
+ * by default a drawing's long side follows the canvas's long side, and the
+ * user's choice is remembered per drawing (`viewKey`). The zoomed view is
+ * kept in view space (src/lib/drawing/view.ts); pointer positions are mapped
+ * back to drawing space, arrow keys move items the way the screen shows, and
+ * text that reads `--upright` stays upright.
  */
+
+// --- The remembered view -------------------------------------------------------------
+
+const viewListeners = new Set<() => void>();
+
+function subscribeToViews(listener: () => void) {
+  viewListeners.add(listener);
+  window.addEventListener("storage", listener);
+  return () => {
+    viewListeners.delete(listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
+/** The user's choice for a drawing: turned, upright, or null when none is stored. */
+function readTurnChoice(viewKey: string | undefined): boolean | null {
+  if (!viewKey) {
+    return null;
+  }
+  try {
+    const stored = window.localStorage.getItem(viewStorageKey(viewKey));
+    return stored === "turned" ? true : stored === "upright" ? false : null;
+  } catch {
+    return null;
+  }
+}
+
+function storeTurnChoice(viewKey: string, turned: boolean) {
+  try {
+    window.localStorage.setItem(viewStorageKey(viewKey), turned ? "turned" : "upright");
+  } catch {
+    // Not remembered without storage.
+  }
+  viewListeners.forEach((listener) => listener());
+}
 
 /** What render props get to change the drawing. Every change is one undo step. */
 export type EditorApi<T extends Placed> = {
@@ -158,11 +215,14 @@ export function DrawingEditor<T extends Placed>({
   label,
   className,
   initialView,
+  viewKey,
 }: {
   /** The drawing's size in metres; items' centres stay inside it. */
   area: Area;
-  /** The part shown at first; the whole area when left out. */
+  /** The part shown at first, in drawing space; the whole area when left out. */
   initialView?: ViewBox;
+  /** Remembers the user's choice of turned view under this name (for example "hall:<id>"). */
+  viewKey?: string;
   initialItems: T[];
   /** Called with the items whenever a change is committed (not during a drag). */
   onItemsChange?: (items: T[]) => void;
@@ -192,12 +252,38 @@ export function DrawingEditor<T extends Placed>({
   }));
   const [grid, setGrid] = useState<number | null>(DEFAULT_GRID);
   const [snapRotation, setSnapRotation] = useState(true);
+  // The view is in view space; it starts unturned until the canvas is measured.
   const [view, setView] = useState<ViewBox>(() => initialView ?? fitView(area));
+  const [canvas, setCanvas] = useState<{ width: number; height: number } | null>(null);
+  // A choice made here wins over the stored one, which wins over the default.
+  const [turnChoice, setTurnChoice] = useState<boolean | null>(null);
+  const storedChoice = useSyncExternalStore(
+    subscribeToViews,
+    () => readTurnChoice(viewKey),
+    () => null,
+  );
+  // The part shown first (a station's items, say) decides the default, else the whole area.
+  const [shape] = useState(() => initialView ?? area);
+  const turned = turnChoice ?? storedChoice ?? turnByDefault(shape, canvas);
+  // When the view turns, keep showing the same part of the drawing.
+  const [shownTurned, setShownTurned] = useState(false);
+  if (shownTurned !== turned) {
+    setShownTurned(turned);
+    setView((v) => rectToView(rectToDrawing(v, area, shownTurned), area, turned));
+  }
   const [marquee, setMarquee] = useState<Rect | null>(null);
   const [pxPerMetre, setPxPerMetre] = useState(10);
   const [spaceHeld, setSpaceHeld] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
   const gesture = useRef<Gesture | null>(null);
+
+  function toggleTurned() {
+    const next = !turned;
+    setTurnChoice(next);
+    if (viewKey) {
+      storeTurnChoice(viewKey, next);
+    }
+  }
 
   const committed = state.history.present;
   const items = state.draft ?? committed;
@@ -224,6 +310,8 @@ export function DrawingEditor<T extends Placed>({
       if (ctm && ctm.a > 0) {
         setPxPerMetre(ctm.a);
       }
+      const { clientWidth: width, clientHeight: height } = svg;
+      setCanvas((c) => (c && c.width === width && c.height === height ? c : { width, height }));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -231,7 +319,8 @@ export function DrawingEditor<T extends Placed>({
     return () => observer.disconnect();
   }, [view]);
 
-  const toDrawing = useCallback((clientX: number, clientY: number): Point => {
+  /** A point on the screen in view space. */
+  const toView = useCallback((clientX: number, clientY: number): Point => {
     const svg = svgRef.current;
     const ctm = svg?.getScreenCTM();
     if (!svg || !ctm) {
@@ -240,6 +329,12 @@ export function DrawingEditor<T extends Placed>({
     const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
     return { x: p.x, y: p.y };
   }, []);
+
+  /** A point on the screen in drawing space. */
+  const toDrawing = useCallback(
+    (clientX: number, clientY: number): Point => toDrawingPoint(toView(clientX, clientY), area, turned),
+    [toView, area, turned],
+  );
 
   const change = useCallback(
     (next: T[], options: { selected?: string[]; merge?: string | null } = {}) =>
@@ -253,7 +348,7 @@ export function DrawingEditor<T extends Placed>({
       selected,
       add: (item) => {
         const center = placeAt(
-          { x: view.x + view.width / 2, y: view.y + view.height / 2 },
+          toDrawingPoint({ x: view.x + view.width / 2, y: view.y + view.height / 2 }, area, turned),
           grid,
           area,
         );
@@ -265,7 +360,7 @@ export function DrawingEditor<T extends Placed>({
       replace: (next) => change(next),
       select: (ids) => dispatch({ type: "select", ids }),
     }),
-    [items, selected, committed, view, grid, area, change],
+    [items, selected, committed, view, grid, area, turned, change],
   );
 
   // --- Commands ---------------------------------------------------------------
@@ -320,11 +415,11 @@ export function DrawingEditor<T extends Placed>({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const factor = Math.exp(-e.deltaY * 0.0015);
-      zoom(factor, toDrawing(e.clientX, e.clientY));
+      zoom(factor, toView(e.clientX, e.clientY));
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [zoom, toDrawing]);
+  }, [zoom, toView]);
 
   // --- Pointer ------------------------------------------------------------------
 
@@ -467,7 +562,8 @@ export function DrawingEditor<T extends Placed>({
     if (key in arrows) {
       if (hasSelection) {
         const step = e.shiftKey ? 1 : (grid ?? 0.05);
-        change(nudge(committed, selectedSet, arrows[key], step, area), {
+        // Items move the way the screen shows, also when the view is turned.
+        change(nudge(committed, selectedSet, drawingDirection(arrows[key], turned), step, area), {
           merge: `nudge:${state.selected.join(",")}`,
         });
       } else {
@@ -525,6 +621,8 @@ export function DrawingEditor<T extends Placed>({
         hasSelection={hasSelection}
         grid={grid}
         snapRotation={snapRotation}
+        turned={turned}
+        onTurn={toggleTurned}
         onUndo={() => dispatch({ type: "undo" })}
         onRedo={() => dispatch({ type: "redo" })}
         onDuplicate={copy}
@@ -534,7 +632,7 @@ export function DrawingEditor<T extends Placed>({
         onGrid={setGrid}
         onSnapRotation={setSnapRotation}
         onZoom={(f) => zoom(f)}
-        onFit={() => setView(fitView(area))}
+        onFit={() => setView(fitView(viewArea(area, turned)))}
       />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="grid content-start gap-2">
@@ -547,7 +645,8 @@ export function DrawingEditor<T extends Placed>({
             viewBox={`${view.x} ${view.y} ${view.width} ${view.height}`}
             preserveAspectRatio="xMidYMid meet"
             className={cn(
-              "h-[min(70vh,720px)] min-h-96 w-full touch-none rounded-lg border bg-muted/40 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50",
+              // Fills what is left of the window under the toolbar, above the save bar.
+              "h-[max(24rem,calc(100dvh-13rem))] w-full touch-none rounded-lg border bg-muted/40 outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50",
               spaceHeld ? "cursor-grab" : "cursor-default",
             )}
             onPointerDown={onBackgroundDown}
@@ -562,6 +661,7 @@ export function DrawingEditor<T extends Placed>({
             }}
             onBlur={() => setSpaceHeld(false)}
           >
+            <g transform={viewTransform(area, turned)} style={uprightStyle(turned)} data-turned={turned || undefined}>
             {background}
             {showGrid && (
               <g className="pointer-events-none stroke-foreground/10" data-grid>
@@ -658,8 +758,9 @@ export function DrawingEditor<T extends Placed>({
                 vectorEffect="non-scaling-stroke"
               />
             )}
+            </g>
           </svg>
-          <p id={`${id}-help`} className="text-sm text-muted-foreground">
+          <p id={`${id}-help`} className="sr-only">
             {t("help")}
           </p>
         </div>
@@ -680,6 +781,8 @@ function Toolbar({
   hasSelection,
   grid,
   snapRotation,
+  turned,
+  onTurn,
   onUndo,
   onRedo,
   onDuplicate,
@@ -698,6 +801,8 @@ function Toolbar({
   hasSelection: boolean;
   grid: number | null;
   snapRotation: boolean;
+  turned: boolean;
+  onTurn: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onDuplicate: () => void;
@@ -744,6 +849,17 @@ function Toolbar({
         {tool(t("zoomOut"), <ZoomOutIcon />, () => onZoom(0.8))}
         {tool(t("zoomIn"), <ZoomInIcon />, () => onZoom(1.25))}
         {tool(t("fit"), <MaximizeIcon />, onFit)}
+        <Button
+          type="button"
+          variant={turned ? "secondary" : "outline"}
+          size="icon-lg"
+          aria-label={t("turnView")}
+          title={t("turnView")}
+          aria-pressed={turned}
+          onClick={onTurn}
+        >
+          <RotateCwSquareIcon />
+        </Button>
       </div>
       <div className="flex items-center gap-2">
         <Label htmlFor={`${id}-grid`} className="text-sm">
@@ -770,6 +886,18 @@ function Toolbar({
         />
         {t("snapRotation")}
       </Label>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button type="button" variant="ghost" size="icon-lg" aria-label={t("helpButton")} title={t("helpButton")}>
+              <CircleHelpIcon />
+            </Button>
+          }
+        />
+        <PopoverContent align="end" className="w-80 text-sm">
+          {t("help")}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
