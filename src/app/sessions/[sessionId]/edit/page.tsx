@@ -70,6 +70,7 @@ async function SessionEditContent({
               noteAfter: session.noteAfter,
               parts: session.parts,
               attachments: session.attachments,
+              planCount: session.planCount,
             }}
             seasonId={season.id}
             weekStart={weekStart}

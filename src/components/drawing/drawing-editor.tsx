@@ -92,6 +92,8 @@ export type EditorApi<T extends Placed> = {
    * step, so typing in a field or dragging a colour does not fill the history.
    */
   update: (id: string, patch: Partial<T>, merge?: string) => void;
+  /** Replaces every item at once, as one undo step (for changes to several items). */
+  replace: (items: T[]) => void;
   select: (ids: string[]) => void;
 };
 
@@ -260,6 +262,7 @@ export function DrawingEditor<T extends Placed>({
       },
       update: (itemId, patch, merge) =>
         change(updateItem(committed, itemId, patch), { merge: merge ? `${itemId}:${merge}` : null }),
+      replace: (next) => change(next),
       select: (ids) => dispatch({ type: "select", ids }),
     }),
     [items, selected, committed, view, grid, area, change],
