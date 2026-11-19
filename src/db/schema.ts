@@ -4,6 +4,7 @@ import {
   type AnyPgColumn,
   check,
   date,
+  foreignKey,
   doublePrecision,
   index,
   integer,
@@ -581,6 +582,59 @@ export const stationEquipment = pgTable(
   ],
 );
 
+export const stationLayoutItemKind = pgEnum("station_layout_item_kind", ["equipment", "arrow", "text"]);
+
+/**
+ * One thing drawn in a station's layout (docs/data-model.md, "Station layout
+ * item"): a piece of the station's equipment in one of its configurations, an
+ * arrow or a short text. Positions are whole centimetres from the station's
+ * centre. Equipment must be a line of the station's equipment, so removing
+ * the line removes its items; a configuration placed here cannot be deleted.
+ */
+export const stationLayoutItems = pgTable(
+  "station_layout_items",
+  {
+    id: uuid("id").primaryKey(),
+    stationId: uuid("station_id")
+      .notNull()
+      .references(() => stations.id, { onDelete: "cascade" }),
+    kind: stationLayoutItemKind("kind").notNull(),
+    /** Equipment items only. */
+    equipmentId: uuid("equipment_id").references(() => equipment.id, { onDelete: "restrict" }),
+    configurationId: uuid("configuration_id").references(() => equipmentConfigurations.id, {
+      onDelete: "restrict",
+    }),
+    /** Arrows only: the arrow's length. */
+    lengthCm: integer("length_cm"),
+    /** Texts only. */
+    text: text("text"),
+    xCm: integer("x_cm").notNull(),
+    yCm: integer("y_cm").notNull(),
+    rotation: doublePrecision("rotation").notNull().default(0),
+    layer: integer("layer").notNull(),
+    label: text("label"),
+  },
+  (t) => [
+    index("station_layout_items_station_id_idx").on(t.stationId),
+    index("station_layout_items_equipment_id_idx").on(t.equipmentId),
+    index("station_layout_items_configuration_id_idx").on(t.configurationId),
+    foreignKey({
+      name: "station_layout_items_station_equipment_fk",
+      columns: [t.stationId, t.equipmentId],
+      foreignColumns: [stationEquipment.stationId, stationEquipment.equipmentId],
+    }).onDelete("cascade"),
+    check(
+      "station_layout_items_kind_check",
+      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null and ${t.lengthCm} is null and ${t.text} is null) or (${t.kind} = 'arrow' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} between 10 and 2000 and ${t.text} is null) or (${t.kind} = 'text' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.lengthCm} is null and length(${t.text}) between 1 and 200)`,
+    ),
+    check(
+      "station_layout_items_position_check",
+      sql`${t.xCm} between -1000 and 1000 and ${t.yCm} between -1000 and 1000`,
+    ),
+    check("station_layout_items_rotation_check", sql`${t.rotation} >= 0 and ${t.rotation} < 360`),
+  ],
+);
+
 /** An exercise a station supports. */
 export const stationExercises = pgTable(
   "station_exercises",
@@ -840,6 +894,8 @@ export type Station = typeof stations.$inferSelect;
 export type NewStation = typeof stations.$inferInsert;
 export type StationEquipment = typeof stationEquipment.$inferSelect;
 export type StationExercise = typeof stationExercises.$inferSelect;
+export type StationLayoutItem = typeof stationLayoutItems.$inferSelect;
+export type StationLayoutItemKind = (typeof stationLayoutItemKind.enumValues)[number];
 export type Submission = typeof submissions.$inferSelect;
 export type SubmissionExercise = typeof submissionExercises.$inferSelect;
 export type SubmissionStatus = (typeof submissionStatus.enumValues)[number];
