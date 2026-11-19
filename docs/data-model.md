@@ -268,7 +268,7 @@ When an administrator creates an item they choose personal (the default) or glob
 
 Every item remembers who created it. The creator is kept when the item becomes global, but only administrators are shown it ("Skapad av …"); other users never receive it.
 
-A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original. A copied station keeps its equipment lines and its links to the exercises the user can see (global ones and the user's own); a copied exercise keeps its links to the stations the user can see.
+A user can copy a global exercise or station into a personal one to adapt it. The copy is independent of the original. A copied station keeps its equipment lines, its layout and its links to the exercises the user can see (global ones and the user's own); a copied exercise keeps its links to the stations the user can see.
 
 A coach can submit a personal exercise or station for review to make it global, see [Submission](#submission).
 
@@ -403,15 +403,26 @@ Each kind has a default colour and, without an image, a look of its own, so that
 
 ### Station layout item
 
-Where one piece of a station's equipment sits when the station is drawn. Together they are the station's visual representation.
+One thing drawn in a station's layout. Together they are the station's visual representation, seen from above around the station's centre.
 
 - Station
-- Equipment and its configuration (example: Tunnmatta, Lutad)
-- Position relative to the station's centre, and rotation
-- Layer order (higher is drawn on top; example: a flipper on a tjockmatta)
+- Kind, with what that kind needs:
+  - **Equipment:** one piece of the equipment the station needs, and one of its configurations (example: Tunnmatta, Lutad).
+  - **Arrow:** a length (example: the direction of run-up to a trampett).
+  - **Text:** a short text (example: Ansats).
+- Position relative to the station's centre, in whole centimetres, and rotation
+- Layer order (higher is drawn on top; example: a kil on a tjockmatta)
 - Label (optional short text; example: 2 delar)
 
-Only equipment the station needs can be placed, and at most as many as its quantity (2 × Tunnmatta can be placed twice). Equipment the station needs but that is not placed is not drawn. Whoever may edit the station may edit its layout.
+Arrows and texts are the same item kinds as in session plans, and are drawn the same way in both.
+
+Rules:
+
+- Only equipment the station needs can be placed, and at most as many as its quantity (2 × Tunnmatta can be placed twice), each with a configuration of that equipment. Equipment the station needs but that is not placed is not drawn.
+- Whoever may edit the station may edit its layout: the owner of a personal station, administrators for a global one. Everyone who can read the station can read its layout, including those who see it through a session's activities.
+- The layout is saved with the station, as a whole. When the station's equipment changes (a line is removed or its quantity lowered), placed items that no longer fit are removed when the station is saved, the topmost first, and the user is told how many. The server enforces this.
+- Copying a station into a personal one copies its layout. A station submitted for review brings its layout, and the administrator sees the drawing when reviewing it; approval makes the station itself global, layout included.
+- A station without layout items has no picture. Lists and the activity search dialog draw a station that has a layout small, scaled to fit.
 
 ### Session plan
 
