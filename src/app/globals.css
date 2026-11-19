@@ -188,3 +188,61 @@
     animation: timer-alert-pulse 1.6s ease-in-out infinite;
   }
 }
+
+/*
+ * Printed session plans (/sessions/[sessionId]/plans/print): one plan per
+ * page, the drawing as large as fits, a drawing wider than tall on a
+ * landscape page. Named pages give each plan its own orientation where the
+ * browser supports them; elsewhere every page takes the print dialog's.
+ */
+@page plan-portrait {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@page plan-landscape {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+.print-plan {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media print {
+  .print-plan {
+    page: plan-portrait;
+    break-after: page;
+  }
+
+  .print-plan:last-child {
+    break-after: auto;
+  }
+
+  .print-plan[data-orientation="landscape"] {
+    page: plan-landscape;
+  }
+
+  /* The page's height (297 or 210 mm) less its margins and the plan's heading. */
+  .print-plan .print-drawing svg {
+    width: 100%;
+    height: 252mm;
+    max-height: none;
+    break-inside: avoid;
+  }
+
+  .print-plan[data-orientation="landscape"] .print-drawing svg {
+    height: 165mm;
+  }
+
+  /* The drawing fills its page, so the parts' text starts on the next. */
+  .print-plan .print-text {
+    break-before: page;
+  }
+
+  /* Nothing but the plans, so no empty page of another size follows them. */
+  body:has(.print-plan) > :not(main) {
+    display: none;
+  }
+}

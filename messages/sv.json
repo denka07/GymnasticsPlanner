@@ -1014,13 +1014,10 @@
     "printMenu": "Skriv ut …",
     "chooseLabel": "Vad ska skrivas ut?",
     "all": "Alla ritningar",
-    "allCount": "{count, plural, one {Alla ritningar (#)} other {Alla ritningar (#)}}",
     "onlyThis": "Den här ritningen",
     "hint": "Varje ritning får en egen sida, med passdelarna och numren efter ritningen. Spara som PDF i utskriftsdialogen.",
     "back": "Till ritningarna",
     "noPlans": "Passet har inga ritningar att skriva ut.",
-    "noHall": "Passet har ingen hall, så ritningarna kan inte skrivas ut.",
-    "sessionLine": "{session} · {group}",
-    "hallLine": "Hall: {hall}"
+    "noHall": "Passet har ingen hall, så ritningarna kan inte skrivas ut."
   }
 }

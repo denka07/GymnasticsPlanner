@@ -36,12 +36,16 @@ export async function PageShell({
 
   return (
     <>
-      <AppHeader userName={user.name} wide={wide} />
+      {/* Printed pages show only their content. */}
+      <div className="contents print:hidden">
+        <AppHeader userName={user.name} wide={wide} />
+      </div>
       <main className={cn(
           "mx-auto grid w-full min-w-0 flex-1 content-start px-4 sm:px-6",
           wide ? "gap-4 py-4 lg:px-8" : "max-w-[75rem] gap-6 py-6 sm:py-8",
+          "print:max-w-none print:p-0",
         )}>
-        <Breadcrumb aria-label={t("label")}>
+        <Breadcrumb aria-label={t("label")} className="print:hidden">
           <BreadcrumbList>
             {all.map((crumb, index) => {
               const last = index === all.length - 1;
