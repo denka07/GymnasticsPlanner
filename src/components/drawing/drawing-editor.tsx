@@ -155,9 +155,12 @@ export function DrawingEditor<T extends Placed>({
   properties,
   label,
   className,
+  initialView,
 }: {
   /** The drawing's size in metres; items' centres stay inside it. */
   area: Area;
+  /** The part shown at first; the whole area when left out. */
+  initialView?: ViewBox;
   initialItems: T[];
   /** Called with the items whenever a change is committed (not during a drag). */
   onItemsChange?: (items: T[]) => void;
@@ -187,7 +190,7 @@ export function DrawingEditor<T extends Placed>({
   }));
   const [grid, setGrid] = useState<number | null>(DEFAULT_GRID);
   const [snapRotation, setSnapRotation] = useState(true);
-  const [view, setView] = useState<ViewBox>(() => fitView(area));
+  const [view, setView] = useState<ViewBox>(() => initialView ?? fitView(area));
   const [marquee, setMarquee] = useState<Rect | null>(null);
   const [pxPerMetre, setPxPerMetre] = useState(10);
   const [spaceHeld, setSpaceHeld] = useState(false);

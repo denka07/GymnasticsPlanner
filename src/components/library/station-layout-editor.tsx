@@ -2,7 +2,7 @@
 
 import { ArrowRightIcon, PlusIcon, TypeIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useId, useMemo } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 
 import { CommitField, parseNumber } from "@/components/drawing/commit-field";
 import { DrawingEditor, type EditorApi } from "@/components/drawing/drawing-editor";
@@ -24,6 +24,7 @@ import {
 import type { Placed } from "@/lib/drawing/editor";
 import { MAX_LABEL_LENGTH, normalizeDegrees } from "@/lib/halls";
 import {
+  layoutView,
   placementsLeft,
   STATION_LAYOUT_HALF_CM,
   type DrawnLayoutItem,
@@ -41,6 +42,8 @@ import {
 /** The station's centre in the editor's drawing, which runs from 0 to twice this, in metres. */
 const CENTRE = STATION_LAYOUT_HALF_CM / 100;
 const AREA = { width: 2 * CENTRE, height: 2 * CENTRE };
+/** At first the editor shows at least this much around the centre, in metres. */
+const START_VIEW = 10;
 
 /** A layout item in the editor: placed in metres from the drawing's corner. */
 export type LayoutEditorItem = Placed & {
@@ -191,6 +194,17 @@ export function StationLayoutEditor({
   removedIds: ReadonlySet<string>;
 }) {
   const t = useTranslations("StationLayout");
+  // At first: the drawn items with room around them, or the middle of the area.
+  const [initialView] = useState(() => {
+    const items = initialItems.map((i) => toDrawnItem(i, catalogue));
+    const view = layoutView(items, 1.5, START_VIEW) ?? {
+      x: -START_VIEW / 2,
+      y: -START_VIEW / 2,
+      width: START_VIEW,
+      height: START_VIEW,
+    };
+    return { ...view, x: view.x + CENTRE, y: view.y + CENTRE };
+  });
 
   const itemLabel = useCallback(
     (item: LayoutEditorItem) => {
@@ -214,6 +228,7 @@ export function StationLayoutEditor({
   return (
     <DrawingEditor<LayoutEditorItem>
       area={AREA}
+      initialView={initialView}
       initialItems={initialItems}
       onItemsChange={onItemsChange}
       label={t("editorLabel", { name: stationName })}
