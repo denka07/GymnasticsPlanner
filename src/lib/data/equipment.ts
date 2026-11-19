@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { equipment, stationEquipment } from "@/db/schema";
 import { requireAdmin } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
+import { deleteBlobs } from "@/lib/blob";
 import {
   byName,
   isStillReferenced,
@@ -13,6 +14,7 @@ import {
   pgErrorCode,
 } from "@/lib/library";
 
+import { imagePathnamesOfEquipment } from "./equipment-configurations";
 import { UserError } from "./errors";
 import { id, name } from "./schemas";
 
@@ -75,10 +77,14 @@ export async function renameEquipment(
   }
 }
 
-/** Deletes an entry that no station uses. Administrators only. */
+/**
+ * Deletes an entry that no station uses, with its configurations, and then
+ * their images. Administrators only.
+ */
 export async function deleteEquipment(equipmentId: unknown): Promise<void> {
   await requireAdmin();
   const entryId = id.parse(equipmentId);
+  const images = await imagePathnamesOfEquipment(entryId);
   try {
     await getDb().delete(equipment).where(eq(equipment.id, entryId));
   } catch (error) {
@@ -88,6 +94,7 @@ export async function deleteEquipment(equipmentId: unknown): Promise<void> {
     }
     throw error;
   }
+  await deleteBlobs(images);
 }
 
 /** True when every id is a catalogue entry. */
