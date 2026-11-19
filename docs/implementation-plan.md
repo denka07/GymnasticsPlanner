@@ -42,7 +42,7 @@ How GymnasticsPlanner is built: the technology choices and the order of work. Th
 - A normal responsive web application. No offline support.
 - The season plan grid is designed for desktop.
 - The session view is designed for a phone, since it replaces the note used in the gym.
-- Drawn plans are edited on a desktop with a mouse and read on a phone, where they can be zoomed with two fingers.
+- Drawn plans are edited on a desktop with a mouse and read on a phone, where they are opened on demand from the session page and can be zoomed with two fingers. They can be printed, one plan per page, or saved as an image.
 
 ### Drawn plans
 
@@ -159,8 +159,10 @@ Done when a week 36 session for Trupp 5 has a main plan and a separate plan for 
 
 ### 11. Reading and printing plans
 
-- On the phone's session page, the plan for the current part (or the part the timer runs for), zoomable, with each numbered station leading to its activity.
-- A print view: the plan on one page, followed by the parts and the numbered activities' text, to save as PDF or print. Saving the drawing as an image.
+- **On the phone's session page, plans are opened on demand, never shown automatically:** the stations are built before they are used, so the drawing is only needed when the coach chooses to look. Each part that has a plan (its own, or the main plan) has a small "Ritning" button that opens that plan, and one "Ritningar" button near the top opens the session's plans. Without plans nothing is shown, and the rest of the page (parts, ticks, timer, note) is unchanged.
+- The plan opens in a full-screen view with the plan's name and its parts, and arrows to the session's other plans (the main plan first, then part plans in part order). The drawing can be zoomed with two fingers and dragged, and has zoom buttons and fit-to-view. It is turned to follow the screen, as in the editor, so a portrait hall is upright on a phone held upright; labels and numbers stay upright. Tapping a numbered station closes the view, scrolls to its activity and unfolds it.
+- **A print view** (`/sessions/[sessionId]/plans/print`), opened from the plans page and choosing one plan or all of them, both there and on the print view itself. Each plan gets its own page: the drawing as large as fits the page, then the plan's parts with their numbered activities' text, numbers matching the drawing. The main plan comes first, then part plans in part order. A page whose drawing is wider than tall is printed in landscape (CSS named pages with `@page { size }`, per page where the browser supports it). "Skriv ut" opens the browser's print dialog, which also saves as PDF; the app's header and controls are hidden in print. Anyone with view access can print.
+- **"Spara som bild"** on the plans page and in the phone's plan view downloads the plan as a PNG, for sending in a chat. The SVG is drawn on a canvas in the browser; the hall, feature and equipment images it shows are fetched from the app and inlined first, so none go missing. The file is named after the session's date and the plan's name.
 
 Done when a help coach can follow the plan on a phone in the hall and the coach can print it.
 
