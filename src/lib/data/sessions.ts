@@ -40,7 +40,8 @@ import {
 import { isUuid } from "@/lib/access/levels";
 import { requireUser } from "@/lib/auth";
 import { byName, canEditLink } from "@/lib/library";
-import type { LinkedItem, LoadedActivity, LoadedPart } from "@/lib/outline";
+import type { LinkedItem, LoadedPart } from "@/lib/outline";
+import { copyMapping } from "@/lib/session-plans";
 import { weekSessions, type WeekEntry } from "@/lib/week-sessions";
 import { addWeeks, isMonday, mondayOf, weekdayDate } from "@/lib/weeks";
 
@@ -52,6 +53,8 @@ import {
   type AttachmentItem,
 } from "./attachment-files";
 import { hallsExist, listHallOptions, type HallOption } from "./halls";
+import { loadOutlines } from "./outlines";
+import { copyPlansStatements, countPlans } from "./session-plans";
 import { loadStationLayouts, type DrawnLayoutItem } from "./station-layouts";
 import {
   outlineInput,
@@ -66,7 +69,12 @@ function invalid(message = "invalid"): ZodError {
 
 // --- Reading ------------------------------------------------------------------
 
-export type StoredSession = Session & { parts: LoadedPart[]; attachments: AttachmentItem[] };
+export type StoredSession = Session & {
+  parts: LoadedPart[];
+  attachments: AttachmentItem[];
+  /** How many drawn plans the session has. */
+  planCount: number;
+};
 
 /**
  * What the activity picker offers: the stations and exercises the user may
@@ -136,75 +144,6 @@ function isSeasonWeek(season: Pick<Season, "firstWeek" | "lastWeek">, weekStart:
   } catch {
     return false;
   }
-}
-
-/**
- * The parts and activities of the given sessions, by session id, with the
- * names of linked stations and exercises. Callers have checked view access to
- * the sessions; linked library items are shown whoever owns them
- * (docs/data-model.md), so they are not filtered by library visibility.
- */
-async function loadOutlines(sessionIds: string[]): Promise<Map<string, LoadedPart[]>> {
-  const result = new Map<string, LoadedPart[]>(sessionIds.map((sid) => [sid, []]));
-  if (sessionIds.length === 0) {
-    return result;
-  }
-  const db = getDb();
-  const [partRows, activityRows, exerciseRows] = await Promise.all([
-    db
-      .select()
-      .from(sessionParts)
-      .where(inArray(sessionParts.sessionId, sessionIds))
-      .orderBy(asc(sessionParts.sortOrder)),
-    db
-      .select({
-        activity: activities,
-        station: { id: stations.id, name: stations.name },
-      })
-      .from(activities)
-      .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
-      .leftJoin(stations, eq(stations.id, activities.stationId))
-      .where(inArray(sessionParts.sessionId, sessionIds))
-      .orderBy(asc(activities.sortOrder)),
-    db
-      .select({
-        activityId: activityExercises.activityId,
-        id: exercises.id,
-        name: exercises.name,
-      })
-      .from(activityExercises)
-      .innerJoin(exercises, eq(exercises.id, activityExercises.exerciseId))
-      .innerJoin(activities, eq(activities.id, activityExercises.activityId))
-      .innerJoin(sessionParts, eq(sessionParts.id, activities.sessionPartId))
-      .where(inArray(sessionParts.sessionId, sessionIds))
-      .orderBy(asc(activityExercises.sortOrder)),
-  ]);
-  const exercisesByActivity = new Map<string, LinkedItem[]>();
-  for (const e of exerciseRows) {
-    const list = exercisesByActivity.get(e.activityId) ?? [];
-    list.push({ id: e.id, name: e.name });
-    exercisesByActivity.set(e.activityId, list);
-  }
-  const byPart = new Map<string, LoadedActivity[]>();
-  for (const { activity, station } of activityRows) {
-    const list = byPart.get(activity.sessionPartId) ?? [];
-    list.push({
-      id: activity.id,
-      text: activity.text,
-      station,
-      exercises: exercisesByActivity.get(activity.id) ?? [],
-    });
-    byPart.set(activity.sessionPartId, list);
-  }
-  for (const p of partRows) {
-    result.get(p.sessionId)?.push({
-      id: p.id,
-      title: p.title,
-      durationMinutes: p.durationMinutes,
-      activities: byPart.get(p.id) ?? [],
-    });
-  }
-  return result;
 }
 
 /**
@@ -287,16 +226,18 @@ export async function getWeekPlan(seasonId: string, weekStart: string): Promise<
   ]);
 
   const sessionIds = sessionRows.map((s) => s.id);
-  const [outlines, files, library, hallOptions] = await Promise.all([
+  const [outlines, files, library, hallOptions, planCounts] = await Promise.all([
     loadOutlines(sessionIds),
     loadAttachments(sessionIds),
     canEdit(access) ? loadActivityLibrary() : null,
     listHallOptions(),
+    countPlans(sessionIds),
   ]);
   const stored: StoredSession[] = sessionRows.map((s) => ({
     ...s,
     parts: outlines.get(s.id) ?? [],
     attachments: files.get(s.id) ?? [],
+    planCount: planCounts.get(s.id) ?? 0,
   }));
   const week = weekRows[0];
   const isBreak = week?.isBreak ?? false;
@@ -362,12 +303,13 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
     .innerJoin(groups, eq(groups.id, seasons.groupId))
     .where(eq(sessions.id, sessionId))
     .limit(1);
-  const [outlines, files, library, seasonAccess, hallOptions] = await Promise.all([
+  const [outlines, files, library, seasonAccess, hallOptions, planCounts] = await Promise.all([
     loadOutlines([sessionId]),
     loadAttachments([sessionId]),
     loadActivityLibrary(),
     getSeasonAccess(user.id, row.season.id),
     listHallOptions(),
+    countPlans([sessionId]),
   ]);
   return {
     access,
@@ -378,6 +320,7 @@ export async function getSessionEditor(sessionId: string): Promise<SessionEditor
       ...row.session,
       parts: outlines.get(sessionId) ?? [],
       attachments: files.get(sessionId) ?? [],
+      planCount: planCounts.get(sessionId) ?? 0,
     },
     weekStart: mondayOf(row.session.date),
     library,
@@ -786,7 +729,8 @@ export async function saveSessionOutline(target: unknown, input: unknown): Promi
  * Replaces the target's parts and activities with copies of the source's,
  * durations included; done flags start cleared and the note is not copied.
  * The source's attachments are added to the target's own, pointing at the
- * same stored files.
+ * same stored files. The source's drawn plans replace the target's, part
+ * plans applying to the copied parts at the same positions.
  * Needs view access to the source and edit access to the target. Returns the
  * target session id and its new outline.
  */
@@ -848,7 +792,10 @@ export async function copySessionContent(
       inserts.push(db.insert(activityExercises).values(exerciseRows));
     }
   }
-  const copyFiles = await copyAttachmentsStatements(sourceSessionId, resolved.sessionId, user.id);
-  await db.batch([clear, ...inserts, ...copyFiles]);
+  const [copyFiles, copyPlans] = await Promise.all([
+    copyAttachmentsStatements(sourceSessionId, resolved.sessionId, user.id),
+    copyPlansStatements(sourceSessionId, resolved.sessionId, copyMapping(source, parts)),
+  ]);
+  await db.batch([clear, ...inserts, ...copyFiles, ...copyPlans]);
   return { sessionId: resolved.sessionId, parts };
 }

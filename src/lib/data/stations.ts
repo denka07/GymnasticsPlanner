@@ -37,6 +37,7 @@ import { configurationsMatch, pruneLayout } from "@/lib/station-layouts";
 import { allEquipmentExists } from "./equipment";
 import { UserError } from "./errors";
 import { stationLinkStatements } from "./library-links";
+import { adaptPlacementsStatements } from "./session-plans";
 import {
   configurationOwners,
   layoutRows,
@@ -335,12 +336,14 @@ export async function updateStation(stationId: string, input: unknown): Promise<
  * Deletes a station with its equipment lines and exercise links. Activities
  * that used it lose their station (the foreign key sets it to null); one that
  * would be left with neither exercises nor text gets the station's name as
- * text, in the same transaction.
+ * text, in the same transaction. Where the station is placed in session plans,
+ * those placements become adapted copies with its layout and name first.
  */
 export async function deleteStation(stationId: string): Promise<void> {
   const { station } = await requireStationAccess(stationId, "edit");
   const db = getDb();
   await db.batch([
+    ...adaptPlacementsStatements(station.id, station.name),
     db
       .update(activities)
       .set({ text: station.name })
