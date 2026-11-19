@@ -7,7 +7,8 @@
  */
 import { z } from "zod";
 
-import { ARROW_MAX_CM, ARROW_MIN_CM, MAX_TEXT_LENGTH } from "./drawing/annotations";
+import { ARROW_MAX_CM, ARROW_MIN_CM, arrowSize, MAX_TEXT_LENGTH, textSize } from "./drawing/annotations";
+import { unionBounds, type Placed, type Rect } from "./drawing/editor";
 import { MAX_LABEL_LENGTH, normalizeDegrees } from "./halls";
 
 /** How far from the station's centre an item's centre may be, in centimetres (10 m). */
@@ -24,6 +25,59 @@ export type EquipmentLine = { equipmentId: string; quantity: number };
 
 /** What the placing rules need of an item. */
 export type LayoutItemLike = { kind: LayoutItemKind; equipmentId?: string | null };
+
+type Placement = { id: string; xCm: number; yCm: number; rotation: number; label: string | null };
+
+/** A layout item as drawings get it; equipment items carry their configuration's size and look. */
+export type DrawnLayoutItem =
+  | (Placement & {
+      kind: "equipment";
+      equipmentId: string;
+      configurationId: string;
+      equipmentName: string;
+      configurationName: string;
+      widthCm: number;
+      lengthCm: number;
+      color: string | null;
+      imageUrl: string | null;
+    })
+  | (Placement & { kind: "arrow"; lengthCm: number })
+  | (Placement & { kind: "text"; text: string });
+
+// --- Drawing ---------------------------------------------------------------------------
+
+/** An item's box in metres before rotation: a configuration's size, an arrow's length or a text's line. */
+export function layoutItemSize(item: DrawnLayoutItem): { width: number; height: number } {
+  if (item.kind === "equipment") {
+    return { width: item.widthCm / 100, height: item.lengthCm / 100 };
+  }
+  return item.kind === "arrow" ? arrowSize(item.lengthCm) : textSize(item.text);
+}
+
+/** An item placed in metres around the station's centre (0, 0). */
+export function placedLayoutItem(item: DrawnLayoutItem): Placed {
+  return { id: item.id, x: item.xCm / 100, y: item.yCm / 100, rotation: item.rotation, ...layoutItemSize(item) };
+}
+
+/**
+ * The part of the plane a layout's drawing shows, in metres around the
+ * station's centre: every item with a margin, at least `minimum` across
+ * both ways and centred on the items. Null for an empty layout.
+ */
+export function layoutView(items: readonly DrawnLayoutItem[], margin = 0.4, minimum = 2): Rect | null {
+  const bounds = unionBounds(items.map(placedLayoutItem));
+  if (!bounds) {
+    return null;
+  }
+  const width = Math.max(bounds.width + 2 * margin, minimum);
+  const height = Math.max(bounds.height + 2 * margin, minimum);
+  return {
+    x: bounds.x + bounds.width / 2 - width / 2,
+    y: bounds.y + bounds.height / 2 - height / 2,
+    width,
+    height,
+  };
+}
 
 // --- Input ---------------------------------------------------------------------------
 

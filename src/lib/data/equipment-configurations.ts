@@ -27,6 +27,7 @@ import { moveStep, sortOrders, type Direction } from "@/lib/reorder";
 
 import { UserError } from "./errors";
 import { isConfigurationInHall } from "./halls";
+import { isConfigurationInStationLayout } from "./station-layouts";
 import { id } from "./schemas";
 
 /*
@@ -282,6 +283,9 @@ export async function deleteConfiguration(configurationId: unknown): Promise<str
   const row = await loadConfiguration(configurationId);
   if (await isConfigurationInHall(row.id)) {
     throw new UserError("configurationInHall");
+  }
+  if (await isConfigurationInStationLayout(row.id)) {
+    throw new UserError("configurationInLayout");
   }
   const db = getDb();
   await db.batch([

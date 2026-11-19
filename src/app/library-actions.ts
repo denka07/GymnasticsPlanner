@@ -100,14 +100,12 @@ export async function createStationAction(
   return result;
 }
 
+/** Saves a station; `removed` is how many layout items no longer fitted its equipment. */
 export async function updateStationAction(
   stationId: string,
   input: unknown,
-): Promise<ActionResult> {
-  return run(async () => {
-    await updateStation(stationId, input);
-    return {};
-  });
+): Promise<Result<{ removed: number }>> {
+  return run(() => updateStation(stationId, input));
 }
 
 export async function deleteStationAction(stationId: string): Promise<void> {

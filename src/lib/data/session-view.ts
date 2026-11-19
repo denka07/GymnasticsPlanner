@@ -28,6 +28,7 @@ import { byName } from "@/lib/library";
 import { neighbours, type Dated } from "@/lib/session-view";
 
 import { loadAttachments, type AttachmentItem } from "./attachment-files";
+import { loadStationLayouts, type DrawnLayoutItem } from "./station-layouts";
 import { noteAfterInput, tickInput } from "./schemas";
 
 function invalid(message = "invalid"): ZodError {
@@ -39,6 +40,8 @@ export type ViewStation = {
   name: string;
   description: string | null;
   equipment: { name: string; quantity: number }[];
+  /** The station's layout in layer order; empty when it has none. */
+  layout: DrawnLayoutItem[];
 };
 
 export type ViewExercise = {
@@ -90,7 +93,7 @@ async function loadActivityLinks(
   const db = getDb();
   const stationIds = [...new Set(activityRows.flatMap((a) => (a.stationId ? [a.stationId] : [])))];
   const activityIds = activityRows.map((a) => a.id);
-  const [stationRows, equipmentRows, exerciseRows] = await Promise.all([
+  const [stationRows, equipmentRows, exerciseRows, layouts] = await Promise.all([
     stationIds.length === 0
       ? []
       : db
@@ -121,6 +124,7 @@ async function loadActivityLinks(
           .innerJoin(exercises, eq(exercises.id, activityExercises.exerciseId))
           .where(inArray(activityExercises.activityId, activityIds))
           .orderBy(asc(activityExercises.sortOrder)),
+    loadStationLayouts(stationIds),
   ]);
   const stationMap = new Map<string, ViewStation>();
   for (const s of stationRows) {
@@ -130,6 +134,7 @@ async function loadActivityLinks(
         .filter((e) => e.stationId === s.id)
         .map(({ name, quantity }) => ({ name, quantity }))
         .sort(byName),
+      layout: layouts.get(s.id) ?? [],
     });
   }
   const exerciseMap = new Map<string, ViewExercise[]>();
