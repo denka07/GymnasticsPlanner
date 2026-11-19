@@ -380,11 +380,12 @@ A training hall. Halls are global: they belong to the library, every user can re
 
 - Name (example: C-salen, AB-hallen), unique ignoring case
 - Width and length, typed in metres with decimals (example: 24,5 × 42 m) and stored in whole centimetres (1–20000), like equipment sizes
+- Floor: colour, optional image stretched to the hall's size. The colour is a light wood (#ece3d0) at first; the image is PNG, JPEG or WebP of at most 5 MB, stored and served like feature images. The floor is drawn under all features and plan items.
 - Fixed features (see below), in layer order
 
 A training slot can name a default hall, and a session can use another hall than its slot's. Deleting a hall is not blocked: the training slots and sessions that used it are left without a hall.
 
-A hall is saved as a whole, with all its features, in one transaction, and checked on the server; referenced equipment and configurations must exist.
+A hall is saved as a whole, with its floor and all its features, in one transaction, and checked on the server; referenced equipment and configurations must exist.
 
 ### Hall feature
 

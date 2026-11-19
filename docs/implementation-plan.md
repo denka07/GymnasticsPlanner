@@ -127,7 +127,7 @@ Done when an administrator can give Tunnmatta the configurations Liggande and St
 
 ### 8. Halls and the drawing editor
 
-- Halls in the library (a Hallar tab), created and edited by administrators: name, size and fixed features. The list shows each hall drawn small; a hall's page has the editor for administrators and a read-only drawing for others and on phones.
+- Halls in the library (a Hallar tab), created and edited by administrators: name, size, floor (colour or image) and fixed features. The list shows each hall drawn small; a hall's page has the editor for administrators and a read-only drawing for others and on phones.
 - Hall features: wall bars, door, port, storage, wall, foam pit, MD pit, stands and other, each with its own size, colour and optional image and a default look per kind; and catalogue equipment with a configuration, fixed in the hall. Feature images are uploaded and served like equipment images.
 - The shared drawing editor: placing, moving by dragging and with the arrow keys, rotating with 15° snapping, grid snapping, multi-select, duplicate, delete, layer order, zoom, pan, undo and redo, and a properties panel for the selected item. Its geometry and history are pure functions with unit tests.
 - A default hall per training slot in the season settings. Changing it asks whether to also change the hall of the slot's stored sessions that have not passed, showing how many.

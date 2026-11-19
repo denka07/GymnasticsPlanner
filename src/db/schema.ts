@@ -414,6 +414,11 @@ export const halls = pgTable(
     widthCm: integer("width_cm").notNull(),
     /** Along, in whole centimetres (y in a drawing). */
     lengthCm: integer("length_cm").notNull(),
+    /** "#rrggbb", lowercase; the floor is drawn in it unless it has an image. */
+    floorColor: text("floor_color").notNull().default("#ece3d0"),
+    /** Path in the Blob store, in the hall's folder; stretched to the hall's size. */
+    floorImagePathname: text("floor_image_pathname"),
+    floorImageContentType: text("floor_image_content_type"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -426,6 +431,11 @@ export const halls = pgTable(
     check(
       "halls_size_check",
       sql`${t.widthCm} between 1 and 20000 and ${t.lengthCm} between 1 and 20000`,
+    ),
+    check("halls_floor_color_check", sql`${t.floorColor} ~ '^#[0-9a-f]{6}$'`),
+    check(
+      "halls_floor_image_check",
+      sql`(${t.floorImagePathname} is null and ${t.floorImageContentType} is null) or (${t.floorImagePathname} is not null and ${t.floorImageContentType} in ('image/png', 'image/jpeg', 'image/webp'))`,
     ),
   ],
 );

@@ -15,6 +15,9 @@ export const HALL_MAX_CM = 20000;
 /** Most features one hall may have. */
 export const MAX_HALL_FEATURES = 400;
 
+/** A new hall's floor colour: a light sports-hall wood. */
+export const DEFAULT_FLOOR_COLOR = "#ece3d0";
+
 /** Longest feature label, in characters. */
 export const MAX_LABEL_LENGTH = 60;
 
@@ -142,6 +145,12 @@ const rotation = z
   .finite({ error: "invalid" })
   .transform((v) => normalizeDegrees(v));
 
+const imagePathname = z
+  .string({ error: "invalid" })
+  .max(400, { error: "invalid" })
+  .nullish()
+  .transform((v) => v ?? null);
+
 const placement = {
   id: uuid,
   xCm: position,
@@ -170,11 +179,7 @@ const shapeFeature = z
       .trim()
       .toLowerCase()
       .regex(HEX_COLOR, { error: "colorInvalid" }),
-    imagePathname: z
-      .string({ error: "invalid" })
-      .max(400, { error: "invalid" })
-      .nullish()
-      .transform((v) => v ?? null),
+    imagePathname,
   })
   .strict();
 
@@ -185,12 +190,23 @@ export const featureInput = z.discriminatedUnion("kind", [equipmentFeature, shap
 export type FeatureInput = z.input<typeof featureInput>;
 export type FeatureValues = z.output<typeof featureInput>;
 
-/** A whole hall as the editor saves it; features in layer order, bottom first. */
+/**
+ * A whole hall as the editor saves it: its floor (a colour, and an image
+ * stretched to the hall's size) and its features in layer order, bottom first.
+ */
 export const hallInput = z
   .object({
     name: hallName,
     widthCm: hallCentimetres,
     lengthCm: hallCentimetres,
+    floorColor: z
+      .string({ error: "colorInvalid" })
+      .trim()
+      .toLowerCase()
+      .regex(HEX_COLOR, { error: "colorInvalid" })
+      .nullish()
+      .transform((v) => v ?? DEFAULT_FLOOR_COLOR),
+    floorImagePathname: imagePathname,
     features: z.array(featureInput).max(MAX_HALL_FEATURES, { error: "tooManyFeatures" }),
   })
   .strict()
