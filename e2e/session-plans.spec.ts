@@ -100,6 +100,8 @@ test.describe("Session plans", () => {
     await create.getByRole("button", { name: "Skapa" }).click();
     await expect(create).toBeHidden();
     await expect(plans.getByRole("button", { name: /^Huvudritning/ })).toBeVisible();
+    // The hall is longer than wide, so on this wide screen it is shown turned.
+    await expect(page.getByRole("button", { name: "Vrid vyn 90°" })).toHaveAttribute("aria-pressed", "true");
 
     // The session's own station is offered first; placing it links it to
     // the one activity that uses it, which gives it number 1.

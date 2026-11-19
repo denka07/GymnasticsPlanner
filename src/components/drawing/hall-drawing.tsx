@@ -1,9 +1,11 @@
 import { doorSwing, hatchLines, rowLines, stripeLines, type Segment } from "@/lib/drawing/feature-look";
 import { cmToUnits } from "@/lib/drawing/geometry";
+import { UPRIGHT_CLASS } from "@/lib/drawing/view";
 import { isShapeKind, KIND_DEFAULTS, type FeatureKind } from "@/lib/halls";
 import { cn } from "@/lib/utils";
 
 import { ConfigurationShape } from "./configuration-drawing";
+import { TurnableSvg } from "./turnable-svg";
 
 /*
  * Halls and their fixed features in SVG, in metres (docs/data-model.md,
@@ -132,7 +134,7 @@ export function placement(x: number, y: number, rotation: number, width: number,
   return `translate(${x} ${y}) rotate(${rotation}) translate(${-width / 2} ${-height / 2})`;
 }
 
-/** A label, upright and centred on a point, about `size` metres high. */
+/** A label, upright on screen (also in a turned view) and centred on a point, about `size` metres high. */
 export function DrawingLabel({ x, y, text, size }: { x: number; y: number; text: string; size: number }) {
   return (
     <text
@@ -141,7 +143,7 @@ export function DrawingLabel({ x, y, text, size }: { x: number; y: number; text:
       fontSize={size}
       textAnchor="middle"
       dominantBaseline="central"
-      className="pointer-events-none fill-foreground font-sans font-medium"
+      className={cn("pointer-events-none fill-foreground font-sans font-medium", UPRIGHT_CLASS)}
       paintOrder="stroke"
       stroke="var(--background)"
       strokeWidth={size * 0.25}
@@ -225,23 +227,34 @@ export function HallFeatures({
 
 /**
  * A hall with its features in its own SVG, read-only. It fills the width
- * it is given (`className`) and keeps the hall's proportions.
+ * it is given (`className`) and keeps the hall's proportions. A
+ * `turnable` drawing has its long side follow the screen's (TurnableSvg).
  */
 export function HallDrawing({
   hall,
   label,
   labels = true,
+  turnable = false,
   className,
 }: {
   hall: DrawableFloor & { features: readonly PlacedFeature[] };
   /** What the drawing shows, for assistive technology. */
   label: string;
   labels?: boolean;
+  turnable?: boolean;
   className?: string;
 }) {
   const width = cmToUnits(hall.widthCm);
   const height = cmToUnits(hall.lengthCm);
   const margin = Math.max(width, height) * 0.01;
+  if (turnable) {
+    return (
+      <TurnableSvg area={{ width, height }} margin={margin} label={label} className={className}>
+        <HallFloor floor={hall} />
+        <HallFeatures features={hall.features} labels={labels} hall={hall} />
+      </TurnableSvg>
+    );
+  }
   return (
     <svg
       role="img"

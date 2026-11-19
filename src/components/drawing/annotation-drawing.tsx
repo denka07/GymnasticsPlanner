@@ -1,4 +1,6 @@
 import { arrowShape, ARROW_THICKNESS, TEXT_SIZE } from "@/lib/drawing/annotations";
+import { UPRIGHT_CLASS } from "@/lib/drawing/view";
+import { cn } from "@/lib/utils";
 
 /*
  * Arrows and short texts in drawn plans, in SVG and metres, drawn from (0, 0)
@@ -23,8 +25,22 @@ export function ArrowShape({ length }: { length: number }) {
   );
 }
 
-/** A short text on one line, centred in its box, about TEXT_SIZE metres high. */
-export function TextShape({ text, width, height }: { text: string; width: number; height: number }) {
+/**
+ * A short text on one line, centred in its box, about TEXT_SIZE metres high.
+ * A free text turns with the drawing; a name given `upright` (its item's
+ * rotation in degrees) stays upright on screen instead.
+ */
+export function TextShape({
+  text,
+  width,
+  height,
+  upright,
+}: {
+  text: string;
+  width: number;
+  height: number;
+  upright?: number;
+}) {
   return (
     <text
       x={width / 2}
@@ -32,7 +48,8 @@ export function TextShape({ text, width, height }: { text: string; width: number
       fontSize={TEXT_SIZE * 0.8}
       textAnchor="middle"
       dominantBaseline="central"
-      className="fill-foreground font-sans font-medium"
+      className={cn("fill-foreground font-sans font-medium", upright !== undefined && UPRIGHT_CLASS)}
+      style={upright === undefined ? undefined : { rotate: `calc(var(--upright, 0deg) - ${upright}deg)` }}
     >
       {text}
     </text>

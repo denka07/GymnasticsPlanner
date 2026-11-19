@@ -1,4 +1,5 @@
 import { boundsOf, type Placed } from "@/lib/drawing/editor";
+import { UPRIGHT_CLASS } from "@/lib/drawing/view";
 import { contentSize, type DrawnPlanItem, type PersonRole, type PlanItemContent } from "@/lib/session-plans";
 import { cn } from "@/lib/utils";
 
@@ -6,6 +7,7 @@ import { ArrowShape, TextShape } from "../drawing/annotation-drawing";
 import { ConfigurationShape } from "../drawing/configuration-drawing";
 import { DrawingLabel, HallFeatures, HallFloor, labelSize, placement } from "../drawing/hall-drawing";
 import { LayoutItems } from "../drawing/station-layout-drawing";
+import { TurnableSvg } from "../drawing/turnable-svg";
 import type { HallDrawing } from "@/lib/data/halls";
 
 /*
@@ -20,16 +22,21 @@ const PERSON_COLORS: Record<PersonRole, string> = { coach: "#2563eb", passare: "
 /** What people are called on their circle: the role's initial, from the messages. */
 export type PersonInitials = Record<PersonRole, string>;
 
-/** One item from (0, 0) to its box. */
+/**
+ * One item from (0, 0) to its box. Names and the people's letters stay
+ * upright on screen, so they turn back by the item's `rotation`.
+ */
 export function PlanItemShape({
   content,
   width,
   height,
+  rotation,
   initials,
 }: {
   content: PlanItemContent;
   width: number;
   height: number;
+  rotation: number;
   initials: PersonInitials;
 }) {
   switch (content.kind) {
@@ -50,7 +57,7 @@ export function PlanItemShape({
                 strokeWidth={1.5}
                 vectorEffect="non-scaling-stroke"
               />
-              <TextShape text={content.name} width={width} height={height} />
+              <TextShape text={content.name} width={width} height={height} upright={rotation} />
             </>
           ) : (
             <g transform={`translate(${width / 2} ${height / 2})`}>
@@ -99,7 +106,8 @@ export function PlanItemShape({
             fontSize={r * 1.15}
             textAnchor="middle"
             dominantBaseline="central"
-            className="fill-white font-sans font-semibold"
+            className={cn("fill-white font-sans font-semibold", UPRIGHT_CLASS)}
+            style={{ rotate: `calc(var(--upright, 0deg) - ${rotation}deg)` }}
           >
             {initials[content.role]}
           </text>
@@ -123,7 +131,7 @@ export function NumberBadge({ x, y, number, size }: { x: number; y: number; numb
         fontSize={r * 1.15}
         textAnchor="middle"
         dominantBaseline="central"
-        className="fill-primary-foreground font-sans font-semibold tabular-nums"
+        className={cn("fill-primary-foreground font-sans font-semibold tabular-nums", UPRIGHT_CLASS)}
       >
         {number}
       </text>
@@ -181,7 +189,8 @@ export function placedPlanItem(item: DrawnPlanItem): Placed & { label: string | 
 /**
  * A plan in its hall in its own SVG, read-only: the floor and fixed
  * features under the items, labels and station numbers on top. It fills the
- * width it is given and keeps the hall's proportions.
+ * width it is given and keeps the hall's proportions; its long side follows
+ * the screen's, like the editor's default (TurnableSvg).
  */
 export function PlanDrawing({
   hall,
@@ -204,21 +213,21 @@ export function PlanDrawing({
   const placed = items.map(placedPlanItem);
   const size = labelSize(hall);
   return (
-    <svg
-      role="img"
-      aria-label={label}
-      data-plan-drawing
-      viewBox={`${-margin} ${-margin} ${width + 2 * margin} ${height + 2 * margin}`}
-      className={cn("block h-auto w-full", className)}
-    >
+    <TurnableSvg area={{ width, height }} margin={margin} label={label} className={className} data-plan-drawing>
       <HallFloor floor={hall} />
       <HallFeatures features={hall.features} labels hall={hall} />
       {placed.map((item) => (
         <g key={item.id} transform={placement(item.x, item.y, item.rotation, item.width, item.height)}>
-          <PlanItemShape content={item.content} width={item.width} height={item.height} initials={initials} />
+          <PlanItemShape
+            content={item.content}
+            width={item.width}
+            height={item.height}
+            rotation={item.rotation}
+            initials={initials}
+          />
         </g>
       ))}
       <PlanOverlay items={placed} numbers={numbers} size={size} />
-    </svg>
+    </TurnableSvg>
   );
 }

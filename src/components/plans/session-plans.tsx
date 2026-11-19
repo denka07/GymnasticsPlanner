@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { CircleHelpIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useId, useMemo, useState, useTransition } from "react";
 
@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -36,6 +36,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { SessionPlansPage } from "@/lib/data/session-plans";
 import type { LoadedPlan } from "@/lib/data/session-plans";
 import type { LoadedPart } from "@/lib/outline";
@@ -73,12 +74,17 @@ function nameOf(plan: LoadedPlan, parts: readonly LoadedPart[], t: Translate): s
   return titles.length > 0 ? t("partPlan", { parts: titles.join(", ") }) : t("partPlanUnnamed");
 }
 
+/** What the page's one-line header shows. */
+export type PlansHeader = { title: string; time: string | null; backHref: string; backLabel: string };
+
 export function SessionPlans({
   page,
   catalogue,
+  header,
 }: {
   page: SessionPlansPage;
   catalogue: CatalogueEntry[];
+  header: PlansHeader;
 }) {
   const t = useTranslations("Plans");
   const { plans, parts, hall } = page;
@@ -122,8 +128,29 @@ export function SessionPlans({
   const initials = { coach: t("initials.coach"), passare: t("initials.passare") };
 
   return (
-    <div className="grid gap-5">
-      <HallBar page={page} />
+    <div className="grid gap-4">
+      {/* One tight line: the session, its hall and the way back, so the editor gets the height. */}
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h1 className="font-heading text-2xl leading-tight font-semibold tracking-tight">{header.title}</h1>
+        {header.time && <span className="text-muted-foreground tabular-nums">{header.time}</span>}
+        {hall && <HallBar page={page} />}
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button type="button" variant="ghost" size="icon" aria-label={t("introButton")} title={t("introButton")}>
+                <CircleHelpIcon />
+              </Button>
+            }
+          />
+          <PopoverContent align="start" className="w-96 text-sm">
+            {t("intro")}
+          </PopoverContent>
+        </Popover>
+        <ButtonLink variant="outline" className="ml-auto" href={header.backHref}>
+          {header.backLabel}
+        </ButtonLink>
+      </header>
+      {!hall && <HallBar page={page} />}
 
       <div className="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <aside className="grid content-start gap-5">
@@ -171,10 +198,11 @@ export function SessionPlans({
               </ul>
             )}
             {page.canEdit && (
+              // Plans are only drawn where the editor is shown, so they are added there too.
               <Button
                 type="button"
                 variant="outline"
-                className="justify-self-start"
+                className="hidden justify-self-start lg:inline-flex"
                 disabled={!hall}
                 onClick={() => setCreating(true)}
               >
@@ -189,15 +217,15 @@ export function SessionPlans({
         <div className="grid min-w-0 content-start gap-4">
           {selected && (
             <>
-              <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="grid gap-1">
-                  <h2 className="font-heading text-xl font-semibold break-words">{selectedName}</h2>
+                  <h2 className="font-heading text-lg font-semibold break-words">{selectedName}</h2>
                   {!selected.isMain && selected.partIds.length === 0 && (
                     <p className="max-w-prose text-sm text-muted-foreground">{t("noPartsHint")}</p>
                   )}
                 </div>
                 {page.canEdit && (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="hidden flex-wrap gap-2 lg:flex">
                     <Button
                       type="button"
                       variant="outline"

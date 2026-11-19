@@ -235,6 +235,7 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
         initialItems={items}
         onItemsChange={setItems}
         label={t("editorLabel", { name })}
+        viewKey={`hall:${hall.id}`}
         itemLabel={itemLabel}
         background={
           <HallFloor

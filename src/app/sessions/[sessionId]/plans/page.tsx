@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import type { CatalogueEntry } from "@/components/halls/hall-editor";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { SessionPlans } from "@/components/plans/session-plans";
-import { ButtonLink } from "@/components/ui/button";
 import { formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { listEquipment } from "@/lib/data/equipment";
 import { listAllConfigurations } from "@/lib/data/equipment-configurations";
@@ -60,19 +59,16 @@ async function SessionPlansContent({
         { label: t("heading") },
       ]}
     >
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
-            {t("pageTitle", { session: day })}
-          </h1>
-          {time && <p className="text-muted-foreground tabular-nums">{time}</p>}
-        </div>
-        <ButtonLink variant="outline" href={backHref}>
-          {page.canOpenSeason ? t("backToWeek") : t("backToSession")}
-        </ButtonLink>
-      </header>
-      <p className="max-w-prose text-muted-foreground">{t("intro")}</p>
-      <SessionPlans page={page} catalogue={catalogue} />
+      <SessionPlans
+        page={page}
+        catalogue={catalogue}
+        header={{
+          title: t("pageTitle", { session: day }),
+          time,
+          backHref,
+          backLabel: page.canOpenSeason ? t("backToWeek") : t("backToSession"),
+        }}
+      />
     </PageShell>
   );
 }

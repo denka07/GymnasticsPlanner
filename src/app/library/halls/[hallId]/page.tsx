@@ -40,7 +40,7 @@ async function HallContent({ params }: { params: PageProps<"/library/halls/[hall
   const drawing = (
     <div className="grid gap-2">
       <div className="max-w-3xl rounded-lg border bg-card p-3">
-        <HallDrawing hall={hall} label={t("drawingLabel", { name: hall.name, size })} />
+        <HallDrawing hall={hall} turnable label={t("drawingLabel", { name: hall.name, size })} />
       </div>
       <p className="text-sm text-muted-foreground">{t("zoomHint")}</p>
     </div>
@@ -55,10 +55,8 @@ async function HallContent({ params }: { params: PageProps<"/library/halls/[hall
         { label: hall.name },
       ]}
     >
-      <div className="grid gap-1">
-        <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
-          {hall.name}
-        </h1>
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h1 className="font-heading text-2xl leading-tight font-semibold tracking-tight break-words">{hall.name}</h1>
         <p className="text-muted-foreground tabular-nums">{size}</p>
       </div>
       {user.isAdmin ? (

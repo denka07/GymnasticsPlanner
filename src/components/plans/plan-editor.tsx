@@ -170,6 +170,7 @@ export function PlanEditor({
         initialItems={items}
         onItemsChange={setItems}
         label={t("editorLabel", { plan: planName, hall: hall.name })}
+        viewKey={`plan:${plan.id}`}
         itemLabel={itemLabel}
         background={
           <g className="pointer-events-none">
@@ -178,7 +179,13 @@ export function PlanEditor({
           </g>
         }
         renderItem={(item) => (
-          <PlanItemShape content={item.content} width={item.width} height={item.height} initials={initials} />
+          <PlanItemShape
+            content={item.content}
+            width={item.width}
+            height={item.height}
+            rotation={item.rotation}
+            initials={initials}
+          />
         )}
         overlay={(shown) => <PlanOverlay items={shown} numbers={numbers} size={size} />}
         palette={(api) => <Palette api={api} outline={outline} stations={stations} catalogue={catalogue} />}
