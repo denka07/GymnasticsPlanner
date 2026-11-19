@@ -5,7 +5,8 @@
 // It only ever deletes rows whose name starts with the given prefix, and it
 // refuses any prefix that does not start with "E2E ". Attached files of the
 // deleted sessions are deleted from the Blob store when no row refers to them
-// any more (skipped without BLOB_READ_WRITE_TOKEN). Plain JavaScript so it
+// any more, and the images of deleted equipment stored under "e2e/" (both
+// skipped without BLOB_READ_WRITE_TOKEN). Plain JavaScript so it
 // runs with any supported Node.js version.
 
 import { neon } from "@neondatabase/serverless";
@@ -50,10 +51,15 @@ export async function cleanE2eData(prefix = E2E_PREFIX) {
     where g.name like ${pattern}`;
   // Groups first: deleting one removes its seasons, sessions, activities and
   // shares, so no activity still points at the library items below.
-  const [groups, stations, exercises, equipment] = await sql.transaction([
+  const [groups, stations, exercises, images, equipment] = await sql.transaction([
     sql`delete from groups where name like ${pattern} returning id`,
     sql`delete from stations where name like ${pattern} returning id`,
     sql`delete from exercises where name like ${pattern} returning id`,
+    // The images of the configurations the next statement deletes with their equipment.
+    sql`select c.image_pathname as pathname from equipment_configurations c
+          join equipment e on e.id = c.equipment_id
+        where e.name like ${pattern} and c.image_pathname is not null
+          and not exists (select 1 from station_equipment se where se.equipment_id = e.id)`,
     sql`delete from equipment where name like ${pattern}
           and not exists (select 1 from station_equipment se where se.equipment_id = equipment.id)
         returning id`,
@@ -62,8 +68,10 @@ export async function cleanE2eData(prefix = E2E_PREFIX) {
     sql,
     files.map((f) => f.pathname),
   );
+  const removedImages = await deleteE2eImages(images.map((i) => i.pathname));
   return {
     files: removedFiles,
+    images: removedImages,
     groups: groups.length,
     stations: stations.length,
     exercises: exercises.length,
@@ -75,6 +83,22 @@ export async function cleanE2eData(prefix = E2E_PREFIX) {
 function blobConfigured() {
   config({ path: ".env.local", quiet: true });
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
+/**
+ * Deletes the stored images of removed test equipment. Only paths under
+ * "e2e/" are touched, where the browser tests store their files; an image a
+ * dev server stored elsewhere is left behind. Returns how many went.
+ *
+ * @param {string[]} pathnames
+ */
+async function deleteE2eImages(pathnames) {
+  const gone = pathnames.filter((p) => p.startsWith("e2e/"));
+  if (gone.length === 0 || !blobConfigured()) {
+    return 0;
+  }
+  await del(gone);
+  return gone.length;
 }
 
 /**
