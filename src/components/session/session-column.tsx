@@ -1,6 +1,7 @@
 "use client";
 
-import { EllipsisVerticalIcon } from "lucide-react";
+import { EllipsisVerticalIcon, MapIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import {
   setSessionCancelledAction,
   updateSessionDetailsAction,
 } from "@/app/session-actions";
+import { openPlansAction } from "@/app/session-plan-actions";
 import { useErrorMessage } from "@/components/plan/use-error-message";
 import {
   AlertDialog,
@@ -57,6 +59,8 @@ export type SessionColumnData = {
   noteAfter: string | null;
   parts: LoadedPart[];
   attachments: AttachmentItem[];
+  /** How many drawn plans the session has. */
+  planCount: number;
 };
 
 export function SessionColumn({
@@ -101,6 +105,7 @@ export function SessionColumn({
   const [copyOpen, setCopyOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   const name = t("label", { weekday: tw(`d${weekdayOf(data.date)}` as "d1"), date: formatDayMonth(data.date) });
   const start = shortTime(data.startTime);
@@ -115,6 +120,19 @@ export function SessionColumn({
     if (!result.ok) {
       toast.error(errorMessage(result.error ?? "unexpected"));
     }
+  }
+
+  /** Stores a placeholder first, then opens the session's plans. */
+  function openPlans() {
+    startTransition(async () => {
+      await store.settle();
+      const result = await openPlansAction(store.currentTarget);
+      if (result.ok) {
+        router.push(`/sessions/${result.sessionId}/plans`);
+      } else {
+        report(result);
+      }
+    });
   }
 
   function toggleCancelled() {
@@ -220,11 +238,26 @@ export function SessionColumn({
         </div>
       )}
 
-      {showOpenLink && sessionId && (
-        <ButtonLink variant="outline" href={`/sessions/${sessionId}`}>
-          {t("openSession")}
-        </ButtonLink>
-      )}
+      <div className="flex flex-wrap gap-2 empty:hidden">
+        {showOpenLink && sessionId && (
+          <ButtonLink variant="outline" href={`/sessions/${sessionId}`}>
+            {t("openSession")}
+          </ButtonLink>
+        )}
+        {sessionId ? (
+          <ButtonLink variant="outline" href={`/sessions/${sessionId}/plans`}>
+            <MapIcon data-icon="inline-start" />
+            {data.planCount > 0 ? t("plansCount", { count: data.planCount }) : t("plans")}
+          </ButtonLink>
+        ) : (
+          editable && (
+            <Button type="button" variant="outline" disabled={pending} onClick={openPlans}>
+              <MapIcon data-icon="inline-start" />
+              {t("plans")}
+            </Button>
+          )
+        )}
+      </div>
 
       {editable && (
         <>

@@ -53,6 +53,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
       noteAfter: s.noteAfter,
       parts: s.parts,
       attachments: s.attachments,
+      planCount: s.planCount,
     };
   }
   const p = entry.placeholder;
@@ -68,6 +69,7 @@ function columnData(entry: WeekPlan["sessions"][number]): SessionColumnData {
     noteAfter: null,
     parts: [],
     attachments: [],
+    planCount: 0,
   };
 }
 
