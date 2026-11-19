@@ -137,8 +137,10 @@ Done when C-salen and AB-hallen are drawn with their wall bars and doors, and Tr
 
 ### 9. Station layouts
 
-- A drawing on each station's page, built from the equipment the station needs.
-- The station drawn small in lists and in the activity search dialog.
+- A drawing on each station's page, built from the equipment the station needs, with arrows and short texts (item kinds shared with session plans). The editor is for whoever may edit the station, on a desktop; others, and phones, see the drawing read-only.
+- The layout saved with the station, as a whole. Items that no longer fit the station's equipment are removed on save, with a note saying so.
+- Copying a station copies its layout; a submitted station brings its layout to the review.
+- A station with a layout drawn small in lists, in the activity search dialog and in a session's activity details.
 
 Done when the example station "Bakvänd trampett till tjockmatta med kil ovanpå" is drawn with its plint, trampett, tjockmatta and kil.
 
