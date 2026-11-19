@@ -99,11 +99,11 @@ Equipment images (PNG, JPEG or WebP, at most 5 MB; never SVG) use the same store
 - Opening: `GET /api/equipment-images/<configuration id>?v=<version>` serves the image to any signed-in user with its type, `nosniff` and private caching. `v` is the random part of the file name, so a replaced image gets a new URL: with the current version the answer may be cached for a year, otherwise it must be revalidated.
 - Replacing or removing an image, deleting a configuration and deleting equipment delete the old stored images after the database change, best effort as above.
 
-Hall feature images work the same way (`src/lib/data/halls.ts`), except that a feature gets its image only when the whole hall is saved:
+Hall floor and feature images work the same way (`src/lib/data/halls.ts`), except that the floor or a feature gets its image only when the whole hall is saved:
 
 - Paths: `<env>/halls/<hall id>/<random>-<safe file name>`. The token route is `POST /api/hall-images/upload`; the image is checked by its first bytes right after the upload and again when a hall is saved with it.
-- Opening: `GET /api/hall-images/<hall id>/<file name>` serves an image a feature of that hall uses to any signed-in user, and an administrator's upload that is not saved yet. The file name starts with the random part, so it plays the role of equipment images' `v`: a saved image may be cached for a year.
-- Saving a hall deletes the images in its folder that no feature uses any more, except uploads younger than an hour; deleting a hall deletes its folder.
+- Opening: `GET /api/hall-images/<hall id>/<file name>` serves the hall's floor image or an image a feature of that hall uses to any signed-in user, and an administrator's upload that is not saved yet. The file name starts with the random part, so it plays the role of equipment images' `v`: a saved image may be cached for a year.
+- Saving a hall deletes the images in its folder that neither the floor nor a feature uses any more, except uploads younger than an hour; deleting a hall deletes its folder.
 
 ## Neon branches
 

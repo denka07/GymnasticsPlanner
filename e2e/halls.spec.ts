@@ -69,6 +69,19 @@ test.describe("Halls", () => {
     const palette = page.getByRole("region", { name: "Lägg till" });
     await hydrated(palette.getByRole("button", { name: "Ribbstol" }));
 
+    // A blue floor, drawn under everything; with a photo of the floor when files can be stored.
+    const floorPanel = page.getByRole("region", { name: "Golv", exact: true });
+    await floorPanel.getByLabel("Golvets färg").fill("#3a6ea5");
+    await expect(drawing.locator("[data-floor] rect").first()).toHaveAttribute("fill", "#3a6ea5");
+    if (hasBlob) {
+      await floorPanel.locator('input[type="file"]').setInputFiles(fixture("E2E-bild.png"));
+      await expect(floorPanel.getByRole("button", { name: "Byt bild" })).toBeVisible({ timeout: 30_000 });
+      await expect(drawing.locator("[data-floor] image")).toHaveCount(1);
+      // Back to the colour for the rest of the test.
+      await floorPanel.getByRole("button", { name: "Ta bort bild" }).click();
+      await expect(drawing.locator("[data-floor] image")).toHaveCount(0);
+    }
+
     // Wall bars, a door and an MD pit from the palette, and the fixed track.
     await palette.getByRole("button", { name: "Ribbstol" }).click();
     await palette.getByRole("button", { name: "Dörr" }).click();
@@ -135,7 +148,13 @@ test.describe("Halls", () => {
     await expect(page.getByText("Sparat", { exact: true })).toBeVisible();
 
     const [hall] = await db().select().from(schema.halls).where(eq(schema.halls.id, hallId));
-    expect([hall.name, hall.widthCm, hall.lengthCm]).toEqual([hallName, 2450, 4200]);
+    expect([hall.name, hall.widthCm, hall.lengthCm, hall.floorColor, hall.floorImagePathname]).toEqual([
+      hallName,
+      2450,
+      4200,
+      "#3a6ea5",
+      null,
+    ]);
     const features = await featuresOf(hallId);
     expect(features.map((f) => f.kind)).toEqual(["wall_bars", "door", "md_pit", "equipment"]);
     const savedPit = features[2];
@@ -173,6 +192,9 @@ test.describe("Halls", () => {
     await expect(helper.getByText("Bara administratörer kan ändra hallen.")).toBeVisible();
     await expect(helper.getByRole("img", { name: `${hallName}, 24,5 × 42 m` })).toBeVisible();
     await expect(helper.getByRole("application")).toHaveCount(0);
+    await expect(
+      helper.getByRole("img", { name: `${hallName}, 24,5 × 42 m` }).locator("[data-floor] rect").first(),
+    ).toHaveAttribute("fill", "#3a6ea5");
     await expect(helper.getByRole("button", { name: "Spara ändringar" })).toHaveCount(0);
     if (imageUrl) {
       // A saved feature image is served to every signed-in user.

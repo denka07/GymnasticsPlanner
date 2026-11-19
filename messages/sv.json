@@ -723,6 +723,10 @@
     "uploading": "Laddar upp … {percent} %",
     "failed": "Det gick inte",
     "uploadFailed": "Bilden kunde inte laddas upp. Kontrollera anslutningen och försök igen.",
+    "floor": "Golv",
+    "floorColor": "Golvets färg",
+    "floorImage": "Golvets bild",
+    "floorImageHint": "En bild av golvet sett uppifrån, PNG, JPEG eller WebP, högst 5 MB. Den sträcks ut till hallens bredd och längd.",
     "noHall": "Ingen hall",
     "hallLabel": "Hall",
     "kinds": {

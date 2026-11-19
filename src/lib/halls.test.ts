@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_FLOOR_COLOR,
   formatHallSize,
   hallImagePath,
   hallImageUrl,
@@ -166,5 +167,19 @@ describe("placeParts", () => {
     expect(placeParts("c-salen ", "C-salen")).toEqual(["c-salen"]);
     expect(placeParts(null, "C-salen")).toEqual(["C-salen"]);
     expect(placeParts("  ", null)).toEqual([]);
+  });
+});
+
+describe("hallInput floor", () => {
+  const base = { name: "C-salen", widthCm: 2450, lengthCm: 4200, features: [] };
+  it("defaults the floor colour and keeps a chosen one in lowercase", () => {
+    expect(hallInput.parse(base)).toMatchObject({ floorColor: DEFAULT_FLOOR_COLOR, floorImagePathname: null });
+    expect(hallInput.parse({ ...base, floorColor: "#3A6EA5" }).floorColor).toBe("#3a6ea5");
+    expect(hallInput.parse({ ...base, floorImagePathname: "x/halls/y/abc12345-golv.png" }).floorImagePathname).toBe(
+      "x/halls/y/abc12345-golv.png",
+    );
+  });
+  it("refuses a floor colour that is not #rrggbb", () => {
+    expect(hallInput.safeParse({ ...base, floorColor: "blue" }).error?.issues[0].message).toBe("colorInvalid");
   });
 });

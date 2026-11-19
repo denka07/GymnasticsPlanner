@@ -158,18 +158,36 @@ export function labelSize(hall: { widthCm: number; lengthCm: number }): number {
   return Math.min(Math.max(shorter / 30, 0.3), 1.2);
 }
 
-/** The hall's floor, from (0, 0) to its width and length. */
-export function HallFloor({ widthCm, lengthCm }: { widthCm: number; lengthCm: number }) {
+/** What is needed to draw a hall's floor. */
+export type DrawableFloor = {
+  widthCm: number;
+  lengthCm: number;
+  floorColor: string;
+  floorImageUrl: string | null;
+};
+
+/**
+ * The hall's floor, from (0, 0) to its width and length: its image
+ * stretched to the hall's size, or its colour; always with the walls'
+ * outline. Drawn under everything else.
+ */
+export function HallFloor({ floor }: { floor: DrawableFloor }) {
+  const box = { x: 0, y: 0, width: cmToUnits(floor.widthCm), height: cmToUnits(floor.lengthCm) };
   return (
-    <rect
-      x={0}
-      y={0}
-      width={cmToUnits(widthCm)}
-      height={cmToUnits(lengthCm)}
-      className="fill-card stroke-foreground"
-      strokeWidth={2}
-      vectorEffect="non-scaling-stroke"
-    />
+    <g data-floor>
+      {floor.floorImageUrl ? (
+        <image {...box} href={floor.floorImageUrl} preserveAspectRatio="none" />
+      ) : (
+        <rect {...box} fill={floor.floorColor} />
+      )}
+      <rect
+        {...box}
+        fill="none"
+        className="stroke-foreground"
+        strokeWidth={2}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
   );
 }
 
@@ -215,7 +233,7 @@ export function HallDrawing({
   labels = true,
   className,
 }: {
-  hall: { widthCm: number; lengthCm: number; features: readonly PlacedFeature[] };
+  hall: DrawableFloor & { features: readonly PlacedFeature[] };
   /** What the drawing shows, for assistive technology. */
   label: string;
   labels?: boolean;
@@ -231,7 +249,7 @@ export function HallDrawing({
       viewBox={`${-margin} ${-margin} ${width + 2 * margin} ${height + 2 * margin}`}
       className={cn("block h-auto w-full", className)}
     >
-      <HallFloor widthCm={hall.widthCm} lengthCm={hall.lengthCm} />
+      <HallFloor floor={hall} />
       <HallFeatures features={hall.features} labels={labels} hall={hall} />
     </svg>
   );

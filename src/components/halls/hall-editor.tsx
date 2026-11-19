@@ -26,6 +26,7 @@ import type { DrawnFeature, HallDrawing } from "@/lib/data/halls";
 import type { Placed } from "@/lib/drawing/editor";
 import { checkEquipmentImage, EQUIPMENT_IMAGE_ACCEPT } from "@/lib/equipment-configurations";
 import {
+  DEFAULT_FLOOR_COLOR,
   formatMetres,
   HALL_MAX_CM,
   isShapeKind,
@@ -86,12 +87,22 @@ function toItem(f: DrawnFeature): HallItem {
   };
 }
 
-/** What a save sends: the hall and its features, positions in whole centimetres. */
-function toInput(name: string, widthCm: number, lengthCm: number, items: readonly HallItem[]): HallInput {
+type Floor = { color: string; imagePathname: string | null; imageUrl: string | null };
+
+/** What a save sends: the hall, its floor and its features, positions in whole centimetres. */
+function toInput(
+  name: string,
+  widthCm: number,
+  lengthCm: number,
+  floor: Floor,
+  items: readonly HallItem[],
+): HallInput {
   return {
     name,
     widthCm,
     lengthCm,
+    floorColor: floor.color,
+    floorImagePathname: floor.imagePathname,
     features: items.map((i) => {
       const placed = {
         id: i.id,
@@ -135,6 +146,11 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
   const [widthText, setWidthText] = useState(() => formatMetres(hall.widthCm, locale));
   const [lengthText, setLengthText] = useState(() => formatMetres(hall.lengthCm, locale));
   const [items, setItems] = useState<HallItem[]>(() => hall.features.map(toItem));
+  const [floor, setFloor] = useState<Floor>({
+    color: hall.floorColor,
+    imagePathname: hall.floorImagePathname,
+    imageUrl: hall.floorImageUrl,
+  });
 
   const widthCm = parseMetres(widthText);
   const lengthCm = parseMetres(lengthText);
@@ -144,7 +160,7 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
     setArea({ width: widthCm / 100, height: lengthCm / 100 });
   }
 
-  const payload = toInput(name, widthCm ?? Number.NaN, lengthCm ?? Number.NaN, items);
+  const payload = toInput(name, widthCm ?? Number.NaN, lengthCm ?? Number.NaN, floor, items);
   const form = useLibraryForm(payload, (input) => saveHallAction(hall.id, input));
 
   const equipmentName = useCallback(
@@ -219,7 +235,16 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
         onItemsChange={setItems}
         label={t("editorLabel", { name })}
         itemLabel={itemLabel}
-        background={<HallFloor widthCm={area.width * 100} lengthCm={area.height * 100} />}
+        background={
+          <HallFloor
+            floor={{
+              widthCm: area.width * 100,
+              lengthCm: area.height * 100,
+              floorColor: floor.color,
+              floorImageUrl: floor.imageUrl,
+            }}
+          />
+        }
         renderItem={(item) => <FeatureShape feature={item} />}
         overlay={(shown) =>
           shown.map((item) =>
@@ -228,7 +253,12 @@ export function HallEditor({ hall, catalogue }: { hall: HallDrawing; catalogue: 
             ) : null,
           )
         }
-        palette={(api) => <Palette api={api} catalogue={catalogue} />}
+        palette={(api) => (
+          <>
+            <FloorPanel hallId={hall.id} floor={floor} onChange={setFloor} />
+            <Palette api={api} catalogue={catalogue} />
+          </>
+        )}
         properties={(api) => (
           <Properties api={api} hallId={hall.id} catalogue={catalogue} itemLabel={itemLabel} />
         )}
@@ -479,7 +509,14 @@ function Properties({
             />
           </div>
           <ColorField item={item} update={update} />
-          <ImageField item={item} hallId={hallId} update={update} />
+          <ImageField
+            hallId={hallId}
+            label={t("imageLabel")}
+            hint={t("imageHint")}
+            hasImage={item.imageUrl !== null}
+            onUploaded={(pathname, url) => update({ imagePathname: pathname, imageUrl: url })}
+            onRemove={() => update({ imagePathname: null, imageUrl: null })}
+          />
         </>
       ) : (
         <div className="grid gap-2">
@@ -559,6 +596,54 @@ function parseFeatureCm(text: string): number | null {
   return value >= 1 && value <= HALL_MAX_CM ? value : null;
 }
 
+/** The floor's colour and image; not part of the drawing's undo history. */
+function FloorPanel({
+  hallId,
+  floor,
+  onChange,
+}: {
+  hallId: string;
+  floor: Floor;
+  onChange: (floor: Floor) => void;
+}) {
+  const t = useTranslations("Halls");
+  const id = useId();
+  return (
+    <section aria-labelledby={`${id}-heading`} className="grid gap-2 rounded-lg border bg-card p-3">
+      <h2 id={`${id}-heading`} className="font-heading text-base font-semibold">
+        {t("floor")}
+      </h2>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="grid gap-1">
+          <Label htmlFor={`${id}-color`} className="text-sm">
+            {t("floorColor")}
+          </Label>
+          <input
+            id={`${id}-color`}
+            type="color"
+            value={floor.color}
+            className="h-9 w-16 cursor-pointer rounded-md border bg-background p-1"
+            onChange={(e) => onChange({ ...floor, color: e.target.value.toLowerCase() })}
+          />
+        </div>
+        {floor.color !== DEFAULT_FLOOR_COLOR && (
+          <Button type="button" variant="outline" onClick={() => onChange({ ...floor, color: DEFAULT_FLOOR_COLOR })}>
+            {t("defaultColor")}
+          </Button>
+        )}
+      </div>
+      <ImageField
+        hallId={hallId}
+        label={t("floorImage")}
+        hint={t("floorImageHint")}
+        hasImage={floor.imageUrl !== null}
+        onUploaded={(pathname, url) => onChange({ ...floor, imagePathname: pathname, imageUrl: url })}
+        onRemove={() => onChange({ ...floor, imagePathname: null, imageUrl: null })}
+      />
+    </section>
+  );
+}
+
 function ColorField({
   item,
   update,
@@ -597,14 +682,21 @@ function ColorField({
   );
 }
 
+/** Uploads an image into the hall's folder (checked by its bytes), or removes it. */
 function ImageField({
-  item,
   hallId,
-  update,
+  label,
+  hint,
+  hasImage,
+  onUploaded,
+  onRemove,
 }: {
-  item: HallItem;
   hallId: string;
-  update: (patch: Partial<HallItem>) => void;
+  label: string;
+  hint: string;
+  hasImage: boolean;
+  onUploaded: (pathname: string, url: string) => void;
+  onRemove: () => void;
 }) {
   const t = useTranslations("Halls");
   const errorMessage = useErrorMessage();
@@ -636,7 +728,7 @@ function ImageField({
         });
         const checked = await checkHallImageAction(hallId, { pathname: prepared.pathname });
         if (checked.ok) {
-          update({ imagePathname: prepared.pathname, imageUrl: checked.url });
+          onUploaded(prepared.pathname, checked.url);
         } else {
           error = errorMessage(checked.error);
         }
@@ -667,7 +759,7 @@ function ImageField({
         accept={EQUIPMENT_IMAGE_ACCEPT}
         className="sr-only"
         tabIndex={-1}
-        aria-label={t("imageLabel")}
+        aria-label={label}
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
@@ -683,20 +775,15 @@ function ImageField({
         onClick={() => inputRef.current?.click()}
       >
         <ImageIcon data-icon="inline-start" />
-        {item.imageUrl ? t("replaceImage") : t("uploadImage")}
+        {hasImage ? t("replaceImage") : t("uploadImage")}
       </Button>
-      {item.imageUrl && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={progress !== null}
-          onClick={() => update({ imagePathname: null, imageUrl: null })}
-        >
+      {hasImage && (
+        <Button type="button" variant="outline" disabled={progress !== null} onClick={onRemove}>
           <ImageOffIcon data-icon="inline-start" />
           {t("removeImage")}
         </Button>
       )}
-      <p className="w-full text-sm text-muted-foreground">{t("imageHint")}</p>
+      <p className="w-full text-sm text-muted-foreground">{hint}</p>
       {status}
     </div>
   );

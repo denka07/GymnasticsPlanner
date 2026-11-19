@@ -77,6 +77,11 @@ export type HallDrawing = {
   name: string;
   widthCm: number;
   lengthCm: number;
+  floorColor: string;
+  /** The URL that serves the floor image, or null without one. */
+  floorImageUrl: string | null;
+  /** The stored floor image; sent back when the hall is saved. */
+  floorImagePathname: string | null;
   /** In layer order, bottom first. */
   features: DrawnFeature[];
 };
@@ -165,14 +170,25 @@ async function loadFeatures(hallIds: string[]): Promise<Map<string, DrawnFeature
   return result;
 }
 
-/** Every hall with its features, by name. */
+const HALL_COLUMNS = {
+  id: halls.id,
+  name: halls.name,
+  widthCm: halls.widthCm,
+  lengthCm: halls.lengthCm,
+  floorColor: halls.floorColor,
+  floorImagePathname: halls.floorImagePathname,
+};
+
+function withFloor<T extends { floorImagePathname: string | null }>(row: T) {
+  return { ...row, floorImageUrl: row.floorImagePathname ? hallImageUrl(row.floorImagePathname) : null };
+}
+
+/** Every hall with its floor and features, by name. */
 export async function listHalls(): Promise<HallDrawing[]> {
   await requireUser();
-  const rows = await getDb()
-    .select({ id: halls.id, name: halls.name, widthCm: halls.widthCm, lengthCm: halls.lengthCm })
-    .from(halls);
+  const rows = await getDb().select(HALL_COLUMNS).from(halls);
   const features = await loadFeatures(rows.map((r) => r.id));
-  return rows.sort(byName).map((h) => ({ ...h, features: features.get(h.id) ?? [] }));
+  return rows.sort(byName).map((h) => ({ ...withFloor(h), features: features.get(h.id) ?? [] }));
 }
 
 /** Every hall's id and name, by name, for choosing a hall. */
@@ -188,16 +204,12 @@ export async function getHall(hallId: string): Promise<HallDrawing> {
   if (!isUuid(hallId)) {
     notFound();
   }
-  const [row] = await getDb()
-    .select({ id: halls.id, name: halls.name, widthCm: halls.widthCm, lengthCm: halls.lengthCm })
-    .from(halls)
-    .where(eq(halls.id, hallId))
-    .limit(1);
+  const [row] = await getDb().select(HALL_COLUMNS).from(halls).where(eq(halls.id, hallId)).limit(1);
   if (!row) {
     notFound();
   }
   const features = await loadFeatures([row.id]);
-  return { ...row, features: features.get(row.id) ?? [] };
+  return { ...withFloor(row), features: features.get(row.id) ?? [] };
 }
 
 /** True when every id is a hall (an empty list is). */
@@ -228,10 +240,10 @@ export async function createHall(input: unknown): Promise<string> {
 }
 
 /**
- * Saves a hall as a whole: name, size and every feature, in layer order, in
- * one transaction. Features keep the ids the editor gave them. Equipment
+ * Saves a hall as a whole: name, size, floor and every feature, in layer
+ * order, in one transaction. Features keep the ids the editor gave them. Equipment
  * features must name an existing configuration of their equipment, and a
- * feature image must lie in the hall's folder and be a PNG, JPEG or WebP
+ * feature or floor image must lie in the hall's folder and be a PNG, JPEG or WebP
  * image by its first bytes. Images no feature refers to any more are then
  * deleted from the store.
  */
@@ -242,7 +254,11 @@ export async function saveHall(hallId: unknown, input: unknown): Promise<void> {
   const db = getDb();
 
   const [[existing], storedRows] = await Promise.all([
-    db.select({ id: halls.id }).from(halls).where(eq(halls.id, hall)).limit(1),
+    db
+      .select({ id: halls.id, floor: halls.floorImagePathname, floorType: halls.floorImageContentType })
+      .from(halls)
+      .where(eq(halls.id, hall))
+      .limit(1),
     db
       .select({ pathname: F.imagePathname, contentType: F.imageContentType })
       .from(F)
@@ -275,16 +291,22 @@ export async function saveHall(hallId: unknown, input: unknown): Promise<void> {
       storedTypes.set(r.pathname, r.contentType);
     }
   }
+  if (existing.floor && existing.floorType) {
+    storedTypes.set(existing.floor, existing.floorType);
+  }
   const types = new Map(storedTypes);
-  for (const f of value.features) {
-    if (f.kind === "equipment" || !f.imagePathname || types.has(f.imagePathname)) {
+  const images = [
+    ...value.features.flatMap((f) => (f.kind !== "equipment" && f.imagePathname ? [f.imagePathname] : [])),
+    ...(value.floorImagePathname ? [value.floorImagePathname] : []),
+  ];
+  for (const pathname of images) {
+    if (types.has(pathname)) {
       continue;
     }
-    if (!isHallImagePath(f.imagePathname, environment, hall)) {
+    if (!isHallImagePath(pathname, environment, hall)) {
       throw invalid();
     }
-    const type = await checkStoredImage(f.imagePathname);
-    types.set(f.imagePathname, type);
+    types.set(pathname, await checkStoredImage(pathname));
   }
 
   const rows = value.features.map((f, layer) =>
@@ -320,7 +342,15 @@ export async function saveHall(hallId: unknown, input: unknown): Promise<void> {
 
   const update = db
     .update(halls)
-    .set({ name: value.name, widthCm: value.widthCm, lengthCm: value.lengthCm, updatedAt: sql`now()` })
+    .set({
+      name: value.name,
+      widthCm: value.widthCm,
+      lengthCm: value.lengthCm,
+      floorColor: value.floorColor,
+      floorImagePathname: value.floorImagePathname,
+      floorImageContentType: value.floorImagePathname ? types.get(value.floorImagePathname) : null,
+      updatedAt: sql`now()`,
+    })
     .where(eq(halls.id, hall));
   const clear = db.delete(F).where(eq(F.hallId, hall));
   try {
@@ -345,7 +375,7 @@ export async function saveHall(hallId: unknown, input: unknown): Promise<void> {
     throw error;
   }
 
-  const kept = new Set(rows.flatMap((r) => (r.imagePathname ? [r.imagePathname] : [])));
+  const kept = new Set(images);
   await deleteUnusedImages(hall, kept);
 }
 
@@ -353,12 +383,15 @@ export async function saveHall(hallId: unknown, input: unknown): Promise<void> {
 export async function deleteHall(hallId: unknown): Promise<void> {
   await requireAdmin();
   const hall = id.parse(hallId);
-  const images = await getDb()
-    .select({ pathname: F.imagePathname })
-    .from(F)
-    .where(and(eq(F.hallId, hall), isNotNull(F.imagePathname)));
+  const [images, [floor]] = await Promise.all([
+    getDb()
+      .select({ pathname: F.imagePathname })
+      .from(F)
+      .where(and(eq(F.hallId, hall), isNotNull(F.imagePathname))),
+    getDb().select({ pathname: halls.floorImagePathname }).from(halls).where(eq(halls.id, hall)),
+  ]);
   await getDb().delete(halls).where(eq(halls.id, hall));
-  await deleteBlobs(images.flatMap((i) => (i.pathname ? [i.pathname] : [])));
+  await deleteBlobs([...images, ...(floor ? [floor] : [])].flatMap((i) => (i.pathname ? [i.pathname] : [])));
   if (blobConfigured()) {
     try {
       const left = await listBlobs(hallFolder(blobEnvironment(process.env), hall));
@@ -502,8 +535,8 @@ export async function checkHallImage(hallId: unknown, input: unknown): Promise<{
 }
 
 /**
- * A feature image for the signed-in user, or null (the route answers 404).
- * Images a feature of the hall uses are served to every signed-in user; an
+ * A hall's floor or feature image for the signed-in user, or null (the
+ * route answers 404). Images the hall uses are served to every signed-in user; an
  * administrator also gets an image just uploaded in the editor and not yet
  * saved.
  */
@@ -523,7 +556,14 @@ export async function getHallImageForDownload(
     .from(F)
     .where(and(eq(F.hallId, hallId), sql`${F.imagePathname} like ${"%/" + fileName}`))
     .limit(5);
-  const used = rows.find((r) => r.pathname?.endsWith(`/halls/${hallId}/${fileName}`));
+  const [floor] = await getDb()
+    .select({ pathname: halls.floorImagePathname, contentType: halls.floorImageContentType })
+    .from(halls)
+    .where(eq(halls.id, hallId))
+    .limit(1);
+  const used = [...rows, ...(floor ? [floor] : [])].find((r) =>
+    r.pathname?.endsWith(`/halls/${hallId}/${fileName}`),
+  );
   if (used?.pathname) {
     return { pathname: used.pathname, contentType: used.contentType };
   }
