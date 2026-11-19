@@ -6,7 +6,7 @@ import { weekdayDate } from "../src/lib/weeks";
 import { db, schema } from "./support/db";
 import { expect, hydrated, openWith, test } from "./support/fixtures";
 import { sessionName, weekNumber } from "./support/names";
-import { seedHall, seedSeason, seedStation } from "./support/seed";
+import { seedEquipment, seedHall, seedSeason, seedStation } from "./support/seed";
 
 /** A session's column on the week page. */
 function column(page: Page, name: string) {
@@ -237,5 +237,53 @@ test.describe("Session plans", () => {
     expect(part.items[0].activityId).toBe(copied[1].activities[1].id);
     // The source keeps its own plans.
     expect((await plansOf(sourceId)).map((p) => p.id).sort()).toEqual([mainId, partPlanId].sort());
+  });
+
+  test("a station deleted while placed stays in the plan as an adapted copy", async ({ coach: page, prefix }) => {
+    const hallName = `${prefix} Hallen`;
+    const stationName = `${prefix} Plintstation`;
+    const hallId = await seedHall(hallName);
+    const plint = await seedEquipment(`${prefix} Plint`, { name: "Hel", widthCm: 160, lengthCm: 90 });
+    const stationId = await seedStation("coach", stationName);
+    const season = await seedSeason({ prefix, weekdays: [1], sessions: [{ weekday: 1, week: 0, parts: [{ title: "Hopp" }] }] });
+    const [sessionId] = season.sessionIds;
+    const planId = crypto.randomUUID();
+    const itemId = crypto.randomUUID();
+    const d = db();
+    await d.batch([
+      d.insert(schema.stationEquipment).values({ stationId, equipmentId: plint.equipmentId, quantity: 1 }),
+      d.insert(schema.stationLayoutItems).values({
+        id: crypto.randomUUID(),
+        stationId,
+        kind: "equipment",
+        ...plint,
+        xCm: 0,
+        yCm: 0,
+        layer: 0,
+      }),
+      d.update(schema.sessions).set({ hallId }).where(eq(schema.sessions.id, sessionId)),
+      d.insert(schema.sessionPlans).values({ id: planId, sessionId, isMain: true }),
+      d.insert(schema.planItems).values({ id: itemId, planId, kind: "station", stationId, xCm: 800, yCm: 800, layer: 0 }),
+    ]);
+
+    await page.goto(`/library/stations/${stationId}`);
+    const confirm = page.getByRole("alertdialog", { name: "Ta bort stationen?" });
+    await openWith(page.getByRole("button", { name: "Ta bort stationen" }), confirm);
+    await confirm.getByRole("button", { name: "Ta bort" }).click();
+    await expect(page).toHaveURL(/\/library\/stations$/);
+
+    const [item] = await d.select().from(schema.planItems).where(eq(schema.planItems.id, itemId));
+    expect([item.stationId, item.isAdapted, item.stationName]).toEqual([null, true, stationName]);
+    const layout = await d
+      .select()
+      .from(schema.planItemLayoutItems)
+      .where(eq(schema.planItemLayoutItems.planItemId, itemId));
+    expect(layout.map((l) => l.configurationId)).toEqual([plint.configurationId]);
+
+    // The plan still draws it, under the name it had.
+    await page.goto(`/sessions/${sessionId}/plans`);
+    const drawing = page.getByRole("application", { name: `Huvudritning i ${hallName}` });
+    await drawing.getByRole("button", { name: `Station: ${stationName}` }).click();
+    await expect(page.getByText("Stationen är borttagen ur biblioteket")).toBeVisible();
   });
 });
