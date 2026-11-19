@@ -49,6 +49,7 @@ The main flows have Playwright tests in `e2e/`, one spec file per flow:
 | `session-page.spec.ts` | The session page at phone size: ticks and progress, resetting ticks, the note after the session, expanding a linked activity |
 | `attachments.spec.ts` | Uploading a photo and a PDF to a session card, a fake photo refused, opening them from the session page and their headers, 404 for someone without access, deleting one and its stored file. Skipped without `BLOB_READ_WRITE_TOKEN` |
 | `session-timer.spec.ts` | The part timer at phone size, with Playwright's clock: a countdown with "+1 min" kept across a reload, the red full-screen alert (focused) and "Bocka av", closing it with "Stäng" and Escape; a timer by the plan, replacing a running timer, stopping, a planned end that has passed |
+| `equipment-configurations.spec.ts` | An administrator adding configurations to equipment (one with a colour, one with a PNG image), both drawn to scale on the equipment's page and the Redskap tab, the image's headers, changing the default, deleting the default and its stored image; Dev Helper seeing the page without edit controls and getting 404 from an administrator's action and the upload token route. The image steps are skipped without `BLOB_READ_WRITE_TOKEN` |
 | `library.spec.ts` | Equipment, a station with equipment and exercises; linking a station and exercises from an activity (creating an exercise by name); deleting an exercise an activity uses |
 | `sharing.spec.ts` | The Dela dialog: view and edit access, removing a share, a share waiting for someone who has not signed in |
 | `review.spec.ts` | Submitting a station with some of its exercises, withdrawing, rejecting with a comment, approving; what other users see; "Gör global" and "Kopiera till mina" |
@@ -91,6 +92,12 @@ Session attachments (photos and PDFs, at most 10 MB) are kept in a private Verce
 - Opening: `GET /api/attachments/<id>` checks view access and streams the file with its type, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff` and `Cache-Control: private`; anyone else gets 404.
 - Deleting an attachment, an extra session, a season or a group deletes the stored files no attachment refers to any more, after the database delete. Failures are logged and do not stop the delete; a file left behind only costs storage. A file uploaded but never registered (the browser closed between the two steps) is left behind the same way.
 
+Equipment images (PNG, JPEG or WebP, at most 5 MB; never SVG) use the same store and the same three upload steps, for administrators only (`src/lib/data/equipment-configurations.ts`):
+
+- Paths: `<env>/equipment/<equipment id>/<random>-<safe file name>`. The token route is `POST /api/equipment-images/upload`; the image is checked by its first bytes before the configuration gets it.
+- Opening: `GET /api/equipment-images/<configuration id>?v=<version>` serves the image to any signed-in user with its type, `nosniff` and private caching. `v` is the random part of the file name, so a replaced image gets a new URL: with the current version the answer may be cached for a year, otherwise it must be revalidated.
+- Replacing or removing an image, deleting a configuration and deleting equipment delete the old stored images after the database change, best effort as above.
+
 ## Neon branches
 
 Besides `main` (production) and `dev`, the Vercel integration creates a branch `preview/<git-branch>` for each pull request's preview deployment, and `cleanup-preview-branch.yml` deletes it when the pull request is merged or closed. The browser test workflow's `ci/e2e-…` branches live only while a run lasts. The plan allows 10 branches; if a preview or test run fails with "Resource provisioning failed", look for left-over branches.
@@ -115,6 +122,8 @@ Preview deployments work the same way on their own database: the Vercel integrat
 | `src/lib/data` | Data layer: reads and writes, each authorised on the server |
 | `src/lib/library.ts` | Library rules and helpers: access, who may change which station–exercise links, copy, submit, withdraw, review and make global; search, equipment lines |
 | `src/lib/outline.ts` | The session outline editor's model: parts, activities and their station and exercise links |
+| `src/lib/drawing`, `src/components/drawing` | Drawn plans: pure helpers (centimetres to metres, how a configuration is drawn, a scale that fits) and the SVG pieces that draw an equipment configuration and a 1 m scale bar |
+| `src/lib/equipment-configurations.ts` | Equipment configuration rules: input, sizes, colours, images and their storage paths |
 | `src/lib/weeks.ts` | Week helpers: Mondays, ISO week numbers |
 | `src/i18n` | Language configuration |
 | `messages` | Interface text, one file per language |
