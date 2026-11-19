@@ -2,6 +2,8 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { Suspense } from "react";
 
+import { StationLayoutDrawing } from "@/components/drawing/station-layout-drawing";
+import type { CatalogueEntry } from "@/components/halls/hall-editor";
 import { MyStationExercises } from "@/components/library/my-station-exercises";
 import { ReadOnlyNotice } from "@/components/library/read-only-notice";
 import { ReviewPanel } from "@/components/library/review-panel";
@@ -10,6 +12,7 @@ import { ScopeBadge } from "@/components/library/scope-badge";
 import { StationEditor } from "@/components/library/station-editor";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { listEquipment } from "@/lib/data/equipment";
+import { listAllConfigurations } from "@/lib/data/equipment-configurations";
 import { listOwnExerciseNames, listVisibleExerciseNames } from "@/lib/data/exercises";
 import { getStation, type StationDetails } from "@/lib/data/stations";
 import { formatEquipmentLines } from "@/lib/library";
@@ -30,8 +33,13 @@ async function StationContent({
   const { stationId } = await params;
   const details = await getStation(stationId);
   const { station } = details;
-  const [tl, t] = await Promise.all([getTranslations("Library"), getTranslations("Stations")]);
+  const [tl, t, tLayout] = await Promise.all([
+    getTranslations("Library"),
+    getTranslations("Stations"),
+    getTranslations("StationLayout"),
+  ]);
   const isGlobal = station.scope === "global";
+  const editable = details.access === "edit";
 
   return (
     <PageShell
@@ -41,25 +49,32 @@ async function StationContent({
         { label: station.name },
       ]}
     >
-      <div className="mx-auto grid w-full max-w-3xl gap-6">
-        <h1 className="flex flex-wrap items-center gap-3 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
-          {station.name}
-          {isGlobal && <ScopeBadge />}
-        </h1>
-        {(details.creatorName !== null || details.activityCount !== null) && (
-          <div className="-mt-4 grid gap-0.5 text-muted-foreground">
-            {details.creatorName !== null && <p>{tl("createdBy", { name: details.creatorName })}</p>}
-            {details.activityCount !== null && <p>{t("usage", { count: details.activityCount })}</p>}
-          </div>
-        )}
-        <ReviewPanel
-          kind="station"
-          itemId={station.id}
-          itemName={station.name}
-          state={toPanelState(details.review)}
-          personalExercises={details.ownersPersonalExercises}
-        />
-        {details.access === "edit" ? (
+      {/* Editors get the width the drawing editor needs; the text keeps a reading width. */}
+      <div className={editable ? "grid w-full gap-6" : "mx-auto grid w-full max-w-3xl gap-6"}>
+        <div className="mx-auto grid w-full max-w-3xl gap-6">
+          <h1 className="flex flex-wrap items-center gap-3 font-heading text-[1.75rem] leading-tight font-semibold tracking-tight break-words">
+            {station.name}
+            {isGlobal && <ScopeBadge />}
+          </h1>
+          {(details.creatorName !== null || details.activityCount !== null) && (
+            <div className="-mt-4 grid gap-0.5 text-muted-foreground">
+              {details.creatorName !== null && (
+                <p>{tl("createdBy", { name: details.creatorName })}</p>
+              )}
+              {details.activityCount !== null && (
+                <p>{t("usage", { count: details.activityCount })}</p>
+              )}
+            </div>
+          )}
+          <ReviewPanel
+            kind="station"
+            itemId={station.id}
+            itemName={station.name}
+            state={toPanelState(details.review)}
+            personalExercises={details.ownersPersonalExercises}
+          />
+        </div>
+        {editable ? (
           <EditableStation details={details} />
         ) : (
           <div className="grid gap-6">
@@ -72,6 +87,20 @@ async function StationContent({
                   ? formatEquipmentLines(details.equipment)
                   : t("equipmentEmpty")}
               </p>
+            </section>
+            <section className="grid gap-2">
+              <h2 className="font-heading text-xl font-semibold">{tLayout("heading")}</h2>
+              {details.layout.length > 0 ? (
+                <div className="rounded-lg border bg-card p-3">
+                  <StationLayoutDrawing
+                    items={details.layout}
+                    label={tLayout("drawingLabel", { name: station.name })}
+                    className="h-auto max-h-[28rem] w-full"
+                  />
+                </div>
+              ) : (
+                <p>{tLayout("empty")}</p>
+              )}
             </section>
             <ReadOnlyExercises details={details} />
             {isGlobal && <MyExercisesSection details={details} />}
@@ -121,12 +150,24 @@ async function MyExercisesSection({ details }: { details: StationDetails }) {
 }
 
 async function EditableStation({ details }: { details: StationDetails }) {
-  const [catalogue, exercises] = await Promise.all([listEquipment(), listVisibleExerciseNames()]);
+  const [catalogue, exercises, configurations] = await Promise.all([
+    listEquipment(),
+    listVisibleExerciseNames(),
+    listAllConfigurations(),
+  ]);
+  const drawable: CatalogueEntry[] = catalogue.flatMap((e) => {
+    const list = configurations.get(e.id) ?? [];
+    return list.length > 0 ? [{ id: e.id, name: e.name, configurations: list }] : [];
+  });
   const { station } = details;
   return (
     <StationEditor
       key={station.id}
-      station={{ id: station.id, name: station.name, description: station.description }}
+      station={{
+        id: station.id,
+        name: station.name,
+        description: station.description,
+      }}
       initialEquipment={details.equipment}
       initialExercises={details.exercises
         .filter((e) => e.editable)
@@ -135,6 +176,8 @@ async function EditableStation({ details }: { details: StationDetails }) {
       exercises={exercises}
       activityCount={details.activityCount ?? 0}
       isGlobal={station.scope === "global"}
+      initialLayout={details.layout}
+      configurations={drawable}
     />
   );
 }

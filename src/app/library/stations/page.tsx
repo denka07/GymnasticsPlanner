@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { createStationAction } from "@/app/library-actions";
+import { StationThumbnail } from "@/components/drawing/station-layout-drawing";
 import { CreateItemDialog } from "@/components/library/create-item-dialog";
 import { LibrarySearch } from "@/components/library/library-search";
 import { LibraryTabs } from "@/components/library/library-tabs";
@@ -30,15 +31,18 @@ async function StationsContent({
   const params = await searchParams;
   const search = searchInput.parse(params.q);
   const filter = parseScopeFilter(params.scope);
-  const [stations, user, t, tl] = await Promise.all([
+  const [stations, user, t, tl, tLayout] = await Promise.all([
     listStations(search, filter),
     requireUser(),
     getTranslations("Stations"),
     getTranslations("Library"),
+    getTranslations("StationLayout"),
   ]);
 
   return (
-    <PageShell crumbs={[{ label: tl("heading"), href: "/library" }, { label: tl("tabs.stations") }]}>
+    <PageShell
+      crumbs={[{ label: tl("heading"), href: "/library" }, { label: tl("tabs.stations") }]}
+    >
       <LibraryTabs current="stations" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <LibrarySearch
@@ -74,20 +78,27 @@ async function StationsContent({
             <li key={station.id}>
               <Link
                 href={`/library/stations/${station.id}`}
-                className="grid h-full gap-1 rounded-xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="flex h-full items-start gap-3 rounded-xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                <span className="flex flex-wrap items-center gap-2 font-semibold">
-                  {station.name}
-                  {station.scope === "global" && <ScopeBadge />}
-                  <SubmissionBadge status={station.status} />
-                </span>
-                <span className="text-muted-foreground">
-                  {station.equipment.length > 0
-                    ? formatEquipmentLines(station.equipment)
-                    : t("noEquipment")}
-                </span>
-                <span className="text-muted-foreground">
-                  {t("exerciseCount", { count: station.exerciseCount })}
+                <StationThumbnail
+                  items={station.layout}
+                  label={tLayout("thumbnailLabel", { name: station.name })}
+                  className="h-20 w-28"
+                />
+                <span className="grid min-w-0 flex-1 gap-1">
+                  <span className="flex flex-wrap items-center gap-2 font-semibold">
+                    {station.name}
+                    {station.scope === "global" && <ScopeBadge />}
+                    <SubmissionBadge status={station.status} />
+                  </span>
+                  <span className="text-muted-foreground">
+                    {station.equipment.length > 0
+                      ? formatEquipmentLines(station.equipment)
+                      : t("noEquipment")}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {t("exerciseCount", { count: station.exerciseCount })}
+                  </span>
                 </span>
               </Link>
             </li>

@@ -12,6 +12,7 @@ import {
   prepareHallImageUploadAction,
   saveHallAction,
 } from "@/app/library-actions";
+import { CommitField, parseNumber } from "@/components/drawing/commit-field";
 import { DrawingEditor, type EditorApi } from "@/components/drawing/drawing-editor";
 import { DrawingLabel, FeatureShape, HallFloor, labelSize } from "@/components/drawing/hall-drawing";
 import { SaveBar } from "@/components/library/save-bar";
@@ -353,72 +354,6 @@ function Palette({ api, catalogue }: { api: EditorApi<HallItem>; catalogue: Cata
       )}
     </section>
   );
-}
-
-/**
- * A text field that changes the drawing when it is left or Enter is
- * pressed, so typing does not move things about; a value that does not
- * parse is put back.
- */
-function CommitField({
-  label,
-  value,
-  parse,
-  onCommit,
-  inputMode,
-  maxLength,
-}: {
-  label: string;
-  value: string;
-  parse: (text: string) => string | number | null | undefined;
-  onCommit: (value: string | number | null) => void;
-  inputMode?: "decimal" | "numeric" | "text";
-  maxLength?: number;
-}) {
-  const id = useId();
-  const [text, setText] = useState(value);
-  const [shown, setShown] = useState(value);
-  if (shown !== value) {
-    setShown(value);
-    setText(value);
-  }
-  function commitText() {
-    const parsed = parse(text);
-    if (parsed === undefined) {
-      setText(value);
-      return;
-    }
-    if (text !== value) {
-      onCommit(parsed);
-    }
-  }
-  return (
-    <div className="grid gap-1">
-      <Label htmlFor={id} className="text-sm">
-        {label}
-      </Label>
-      <Input
-        id={id}
-        value={text}
-        inputMode={inputMode}
-        maxLength={maxLength}
-        autoComplete="off"
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commitText}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commitText();
-          }
-        }}
-      />
-    </div>
-  );
-}
-
-function parseNumber(text: string, min: number, max: number): number | undefined {
-  const value = Number(text.trim().replace(",", "."));
-  return text.trim() !== "" && Number.isFinite(value) && value >= min && value <= max ? value : undefined;
 }
 
 /** The panel for the selection: one feature's look, size, place and label. */

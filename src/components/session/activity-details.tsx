@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 
+import { StationLayoutDrawing } from "@/components/drawing/station-layout-drawing";
 import { summarize } from "@/lib/activity-summary";
 import type { ViewActivity } from "@/lib/data/session-view";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const INDENT = "pl-9";
  */
 export function ActivityDetails({ activity }: { activity: ViewActivity }) {
   const t = useTranslations("SessionPage");
+  const tLayout = useTranslations("StationLayout");
   const [open, setOpen] = useState(false);
   const { station, exercises, text } = activity;
 
@@ -45,7 +47,8 @@ export function ActivityDetails({ activity }: { activity: ViewActivity }) {
   const cutOff = station
     ? exerciseNames.length > 2 || equipmentLines.length > 2
     : exerciseNames.length > 2;
-  const expandable = hasDescription || cutOff;
+  const hasLayout = (station?.layout.length ?? 0) > 0;
+  const expandable = hasDescription || cutOff || hasLayout;
 
   const heading: ReactNode = (
     <span className="block break-words">
@@ -99,6 +102,15 @@ export function ActivityDetails({ activity }: { activity: ViewActivity }) {
       {open && (
         <div className={cn("grid gap-2 px-2 pb-2", INDENT)}>
           {station?.description && <p className="whitespace-pre-line">{station.description}</p>}
+          {station && hasLayout && (
+            <div className="max-w-sm rounded-lg border bg-card p-2">
+              <StationLayoutDrawing
+                items={station.layout}
+                label={tLayout("drawingLabel", { name: station.name })}
+                className="h-auto max-h-64 w-full"
+              />
+            </div>
+          )}
           <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
             {exercises.length > 0 && (
               <ul className="grid content-start gap-1">
