@@ -28,6 +28,7 @@ import { byName } from "@/lib/library";
 import { neighbours, type Dated } from "@/lib/session-view";
 
 import { loadAttachments, type AttachmentItem } from "./attachment-files";
+import { loadPlansToRead, type PlansToRead } from "./session-plans";
 import { loadStationLayouts, type DrawnLayoutItem } from "./station-layouts";
 import { noteAfterInput, tickInput } from "./schemas";
 
@@ -79,6 +80,8 @@ export type SessionView = {
   previous: SessionNeighbour | null;
   next: SessionNeighbour | null;
   attachments: AttachmentItem[];
+  /** The session's drawn plans, opened on demand; null without plans or a hall. */
+  plans: PlansToRead | null;
 };
 
 /**
@@ -193,9 +196,10 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     ? allSiblings
     : allSiblings.filter((s) => scope !== null && canOpenSession(scope, row.season.id, s.id));
   const { previous, next } = neighbours(siblings, sessionId);
-  const [links, files] = await Promise.all([
+  const [links, files, plans] = await Promise.all([
     loadActivityLinks(activityRows.map((r) => r.activity)),
     loadAttachments([sessionId]),
+    loadPlansToRead(sessionId, row.session.hallId),
   ]);
 
   const byPart = new Map<string, ViewActivity[]>();
@@ -226,6 +230,7 @@ export async function getSessionView(sessionId: string): Promise<SessionView> {
     previous,
     next,
     attachments: files.get(sessionId) ?? [],
+    plans,
   };
 }
 

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 
 import { StationLayoutDrawing } from "@/components/drawing/station-layout-drawing";
+import { useActivityRequest } from "@/components/plans/plan-reader";
 import { summarize } from "@/lib/activity-summary";
 import type { ViewActivity } from "@/lib/data/session-view";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,13 @@ export function ActivityDetails({ activity }: { activity: ViewActivity }) {
   const t = useTranslations("SessionPage");
   const tLayout = useTranslations("StationLayout");
   const [open, setOpen] = useState(false);
+  // A tap on the activity's number in a plan unfolds it.
+  const request = useActivityRequest(activity.id);
+  const [handled, setHandled] = useState(request);
+  if (request !== handled) {
+    setHandled(request);
+    setOpen(true);
+  }
   const { station, exercises, text } = activity;
 
   if (!station && exercises.length === 0) {

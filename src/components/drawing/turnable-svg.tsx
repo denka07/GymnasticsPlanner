@@ -14,6 +14,7 @@ export function TurnableSvg({
   area,
   margin,
   label,
+  turned,
   className,
   children,
   ...rest
@@ -24,6 +25,8 @@ export function TurnableSvg({
   margin: number;
   /** What the drawing shows, for assistive technology. */
   label: string;
+  /** Draws only this orientation instead of following the screen's. */
+  turned?: boolean;
   className?: string;
   children: ReactNode;
 } & Omit<SVGProps<SVGSVGElement>, "children" | "viewBox">) {
@@ -31,8 +34,8 @@ export function TurnableSvg({
     const shown = viewArea(area, turned);
     return (
       <svg
-        {...rest}
         role="img"
+        {...rest}
         aria-label={label}
         data-turned={turned || undefined}
         viewBox={`${-margin} ${-margin} ${shown.width + 2 * margin} ${shown.height + 2 * margin}`}
@@ -44,6 +47,9 @@ export function TurnableSvg({
       </svg>
     );
   };
+  if (turned !== undefined) {
+    return svg(turned && area.width !== area.height);
+  }
   if (area.width === area.height) {
     return svg(false);
   }
