@@ -78,7 +78,16 @@
     "equipmentImageWrongType": "Bara PNG-, JPEG- och WebP-bilder kan användas.",
     "equipmentImageTooLarge": "Bilden är större än 5 MB.",
     "equipmentImageNotUploaded": "Bilden kom inte fram. Försök igen.",
-    "equipmentImagesUnavailable": "Bilder går inte att ladda upp just nu."
+    "equipmentImagesUnavailable": "Bilder går inte att ladda upp just nu.",
+    "equipmentInHall": "Redskapet står fast i en hall och kan inte tas bort.",
+    "configurationInHall": "Uppställningen står fast i en hall och kan inte tas bort.",
+    "hallNameTaken": "Det finns redan en hall med det namnet.",
+    "hallSizeInvalid": "Ange bredd och längd i meter, högst 200 m, med högst två decimaler.",
+    "featureSizeInvalid": "Ange bredd och längd i hela centimeter, 1–20000.",
+    "labelTooLong": "Etiketten får vara högst 60 tecken.",
+    "tooManyFeatures": "En hall får ha högst 400 saker.",
+    "hallNotFound": "Hallen finns inte längre. Ladda om sidan.",
+    "equipmentNotFound": "Ett redskap eller en uppställning finns inte längre. Ladda om sidan."
   },
   "Nav": {
     "label": "Sökväg",

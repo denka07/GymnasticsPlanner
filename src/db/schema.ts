@@ -4,6 +4,7 @@ import {
   type AnyPgColumn,
   check,
   date,
+  doublePrecision,
   index,
   integer,
   pgEnum,
@@ -98,9 +99,12 @@ export const trainingSlots = pgTable(
     startTime: time("start_time"),
     endTime: time("end_time"),
     location: text("location"),
+    /** The default hall of this training day; copied to a session when it is first stored. */
+    hallId: uuid("hall_id").references((): AnyPgColumn => halls.id, { onDelete: "set null" }),
   },
   (t) => [
     index("training_slots_season_id_idx").on(t.seasonId),
+    index("training_slots_hall_id_idx").on(t.hallId),
     check("training_slots_weekday_check", sql`${t.weekday} between 1 and 7`),
   ],
 );
@@ -206,6 +210,8 @@ export const sessions = pgTable(
     trainingSlotId: uuid("training_slot_id").references(() => trainingSlots.id, {
       onDelete: "set null",
     }),
+    /** Copied from the slot when the session is first stored; then the session's own. */
+    hallId: uuid("hall_id").references((): AnyPgColumn => halls.id, { onDelete: "set null" }),
     isCancelled: boolean("is_cancelled").notNull().default(false),
     /** Free text after the session about how it went. */
     noteAfter: text("note_after"),
@@ -215,6 +221,7 @@ export const sessions = pgTable(
   },
   (t) => [
     index("sessions_season_id_date_idx").on(t.seasonId, t.date),
+    index("sessions_hall_id_idx").on(t.hallId),
     unique("sessions_training_slot_id_date_unique").on(t.trainingSlotId, t.date),
   ],
 );
@@ -388,6 +395,103 @@ export const equipmentConfigurations = pgTable(
       "equipment_configurations_image_check",
       sql`(${t.imagePathname} is null and ${t.imageContentType} is null) or (${t.imagePathname} is not null and ${t.imageContentType} in ('image/png', 'image/jpeg', 'image/webp'))`,
     ),
+  ],
+);
+
+// --- Halls ----------------------------------------------------------------------
+
+/**
+ * A training hall, global like the equipment catalogue: everyone reads it,
+ * administrators edit it. Sizes are whole centimetres; drawings work in
+ * metres. See docs/data-model.md, "Hall".
+ */
+export const halls = pgTable(
+  "halls",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    /** Across, in whole centimetres (x in a drawing). */
+    widthCm: integer("width_cm").notNull(),
+    /** Along, in whole centimetres (y in a drawing). */
+    lengthCm: integer("length_cm").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("halls_name_lower_unique").on(sql`lower(${t.name})`),
+    check(
+      "halls_size_check",
+      sql`${t.widthCm} between 1 and 20000 and ${t.lengthCm} between 1 and 20000`,
+    ),
+  ],
+);
+
+export const hallFeatureKind = pgEnum("hall_feature_kind", [
+  "wall_bars",
+  "door",
+  "port",
+  "storage",
+  "wall",
+  "foam_pit",
+  "md_pit",
+  "stands",
+  "other",
+  "equipment",
+]);
+
+/**
+ * Something fixed in a hall. An equipment feature is a catalogue
+ * configuration and takes its size and look from it; every other kind has
+ * its own size, colour and optional image (stretched to its size). The
+ * position is the centre in centimetres from the hall's top-left corner,
+ * the rotation in degrees clockwise, and `layer` the drawing order. Ids
+ * are chosen by the editor, so a feature keeps its id across saves.
+ */
+export const hallFeatures = pgTable(
+  "hall_features",
+  {
+    id: uuid("id").primaryKey(),
+    hallId: uuid("hall_id")
+      .notNull()
+      .references(() => halls.id, { onDelete: "cascade" }),
+    kind: hallFeatureKind("kind").notNull(),
+    /** Equipment features only; equipment fixed in a hall cannot be deleted. */
+    equipmentId: uuid("equipment_id").references(() => equipment.id, { onDelete: "restrict" }),
+    configurationId: uuid("configuration_id").references(() => equipmentConfigurations.id, {
+      onDelete: "restrict",
+    }),
+    /** Other kinds only. */
+    widthCm: integer("width_cm"),
+    lengthCm: integer("length_cm"),
+    /** "#rrggbb", lowercase; other kinds only. */
+    color: text("color"),
+    /** Path in the Blob store, e.g. production/halls/<hallId>/<random>-mdgrop.png. */
+    imagePathname: text("image_pathname"),
+    imageContentType: text("image_content_type"),
+    xCm: integer("x_cm").notNull(),
+    yCm: integer("y_cm").notNull(),
+    rotation: doublePrecision("rotation").notNull().default(0),
+    layer: integer("layer").notNull(),
+    label: text("label"),
+  },
+  (t) => [
+    index("hall_features_hall_id_idx").on(t.hallId),
+    index("hall_features_equipment_id_idx").on(t.equipmentId),
+    index("hall_features_configuration_id_idx").on(t.configurationId),
+    check(
+      "hall_features_kind_check",
+      sql`(${t.kind} = 'equipment' and ${t.equipmentId} is not null and ${t.configurationId} is not null and ${t.widthCm} is null and ${t.lengthCm} is null and ${t.color} is null and ${t.imagePathname} is null) or (${t.kind} <> 'equipment' and ${t.equipmentId} is null and ${t.configurationId} is null and ${t.widthCm} between 1 and 20000 and ${t.lengthCm} between 1 and 20000)`,
+    ),
+    check("hall_features_color_check", sql`${t.color} is null or ${t.color} ~ '^#[0-9a-f]{6}$'`),
+    check(
+      "hall_features_image_check",
+      sql`(${t.imagePathname} is null and ${t.imageContentType} is null) or (${t.imagePathname} is not null and ${t.imageContentType} in ('image/png', 'image/jpeg', 'image/webp'))`,
+    ),
+    check("hall_features_rotation_check", sql`${t.rotation} >= 0 and ${t.rotation} < 360`),
   ],
 );
 
@@ -717,6 +821,9 @@ export type Attachment = typeof attachments.$inferSelect;
 export type LibraryScope = (typeof libraryScope.enumValues)[number];
 export type Equipment = typeof equipment.$inferSelect;
 export type EquipmentConfiguration = typeof equipmentConfigurations.$inferSelect;
+export type Hall = typeof halls.$inferSelect;
+export type HallFeature = typeof hallFeatures.$inferSelect;
+export type HallFeatureKind = (typeof hallFeatureKind.enumValues)[number];
 export type Exercise = typeof exercises.$inferSelect;
 export type NewExercise = typeof exercises.$inferInsert;
 export type Station = typeof stations.$inferSelect;

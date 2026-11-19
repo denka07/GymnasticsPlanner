@@ -13,9 +13,11 @@ import {
 import { saveFocusAllocations } from "@/lib/data/allocations";
 import { errorKey } from "@/lib/data/schemas";
 import {
+  applySlotHallToUpcoming,
   createSeason,
   deleteSeason,
   updateSeason,
+  type SlotHallChange,
 } from "@/lib/data/seasons";
 import {
   createDiscipline,
@@ -109,11 +111,30 @@ export async function copySeasonAction(
   return result;
 }
 
+/**
+ * Saves the season. `hallChanges` lists the training slots whose hall
+ * changed and that have upcoming stored sessions with another hall, for the
+ * question whether to change those too.
+ */
 export async function updateSeasonAction(
   seasonId: string,
   input: unknown,
+): Promise<ActionResult & { hallChanges?: SlotHallChange[] }> {
+  let hallChanges: SlotHallChange[] = [];
+  const result = await run(async () => {
+    hallChanges = await updateSeason(seasonId, input);
+  });
+  return result.ok ? { ...result, hallChanges } : result;
+}
+
+/** Gives the slots' stored sessions from today on their slot's hall. */
+export async function applySlotHallToUpcomingAction(
+  seasonId: string,
+  trainingSlotIds: string[],
 ): Promise<ActionResult> {
-  return run(() => updateSeason(seasonId, input));
+  return run(async () => {
+    await applySlotHallToUpcoming(seasonId, trainingSlotIds);
+  });
 }
 
 export async function deleteSeasonAction(seasonId: string): Promise<void> {

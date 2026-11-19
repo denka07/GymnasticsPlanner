@@ -26,6 +26,7 @@ import { PG_UNIQUE_VIOLATION, pgErrorCode } from "@/lib/library";
 import { moveStep, sortOrders, type Direction } from "@/lib/reorder";
 
 import { UserError } from "./errors";
+import { isConfigurationInHall } from "./halls";
 import { id } from "./schemas";
 
 /*
@@ -273,11 +274,15 @@ export async function setDefaultConfiguration(configurationId: unknown): Promise
 
 /**
  * Deletes a configuration and then its image. When it was the default, the
- * first remaining one becomes the default. Returns its equipment's id.
+ * first remaining one becomes the default. A configuration fixed in a hall
+ * cannot be deleted. Returns its equipment's id.
  */
 export async function deleteConfiguration(configurationId: unknown): Promise<string> {
   await requireAdmin();
   const row = await loadConfiguration(configurationId);
+  if (await isConfigurationInHall(row.id)) {
+    throw new UserError("configurationInHall");
+  }
   const db = getDb();
   await db.batch([
     db.delete(C).where(eq(C.id, row.id)),

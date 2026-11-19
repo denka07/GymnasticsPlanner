@@ -30,7 +30,7 @@ describe("sessionDetailsInput", () => {
   it("normalises empty values to null", () => {
     expect(
       sessionDetailsInput.parse({ date: "2026-09-02", startTime: "", endTime: null, location: "  " }),
-    ).toEqual({ date: "2026-09-02", startTime: null, endTime: null, location: null });
+    ).toEqual({ date: "2026-09-02", startTime: null, endTime: null, location: null, hallId: null });
   });
   it("checks date, time format and order", () => {
     expect(errorOf(sessionDetailsInput.safeParse({ date: "2026-02-30" }))).toBe("invalidDate");
@@ -111,5 +111,13 @@ describe("outlineInput", () => {
     expect(
       outlineInput.safeParse([part(1, { activities: [{ id: uuid(1), text: "x" }] })]).success,
     ).toBe(false);
+  });
+});
+
+describe("sessionDetailsInput hall", () => {
+  it("keeps a hall id and refuses one that is not a uuid", () => {
+    const hallId = "4b0f6d5e-8a7c-4c1e-9d2f-1a2b3c4d5e6f";
+    expect(sessionDetailsInput.parse({ date: "2026-09-02", hallId }).hallId).toBe(hallId);
+    expect(sessionDetailsInput.safeParse({ date: "2026-09-02", hallId: "C-salen" }).success).toBe(false);
   });
 });

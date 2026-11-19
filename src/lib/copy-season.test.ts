@@ -38,7 +38,7 @@ describe("alignWeeks", () => {
 
 const source: SeasonCopySource = {
   trainingSlots: [
-    { weekday: 3, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen" },
+    { weekday: 3, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen", hallId: "hall-1" },
     { weekday: 7, startTime: null, endTime: null, location: null },
   ],
   disciplines: [
@@ -92,8 +92,8 @@ describe("planSeasonCopy", () => {
       ["Landning", "Landing", 0],
     ]);
     expect(rows.trainingSlots).toEqual([
-      { weekday: 3, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen", seasonId: "season-2" },
-      { weekday: 7, startTime: null, endTime: null, location: null, seasonId: "season-2" },
+      { weekday: 3, startTime: "17:00:00", endTime: "19:00:00", location: "Hallen", hallId: "hall-1", seasonId: "season-2" },
+      { weekday: 7, startTime: null, endTime: null, location: null, hallId: null, seasonId: "season-2" },
     ]);
   });
 
@@ -112,7 +112,7 @@ describe("planSeasonCopy", () => {
       null,
     );
     expect(rows.trainingSlots).toEqual([
-      { seasonId: "season-2", weekday: 3, startTime: null, endTime: null, location: null },
+      { seasonId: "season-2", weekday: 3, startTime: null, endTime: null, location: null, hallId: null },
     ]);
     expect(Object.keys(rows.disciplines[0]).sort()).toEqual(["id", "name", "seasonId", "sortOrder"]);
     expect(rows.disciplines[0].seasonId).toBe("season-2");

@@ -55,6 +55,8 @@ export const trainingSlotInput = z
     startTime: time,
     endTime: time,
     location: optionalText(100),
+    /** The default hall of the training day. */
+    hallId: id.nullish().transform((v) => v ?? null),
   })
   .refine(
     (s) => !s.startTime || !s.endTime || s.endTime > s.startTime,
@@ -327,6 +329,7 @@ export const sessionDetailsInput = z
     startTime: time,
     endTime: time,
     location: optionalText(100),
+    hallId: id.nullish().transform((v) => v ?? null),
   })
   .refine((s) => !s.startTime || !s.endTime || s.endTime > s.startTime, {
     error: "timeOrder",
