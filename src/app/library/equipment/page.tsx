@@ -1,11 +1,18 @@
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 
-import { EquipmentAdmin } from "@/components/library/equipment-admin";
+import { ScaleBar } from "@/components/drawing/configuration-drawing";
+import { previewScale } from "@/components/library/configuration-previews";
+import { EquipmentAdmin, EquipmentList } from "@/components/library/equipment-admin";
 import { LibraryTabs } from "@/components/library/library-tabs";
 import { PageLoading, PageShell } from "@/components/page-shell";
 import { requireUser } from "@/lib/auth";
 import { listEquipment } from "@/lib/data/equipment";
+import { listAllConfigurations } from "@/lib/data/equipment-configurations";
+
+/** Each preview fits this box, in pixels; at most this many pixels per metre. */
+const PREVIEW_BOX = { width: 150, height: 90 };
+const PREVIEW_MAX_SCALE = 60;
 
 export default function EquipmentPage() {
   return (
@@ -16,32 +23,38 @@ export default function EquipmentPage() {
 }
 
 async function EquipmentContent() {
-  const [user, entries, t, tl] = await Promise.all([
+  const [user, entries, configurations, t, tl, tc] = await Promise.all([
     requireUser(),
     listEquipment(),
+    listAllConfigurations(),
     getTranslations("Equipment"),
     getTranslations("Library"),
+    getTranslations("Configurations"),
   ]);
+  const withConfigurations = entries.map((entry) => ({
+    ...entry,
+    configurations: configurations.get(entry.id) ?? [],
+  }));
+  // One scale for the whole list, so sizes compare.
+  const scale = previewScale([...configurations.values()].flat(), PREVIEW_BOX, PREVIEW_MAX_SCALE);
+  const scaleBar =
+    configurations.size > 0 ? (
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {t("scale")}
+        <ScaleBar scale={scale} label={tc("scaleBar")} />
+      </p>
+    ) : null;
 
   return (
     <PageShell crumbs={[{ label: tl("heading"), href: "/library" }, { label: tl("tabs.equipment") }]}>
       <LibraryTabs current="equipment" />
       {user.isAdmin ? (
-        <EquipmentAdmin entries={entries} />
+        <EquipmentAdmin entries={withConfigurations} scale={scale} scaleBar={scaleBar} />
       ) : (
         <div className="grid gap-4">
           <p className="text-muted-foreground">{t("intro")}</p>
-          {entries.length === 0 ? (
-            <p>{t("empty")}</p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {entries.map((entry) => (
-                <li key={entry.id} className="rounded-lg border bg-card px-4 py-3">
-                  {entry.name}
-                </li>
-              ))}
-            </ul>
-          )}
+          {scaleBar}
+          <EquipmentList entries={withConfigurations} scale={scale} />
         </div>
       )}
     </PageShell>
