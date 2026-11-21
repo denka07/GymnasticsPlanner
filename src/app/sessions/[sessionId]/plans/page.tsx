@@ -51,7 +51,10 @@ async function SessionPlansContent({
   const end = shortTime(session.endTime);
   const time = start && end ? `${start}–${end}` : (start ?? end);
   const weekHref = `/seasons/${season.id}/weeks/${session.weekStart}`;
-  const editHref = `/sessions/${session.id}/edit`;
+  // With only this session shared there is no week to return to: go to its
+  // edit page, or to the session itself when it is shared for viewing only.
+  const sessionHref = page.canEdit ? `/sessions/${session.id}/edit` : `/sessions/${session.id}`;
+  const sessionLabel = page.canEdit ? t("backToEdit") : t("backToSession");
 
   return (
     <PageShell
@@ -61,7 +64,7 @@ async function SessionPlansContent({
         { label: season.name, href: page.canOpenSeason ? `/seasons/${season.id}` : undefined },
         page.canOpenSeason
           ? { label: tweek("title", { week: isoWeek(session.weekStart).week }), href: weekHref }
-          : { label: day, href: editHref },
+          : { label: day, href: sessionHref },
         { label: t("crumb", { session: day }) },
       ]}
     >
@@ -71,8 +74,8 @@ async function SessionPlansContent({
         header={{
           title: t("pageTitle", { session: day }),
           time,
-          backHref: page.canOpenSeason ? weekHref : editHref,
-          backLabel: page.canOpenSeason ? t("backToWeek") : t("backToEdit"),
+          backHref: page.canOpenSeason ? weekHref : sessionHref,
+          backLabel: page.canOpenSeason ? t("backToWeek") : sessionLabel,
         }}
       />
     </PageShell>
