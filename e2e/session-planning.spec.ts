@@ -52,7 +52,7 @@ test.describe("Planning a session", () => {
     // Parts get clock times from the session's start, 17:00.
     await expect(editor.getByText("Börjar 17:15")).toBeAttached();
     await expect(col.getByRole("status")).toHaveText("Sparat");
-    await expect(col.getByRole("link", { name: "Öppna pass" })).toBeVisible();
+    await expect(col.getByRole("link", { name: "Öppna pass" })).toHaveAttribute("target", "_blank");
 
     await page.reload();
     const after = column(page, name).getByRole("group", { name: `Innehåll i passet ${name}` });

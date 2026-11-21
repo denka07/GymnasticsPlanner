@@ -8,6 +8,7 @@ import { PlanText } from "@/components/plans/plan-text";
 import { PrintToolbar } from "@/components/plans/print-toolbar";
 import { formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { getSessionPlansPage } from "@/lib/data/session-plans";
+import { isoWeek } from "@/lib/weeks";
 import { pageOrientation, printChoice, printedPlans, readingOrder } from "@/lib/plan-reading";
 
 /**
@@ -34,10 +35,11 @@ async function PrintPlansContent({
   const [{ sessionId }, query] = await Promise.all([params, searchParams]);
   const page = await getSessionPlansPage(sessionId, { reading: true });
   const { session, group, season, hall, parts, plans } = page;
-  const [t, tp, tw] = await Promise.all([
+  const [t, tp, tw, tweek] = await Promise.all([
     getTranslations("PlanPrint"),
     getTranslations("Plans"),
     getTranslations("Weekdays"),
+    getTranslations("Week"),
   ]);
 
   const partIds = parts.map((p) => p.id);
@@ -55,8 +57,13 @@ async function PrintPlansContent({
       crumbs={[
         { label: group.name, href: `/groups/${group.id}` },
         { label: season.name, href: page.canOpenSeason ? `/seasons/${season.id}` : undefined },
-        { label: day, href: `/sessions/${session.id}` },
-        { label: tp("heading"), href: `/sessions/${session.id}/plans` },
+        page.canOpenSeason
+          ? {
+              label: tweek("title", { week: isoWeek(session.weekStart).week }),
+              href: `/seasons/${season.id}/weeks/${session.weekStart}`,
+            }
+          : { label: day, href: `/sessions/${session.id}/edit` },
+        { label: tp("crumb", { session: day }), href: `/sessions/${session.id}/plans` },
         { label: t("heading") },
       ]}
     >

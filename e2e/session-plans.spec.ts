@@ -85,6 +85,15 @@ test.describe("Session plans", () => {
     await column(page, sessionName(monday)).getByRole("link", { name: "Ritningar" }).click();
     await expect(page).toHaveURL(new RegExp(`/sessions/${sessionId}/plans$`));
 
+    // The breadcrumb leads back to the week, not to the session view.
+    const crumbs = page.getByRole("navigation", { name: "Sökväg" });
+    await expect(crumbs.getByRole("link", { name: /^Vecka \d+$/ })).toHaveAttribute(
+      "href",
+      `/seasons/${season.seasonId}/weeks/${monday}`,
+    );
+    await expect(crumbs.getByText(/^Ritningar för Måndag \d+ \S+$/)).toBeVisible();
+    await expect(crumbs.locator(`a[href="/sessions/${sessionId}"]`)).toHaveCount(0);
+
     // Without a hall the page asks for one first.
     await expect(page.getByText("Passet har ingen hall än.")).toBeVisible();
     const hallSelect = await hydrated(page.getByLabel("Hall", { exact: true }));

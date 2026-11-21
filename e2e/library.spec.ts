@@ -97,7 +97,10 @@ test.describe("Library and linking", () => {
     await expect(col.getByRole("status")).toHaveText("Sparat");
 
     // The session page shows the station with its exercises.
+    // It opens in a new tab; continue there.
+    const popup = page.waitForEvent("popup");
     await col.getByRole("link", { name: "Öppna pass" }).click();
+    page = await popup;
     const checklist = page.getByRole("list", { name: "Delar i passet" });
     await expect(checklist.getByText(`${stationName}`, { exact: true })).toBeVisible();
     await expect(checklist.getByText(": tre varv")).toBeVisible();
