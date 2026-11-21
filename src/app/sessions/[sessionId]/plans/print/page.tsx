@@ -62,7 +62,7 @@ async function PrintPlansContent({
               label: tweek("title", { week: isoWeek(session.weekStart).week }),
               href: `/seasons/${season.id}/weeks/${session.weekStart}`,
             }
-          : { label: day, href: `/sessions/${session.id}/edit` },
+          : { label: day, href: page.canEdit ? `/sessions/${session.id}/edit` : `/sessions/${session.id}` },
         { label: tp("crumb", { session: day }), href: `/sessions/${session.id}/plans` },
         { label: t("heading") },
       ]}

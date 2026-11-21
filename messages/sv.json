@@ -864,6 +864,7 @@
     "intro": "Rita hur hallen ställs i ordning för passet. Huvudritningen gäller passdelar utan egen ritning; en passdel som ställs upp annorlunda kan få en egen ritning. Stationer som kopplas till en aktivitet får samma nummer som i passets text.",
     "backToWeek": "Till veckan",
     "backToEdit": "Till redigeringen",
+    "backToSession": "Till passet",
     "crumb": "Ritningar för {session}",
     "listLabel": "Passets ritningar",
     "mainPlan": "Huvudritning",
