@@ -240,7 +240,7 @@ export function SessionColumn({
 
       <div className="flex flex-wrap gap-2 empty:hidden">
         {showOpenLink && sessionId && (
-          <ButtonLink variant="outline" href={`/sessions/${sessionId}`}>
+          <ButtonLink variant="outline" href={`/sessions/${sessionId}`} target="_blank" rel="noopener">
             {t("openSession")}
           </ButtonLink>
         )}

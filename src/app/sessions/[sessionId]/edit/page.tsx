@@ -51,7 +51,7 @@ async function SessionEditContent({
           <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight">
             {heading}
           </h1>
-          <ButtonLink variant="outline" href={`/sessions/${session.id}`}>
+          <ButtonLink variant="outline" href={`/sessions/${session.id}`} target="_blank" rel="noopener">
             {t("Session.openSession")}
           </ButtonLink>
         </div>

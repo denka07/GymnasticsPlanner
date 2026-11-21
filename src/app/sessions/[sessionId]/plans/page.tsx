@@ -8,6 +8,7 @@ import { formatDayMonthLong, shortTime, weekdayOf } from "@/lib/dates";
 import { listEquipment } from "@/lib/data/equipment";
 import { listAllConfigurations } from "@/lib/data/equipment-configurations";
 import { getSessionPlansPage } from "@/lib/data/session-plans";
+import { isoWeek } from "@/lib/weeks";
 
 /**
  * A session's drawn plans (docs/implementation-plan.md, step 10): the main
@@ -30,7 +31,11 @@ async function SessionPlansContent({
   const { sessionId } = await params;
   const page = await getSessionPlansPage(sessionId);
   const { session, group, season } = page;
-  const [t, tw] = await Promise.all([getTranslations("Plans"), getTranslations("Weekdays")]);
+  const [t, tw, tweek] = await Promise.all([
+    getTranslations("Plans"),
+    getTranslations("Weekdays"),
+    getTranslations("Week"),
+  ]);
 
   let catalogue: CatalogueEntry[] = [];
   if (page.canEdit) {
@@ -45,9 +50,8 @@ async function SessionPlansContent({
   const start = shortTime(session.startTime);
   const end = shortTime(session.endTime);
   const time = start && end ? `${start}–${end}` : (start ?? end);
-  const backHref = page.canOpenSeason
-    ? `/seasons/${season.id}/weeks/${session.weekStart}`
-    : `/sessions/${session.id}`;
+  const weekHref = `/seasons/${season.id}/weeks/${session.weekStart}`;
+  const editHref = `/sessions/${session.id}/edit`;
 
   return (
     <PageShell
@@ -55,8 +59,10 @@ async function SessionPlansContent({
       crumbs={[
         { label: group.name, href: `/groups/${group.id}` },
         { label: season.name, href: page.canOpenSeason ? `/seasons/${season.id}` : undefined },
-        { label: day, href: `/sessions/${session.id}` },
-        { label: t("heading") },
+        page.canOpenSeason
+          ? { label: tweek("title", { week: isoWeek(session.weekStart).week }), href: weekHref }
+          : { label: day, href: editHref },
+        { label: t("crumb", { session: day }) },
       ]}
     >
       <SessionPlans
@@ -65,8 +71,8 @@ async function SessionPlansContent({
         header={{
           title: t("pageTitle", { session: day }),
           time,
-          backHref,
-          backLabel: page.canOpenSeason ? t("backToWeek") : t("backToSession"),
+          backHref: page.canOpenSeason ? weekHref : editHref,
+          backLabel: page.canOpenSeason ? t("backToWeek") : t("backToEdit"),
         }}
       />
     </PageShell>
