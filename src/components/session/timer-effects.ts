@@ -4,6 +4,14 @@
  * where the browser lacks the feature, and never throws.
  */
 
+import {
+  ALERT_SOUND_KEY,
+  ALERT_SOUND_NOTES,
+  DEFAULT_ALERT_SOUND,
+  parseAlertSound,
+  type AlertSound,
+} from "@/lib/alert-sounds";
+
 const NOTIFICATIONS_ASKED_KEY = "part-timer:notifications-asked";
 /** The service worker only needs to control the session pages. */
 const SW_SCOPE = "/sessions/";
@@ -31,16 +39,52 @@ export function unlockAudio(): void {
   }
 }
 
-/** One round of the alarm: three rising beeps. */
-const BEEPS = [880, 1109, 1397];
-const BEEP_GAP = 0.4;
 /** Time from the start of one round to the next, with a pause in between. */
 const ROUND_MS = 2600;
 /** The vibration pattern of one round, in milliseconds (vibrate, pause, ...). */
 const VIBRATION = [400, 150, 400, 150, 400];
+const SOUND_CHANGE_EVENT = "alert-sound-change";
 
-/** Plays one round of three rising, clearly audible beeps. */
-function playRound(): void {
+/** The choice when localStorage cannot be used (e.g. blocked site data). */
+let soundInMemory: AlertSound = DEFAULT_ALERT_SOUND;
+
+/** The alarm sound chosen on this device; the default when none is saved. */
+export function readAlertSound(): AlertSound {
+  try {
+    return parseAlertSound(window.localStorage.getItem(ALERT_SOUND_KEY));
+  } catch {
+    return soundInMemory;
+  }
+}
+
+/** Saves the alarm sound for every timer on this device. */
+export function saveAlertSound(sound: AlertSound): void {
+  soundInMemory = sound;
+  try {
+    window.localStorage.setItem(ALERT_SOUND_KEY, sound);
+  } catch {
+    // Blocked site data: the choice lasts while the page is open.
+  }
+  window.dispatchEvent(new Event(SOUND_CHANGE_EVENT));
+}
+
+/** Calls `onChange` when the chosen sound changes, here or in another tab. */
+export function subscribeAlertSound(onChange: () => void): () => void {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === ALERT_SOUND_KEY || e.key === null) {
+      onChange();
+    }
+  };
+  window.addEventListener(SOUND_CHANGE_EVENT, onChange);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(SOUND_CHANGE_EVENT, onChange);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+/** Plays one round of the given alarm sound (see `ALERT_SOUND_NOTES`). */
+export function playRound(sound: AlertSound): void {
   try {
     unlockAudio();
     const ctx = audio;
@@ -48,20 +92,24 @@ function playRound(): void {
       return;
     }
     const start = ctx.currentTime + 0.05;
-    BEEPS.forEach((freq, i) => {
-      const at = start + i * BEEP_GAP;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "square";
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(0.5, at + 0.02);
-      gain.gain.setValueAtTime(0.5, at + 0.28);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.33);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(at);
-      osc.stop(at + 0.35);
-    });
+    for (const note of ALERT_SOUND_NOTES[sound]) {
+      const at = start + note.at;
+      for (const tone of note.tones) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = tone.type;
+        osc.frequency.value = note.frequency * tone.ratio;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(tone.volume, at + tone.attack);
+        if (tone.holdUntil > tone.attack) {
+          gain.gain.setValueAtTime(tone.volume, at + tone.holdUntil);
+        }
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + tone.end);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + tone.end + 0.02);
+      }
+    }
   } catch {
     // No sound is better than a broken page.
   }
@@ -84,18 +132,19 @@ export function vibrate(): boolean {
 }
 
 /**
- * Sounds and vibrates the alarm now and, when `loop` is set, again every
+ * Sounds (with the sound chosen on this device) and vibrates the alarm now and, when `loop` is set, again every
  * round until `stopAt` (milliseconds since the epoch) or until the returned
  * function is called. Without `loop` it is one round.
  */
 export function startAlarm(options: { loop: boolean; stopAt: number }): () => void {
   let timer: number | undefined;
   let stopped = false;
+  const sound = readAlertSound();
   const round = () => {
     if (stopped) {
       return;
     }
-    playRound();
+    playRound(sound);
     vibrate();
     if (options.loop && Date.now() + ROUND_MS < options.stopAt) {
       timer = window.setTimeout(round, ROUND_MS);

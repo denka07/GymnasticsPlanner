@@ -24,6 +24,7 @@ import {
 } from "@/lib/part-timer";
 import { cn } from "@/lib/utils";
 
+import { AlertSoundMenu } from "./alert-sound-menu";
 import { askForNotifications, clockNow, unlockAudio } from "./timer-effects";
 
 export type TimerTarget = {
@@ -189,6 +190,8 @@ function StartForm({
           </label>
         )}
       </fieldset>
+
+      <AlertSoundMenu labelled className="justify-self-start" />
 
       {error && (
         <p id={`${id}-error`} role="alert" className="text-destructive">

@@ -39,6 +39,8 @@ test.describe("Part timer on the session page", () => {
     await expect(dialog.getByRole("radio", { name: "Nedräkning" })).toBeChecked();
     const minutes = dialog.getByRole("textbox", { name: "Minuter" });
     await expect(minutes).toHaveValue("10");
+    // The alarm sound can be picked here too; the chime is the default.
+    await expect(dialog.getByRole("button", { name: "Larmljud Klocka" })).toBeVisible();
     await minutes.fill("2");
     await dialog.getByRole("button", { name: "Starta", exact: true }).tap();
     await expect(dialog).toBeHidden();
@@ -47,13 +49,41 @@ test.describe("Part timer on the session page", () => {
     await expect(timer).toHaveText("02:00");
     await expect(checklist.locator("li[data-timed]")).toContainText("Uppvärmning");
 
-    // "+1 min", then a reload half-way keeps the end moment.
+    // The bell in the countdown box picks the alarm sound for this device,
+    // without disturbing the countdown.
+    const soundButton = page.getByRole("button", { name: "Larmljud", exact: true });
+    const soundMenu = page.getByRole("menu");
+    const box = await soundButton.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(40);
+    expect(box?.width).toBeGreaterThanOrEqual(40);
+    await openWith(soundButton, soundMenu);
+    await expect(soundMenu.getByRole("menuitemradio")).toHaveText([
+      "Pip",
+      "Låga pip",
+      "Klocka",
+      "Marimba",
+      "Ding-dong",
+    ]);
+    await expect(soundMenu.getByRole("menuitemradio", { name: "Klocka" })).toBeChecked();
+    await soundMenu.getByRole("menuitemradio", { name: "Marimba" }).tap();
+    await expect(soundMenu.getByRole("menuitemradio", { name: "Marimba" })).toBeChecked();
+    await expect(soundMenu.getByRole("menuitemradio", { name: "Klocka" })).not.toBeChecked();
+    await page.keyboard.press("Escape");
+    await expect(soundMenu).toBeHidden();
+    await expect(timer).toHaveText("02:00");
+    expect(await page.evaluate(() => localStorage.getItem("gp.alertSound"))).toBe("marimba");
+
+    // "+1 min", then a reload half-way keeps the end moment and the sound.
     await page.getByRole("button", { name: "+1 min" }).tap();
     await expect(timer).toHaveText("03:00");
     await advance(60_000);
     await expect(timer).toHaveText("02:00");
     await page.reload();
     await expect(timer).toHaveText("02:00");
+    await openWith(await hydrated(soundButton), soundMenu);
+    await expect(soundMenu.getByRole("menuitemradio", { name: "Marimba" })).toBeChecked();
+    await page.keyboard.press("Escape");
+    await expect(soundMenu).toBeHidden();
 
     // The time runs out: a red full-screen alert takes over and gets focus.
     await advance(125_000);

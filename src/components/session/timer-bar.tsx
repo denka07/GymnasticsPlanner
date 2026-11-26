@@ -6,12 +6,15 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { clockTime, formatRemaining, type TimerMode } from "@/lib/part-timer";
 
+import { AlertSoundMenu } from "./alert-sound-menu";
+
 /** CSS variable with the bar's height, used as bottom padding by the page. */
 const SPACE_VAR = "--part-timer-space";
 
 /**
  * The running timer, fixed to the bottom of the screen: the part, the time
- * left and "+1 min" / "Stoppa". When the time is up the TimerAlert takes over.
+ * left, the alarm sound (see AlertSoundMenu) and "+1 min" / "Stoppa". When
+ * the time is up the TimerAlert takes over.
  */
 export function TimerBar({
   partTitle,
@@ -76,6 +79,7 @@ export function TimerBar({
               {formatRemaining(remaining)}
             </p>
           </div>
+          <AlertSoundMenu />
           <div className="flex shrink-0 flex-col gap-2 min-[400px]:flex-row">
             <Button variant="outline" className={buttonClass} onClick={onAddMinute}>
               {t("addMinute")}

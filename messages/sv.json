@@ -440,7 +440,15 @@
     "startNext": "Starta nästa",
     "close": "Stäng",
     "notificationTitle": "Tiden är ute: {part}",
-    "notificationBody": "Dags att gå vidare."
+    "notificationBody": "Dags att gå vidare.",
+    "alertSound": "Larmljud",
+    "sounds": {
+      "beeps": "Pip",
+      "low": "Låga pip",
+      "chime": "Klocka",
+      "marimba": "Marimba",
+      "dingdong": "Ding-dong"
+    }
   },
   "Attachments": {
     "heading": "Bilagor",
